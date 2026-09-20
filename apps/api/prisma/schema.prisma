@@ -56,6 +56,20 @@ enum SkillStatus {
   INACTIVE
 }
 
+enum OtpPurpose {
+  LOGIN
+  REGISTRATION
+  PHONE_VERIFICATION
+  EMAIL_VERIFICATION
+}
+
+enum OtpStatus {
+  ACTIVE
+  VERIFIED
+  EXPIRED
+  LOCKED
+}
+
 model User {
   id     String     @id @default(uuid()) @db.Uuid
   role   UserRole   @default(CLIENT)
@@ -75,8 +89,10 @@ model User {
   lastLoginAt DateTime?
   location    UserLocation?
 
-  worker Worker?
-  client Client?
+  worker        Worker?
+  client        Client?
+  otpCodes      OtpCode[]
+  refreshTokens RefreshToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -203,4 +219,46 @@ model UserLocation {
   createdAt DateTime @default(now())
 
   @@index([updatedAt])
+}
+
+model OtpCode {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  purpose OtpPurpose
+  status  OtpStatus  @default(ACTIVE)
+
+  codeHash String
+
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  attempts   Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, purpose, status])
+  @@index([expiresAt])
+  @@index([createdAt])
+}
+
+model RefreshToken {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash String @unique
+
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
 }

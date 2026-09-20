@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS postgis;
+
 ALTER TABLE "UserLocation"
 ADD COLUMN "location" geography(Point, 4326);
 

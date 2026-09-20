@@ -20,6 +20,7 @@ import { RatingsModule } from './ratings/ratings.module';
 import { DisputesModule } from './disputes/disputes.module';
 import { SosModule } from './sos/sos.module';
 import { AdminModule } from './admin/admin.module';
+import { PrismaModule } from './common/prisma/prisma.module';
 
 @Module({
   imports: [
@@ -43,7 +44,8 @@ import { AdminModule } from './admin/admin.module';
     RatingsModule,
     DisputesModule,
     SosModule,
-    AdminModule
+    AdminModule,
+    PrismaModule
   ],
   controllers: [AppController],
   providers: [AppService],
