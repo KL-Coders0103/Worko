@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  OPERATIONS
+  FINANCE
+  SUPPORT
+  CLIENT
+  WORKER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  BLOCKED
+  DELETED
+}
+
+enum AuthProvider {
+  OTP
+  GOOGLE
+}
+
+enum WorkerStatus {
+  DRAFT
+  PENDING_KYC
+  KYC_SUBMITTED
+  UNDER_REVIEW
+  VERIFIED
+  REJECTED
+  SUSPENDED
+  BLOCKED
+}
+
+enum ClientType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum CategoryStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SkillStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model User {
+  id     String     @id @default(uuid()) @db.Uuid
+  role   UserRole   @default(CLIENT)
+  status UserStatus @default(ACTIVE)
+
+  firstName String?
+  lastName  String?
+
+  email         String? @unique
+  phoneNumber   String? @unique
+  emailVerified Boolean @default(false)
+  phoneVerified Boolean @default(false)
+
+  authProvider AuthProvider @default(OTP)
+  googleId     String?      @unique
+
+  lastLoginAt DateTime?
+  location    UserLocation?
+
+  worker Worker?
+  client Client?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Worker {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status WorkerStatus @default(DRAFT)
+
+  bio                String?  @db.Text
+  experienceYears    Int?
+  expectedHourlyRate Decimal? @db.Decimal(10, 2)
+  expectedDailyRate  Decimal? @db.Decimal(10, 2)
+
+  isAvailable Boolean       @default(true)
+  skills      WorkerSkill[]
+
+  kycSubmittedAt DateTime?
+  verifiedAt     DateTime?
+  rejectedAt     DateTime?
+  suspendedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([isAvailable])
+  @@index([createdAt])
+}
+
+model Client {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type ClientType @default(INDIVIDUAL)
+
+  companyName     String?
+  gstin           String?
+  contactPerson   String?
+  businessAddress String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([gstin])
+  @@index([createdAt])
+}
+
+model Category {
+  id          String         @id @default(uuid()) @db.Uuid
+  name        String         @unique
+  slug        String         @unique
+  description String?        @db.Text
+  status      CategoryStatus @default(ACTIVE)
+  sortOrder   Int            @default(0)
+
+  skills Skill[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([sortOrder])
+}
+
+model Skill {
+  id         String @id @default(uuid()) @db.Uuid
+  categoryId String @db.Uuid
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  name      String
+  slug      String
+  status    SkillStatus @default(ACTIVE)
+  sortOrder Int         @default(0)
+
+  workers WorkerSkill[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([categoryId, name])
+  @@unique([categoryId, slug])
+  @@index([categoryId])
+  @@index([status])
+}
+
+model WorkerSkill {
+  workerId String @db.Uuid
+  skillId  String @db.Uuid
+
+  worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  skill  Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([workerId, skillId])
+  @@index([skillId])
+}
+
+model UserLocation {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  latitude  Decimal @db.Decimal(10, 7)
+  longitude Decimal @db.Decimal(10, 7)
+
+  accuracyMeters Decimal? @db.Decimal(8, 2)
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([updatedAt])
+}
