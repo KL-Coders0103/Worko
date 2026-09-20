@@ -1,5 +1,6 @@
 import {BadRequestException, HttpException, HttpStatus,
-  Injectable} from '@nestjs/common';
+  Injectable,
+  UnauthorizedException} from '@nestjs/common';
 import { randomInt, createHash } from 'crypto';
 import { PrismaService } from '../common/prisma/prisma.service';
 import {LoginDto, RegisterDto, SendOtpDto, VerifyOtpDto,
@@ -194,6 +195,40 @@ export class AuthService {
       purpose: 'LOGIN',
     });
   }
+
+  async getCurrentUser(userId: string) {
+  const user = await this.prisma.user.findUnique({
+    where: {
+      id: userId,
+    },
+
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phoneNumber: true,
+      role: true,
+      status: true,
+    },
+  });
+
+  if (!user) {
+    throw new UnauthorizedException(
+      'User account not found',
+    );
+  }
+
+  if (user.status !== 'ACTIVE') {
+    throw new UnauthorizedException(
+      'User account is not active',
+    );
+  }
+
+  return {
+    user,
+  };
+}
 
   private async createOtp(
     userId: string,
