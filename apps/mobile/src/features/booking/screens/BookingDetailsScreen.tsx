@@ -37,10 +37,13 @@ import {
 
 import {
   Booking,
+  Payment,
   acceptBooking,
   cancelBooking,
   completeBooking,
+  createPayment,
   getBooking,
+  getBookingPayment,
   rejectBooking,
   startBooking,
 } from '../../client/bookings.api';
@@ -66,6 +69,12 @@ export function BookingDetailsScreen({
   const [booking, setBooking] =
     useState<Booking | null>(null);
 
+  const [payment, setPayment] =
+    useState<Payment | null>(null);
+
+  const [paymentLoading, setPaymentLoading] =
+    useState(false);
+
   const [loading, setLoading] =
     useState(true);
 
@@ -77,12 +86,18 @@ export function BookingDetailsScreen({
       try {
         setLoading(true);
 
-        const result =
-          await getBooking(
-            route.params.bookingId,
-          );
+        const [bookingResult, paymentResult] =
+          await Promise.all([
+            getBooking(
+              route.params.bookingId,
+            ),
+            getBookingPayment(
+              route.params.bookingId,
+            ),
+          ]);
 
-        setBooking(result);
+        setBooking(bookingResult);
+        setPayment(paymentResult.payment);
       } catch (error: any) {
         const rawMessage =
           error?.response?.data?.message;
@@ -108,6 +123,130 @@ export function BookingDetailsScreen({
   useEffect(() => {
     loadBooking();
   }, [loadBooking]);
+
+  const calculateEstimatedAmount = () => {
+    if (!booking) {
+      return null;
+    }
+
+    if (booking.dailyRate) {
+      const start =
+        new Date(booking.scheduledStart);
+
+      const end =
+        new Date(booking.scheduledEnd);
+
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+
+      const millisecondsPerDay =
+        24 * 60 * 60 * 1000;
+
+      const days =
+        Math.max(
+          1,
+          Math.ceil(
+            (end.getTime() -
+              start.getTime()) /
+              millisecondsPerDay,
+          ),
+        );
+
+      return {
+        amount:
+          Number(booking.dailyRate) * days,
+        label:
+          `${days} day${days > 1 ? 's' : ''}`,
+      };
+    }
+
+    if (booking.hourlyRate) {
+      const durationMs =
+        new Date(
+          booking.scheduledEnd,
+        ).getTime() -
+        new Date(
+          booking.scheduledStart,
+        ).getTime();
+
+      const hours =
+        durationMs /
+        (60 * 60 * 1000);
+
+      return {
+        amount:
+          Number(booking.hourlyRate) *
+          hours,
+        label:
+          `${hours.toFixed(2)} hour${hours > 1 ? 's' : ''}`,
+      };
+    }
+
+    return null;
+  };
+
+  const handleCreatePayment = async () => {
+    if (!booking) {
+      return;
+    }
+
+    if (payment?.status === 'SUCCESS') {
+      Alert.alert(
+        'Payment',
+        'This booking has already been paid.',
+      );
+      return;
+    }
+
+    if (
+      payment?.status === 'PENDING' ||
+      payment?.status === 'PROCESSING'
+    ) {
+      Alert.alert(
+        'Payment',
+        'A payment is already in progress for this booking.',
+      );
+      return;
+    }
+
+    try {
+      setPaymentLoading(true);
+
+      const idempotencyKey =
+        `${booking.id}-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 10)}`;
+
+      const result =
+        await createPayment({
+          bookingId: booking.id,
+          idempotencyKey,
+        });
+
+      setPayment(result.payment);
+
+      navigation.navigate('DemoPayment', {
+        paymentId: result.payment.id
+      });
+    } catch (error: any) {
+      const rawMessage =
+        error?.response?.data?.message;
+
+      const message =
+        Array.isArray(rawMessage)
+          ? rawMessage.join('\n')
+          : typeof rawMessage === 'string'
+            ? rawMessage
+            : 'Unable to initialize payment.';
+
+      Alert.alert(
+        'Payment',
+        message,
+      );
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
 
   const performAction = async (
     action: () => Promise<Booking>,
@@ -525,6 +664,184 @@ export function BookingDetailsScreen({
         ) : null}
       </Card>
 
+      {!isWorker &&
+booking.status !== 'REJECTED' &&
+booking.status !== 'CANCELLED' ? (
+  <Card>
+    <Text
+      style={[
+        styles.sectionTitle,
+        {
+          color: colors.text,
+        },
+      ]}>
+      Payment
+    </Text>
+
+    {(() => {
+      const estimate =
+        calculateEstimatedAmount();
+
+      return (
+        <>
+          {estimate ? (
+            <>
+              <Text
+                style={[
+                  styles.info,
+                  {
+                    color:
+                      colors.textSecondary,
+                  },
+                ]}>
+                Pricing:{' '}
+                {booking.dailyRate
+                  ? 'Daily'
+                  : 'Hourly'}
+              </Text>
+
+              <Text
+                style={[
+                  styles.info,
+                  {
+                    color:
+                      colors.textSecondary,
+                  },
+                ]}>
+                Duration: {estimate.label}
+              </Text>
+
+              <Text
+                style={[
+                  styles.paymentAmount,
+                  {
+                    color: colors.text,
+                  },
+                ]}>
+                Estimated Total: ₹
+                {estimate.amount.toFixed(2)}
+              </Text>
+            </>
+          ) : (
+            <Text
+              style={[
+                styles.info,
+                {
+                  color:
+                    colors.textSecondary,
+                },
+              ]}>
+              Payment amount is currently
+              unavailable.
+            </Text>
+          )}
+
+          {payment ? (
+            <View
+              style={[
+                styles.paymentStatus,
+                {
+                  borderColor:
+                    colors.primary,
+                },
+              ]}>
+              <Text
+                style={[
+                  styles.info,
+                  {
+                    color:
+                      colors.primary,
+                  },
+                ]}>
+                Payment Status:{' '}
+                {payment.status.replace(
+                  '_',
+                  ' ',
+                )}
+              </Text>
+
+              {payment.status ===
+              'SUCCESS' ? (
+                <Text
+                  style={[
+                    styles.paymentSuccess,
+                    {
+                      color:
+                        colors.primary,
+                    },
+                  ]}>
+                  Payment completed
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
+          {estimate &&
+          payment?.status !== 'SUCCESS' &&
+          payment?.status !== 'PENDING' &&
+          payment?.status !== 'PROCESSING' ? (
+            <Pressable
+              disabled={paymentLoading}
+              onPress={
+                handleCreatePayment
+              }
+              style={[
+                styles.paymentButton,
+                {
+                  backgroundColor:
+                    colors.primary,
+                  opacity:
+                    paymentLoading
+                      ? 0.6
+                      : 1,
+                },
+              ]}>
+              {paymentLoading ? (
+                <ActivityIndicator
+                  color={
+                    colors.onPrimary
+                  }
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.paymentButtonText,
+                    {
+                      color:
+                        colors.onPrimary,
+                    },
+                  ]}>
+                  Pay ₹
+                  {estimate.amount.toFixed(
+                    2,
+                  )}
+                </Text>
+              )}
+            </Pressable>
+          ) : null}
+
+          {payment?.status ===
+          'PENDING' ||
+          payment?.status ===
+            'PROCESSING' ? (
+            <Text
+              style={[
+                styles.info,
+                {
+                  color:
+                    colors.textSecondary,
+                },
+              ]}>
+              Payment is initialized and
+              awaiting gateway processing.
+            </Text>
+          ) : null}
+        </>
+      );
+    })()}
+  </Card>
+) : null}
+
       {booking.rejectionReason ? (
         <Card>
           <Text
@@ -821,5 +1138,36 @@ const styles = StyleSheet.create({
   emptyTitle: {
     ...typography.h3,
     marginBottom: spacing.md,
+  },
+
+  paymentAmount: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginTop: spacing.md,
+  },
+
+  paymentStatus: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: spacing.sm,
+    marginTop: spacing.md,
+  },
+
+  paymentSuccess: {
+    ...typography.small,
+    fontWeight: '600',
+    marginTop: spacing.xs,
+  },
+
+  paymentButton: {
+    minHeight: 50,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+  },
+
+  paymentButtonText: {
+    ...typography.bodyMedium,
   },
 });

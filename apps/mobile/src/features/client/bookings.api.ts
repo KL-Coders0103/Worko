@@ -78,6 +78,40 @@ export type Booking = {
   };
 };
 
+export type PaymentStatus =
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'SUCCESS'
+  | 'FAILED'
+  | 'CANCELLED';
+
+export type PaymentMethod =
+  | 'ONLINE'
+  | 'CASH';
+
+export type Payment = {
+  id: string;
+  bookingId: string;
+  status: PaymentStatus;
+  method: PaymentMethod;
+  amount: string;
+  currency: string;
+  gatewayOrderId: string | null;
+  gatewayPaymentId: string | null;
+  gatewaySignature: string | null;
+  idempotencyKey: string;
+  failureCode: string | null;
+  failureMessage: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreatePaymentPayload = {
+  bookingId: string;
+  idempotencyKey: string;
+};
+
 export async function createBooking(
   payload: CreateBookingPayload,
 ): Promise<{booking: Booking}> {
@@ -168,6 +202,70 @@ export async function completeBooking(
   const response =
     await api.post<Booking>(
       `/bookings/${bookingId}/complete`,
+    );
+
+  return response.data;
+}
+
+export async function createPayment(
+  payload: CreatePaymentPayload,
+): Promise<{payment: Payment}> {
+  const response =
+    await api.post<{payment: Payment}>(
+      '/payments',
+      payload,
+    );
+
+  return response.data;
+}
+
+export async function getBookingPayment(
+  bookingId: string,
+): Promise<{payment: Payment | null}> {
+  const response =
+    await api.get<{payment: Payment | null}>(
+      `/payments/booking/${bookingId}`,
+    );
+
+  return response.data;
+}
+
+export async function getPayment(
+  paymentId: string,
+): Promise<{payment: Payment}> {
+  const response =
+    await api.get<{payment: Payment}>(
+      `/payments/${paymentId}`,
+    );
+
+  return response.data;
+}
+
+export async function cancelPayment(
+  paymentId: string,
+  reason?: string,
+): Promise<{payment: Payment}> {
+  const response =
+    await api.post<{payment: Payment}>(
+      `/payments/${paymentId}/cancel`,
+      {
+        reason,
+      },
+    );
+
+  return response.data;
+}
+
+export async function simulateDemoPayment(
+  paymentId: string,
+  success: boolean,
+): Promise<{payment: Payment}> {
+  const response =
+    await api.post<{payment: Payment}>(
+      `/payments/${paymentId}/demo/complete`,
+      {
+        success,
+      },
     );
 
   return response.data;

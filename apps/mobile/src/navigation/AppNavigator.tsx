@@ -12,6 +12,7 @@ import {
 } from './WorkerOnboardingNavigator';
 import { ClientBookingCreateScreen } from '../features/client/screens/ClientBookingCreationScreen';
 import { BookingDetailsScreen } from '../features/booking/screens/BookingDetailsScreen';
+import { DemoPaymentScreen } from '../features/payment/screens/DemoPaymentScreen';
 
 
 export type AppStackParamList = {
@@ -32,6 +33,10 @@ export type AppStackParamList = {
 
   BookingDetails: {
     bookingId: string;
+  };
+
+  DemoPayment: {
+    paymentId: string;
   };
 };
 
@@ -69,6 +74,11 @@ export function AppNavigator() {
       <Stack.Screen
         name="BookingDetails"
         component={BookingDetailsScreen}
+      />
+
+      <Stack.Screen
+        name="DemoPayment"
+        component={DemoPaymentScreen}
       />
 
     </Stack.Navigator>
