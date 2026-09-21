@@ -37,6 +37,7 @@ import {
 } from '../components/TabIcon';
 import { ClientProfileScreen } from '../features/client/screens/ClientProfileScreen';
 import { ClientDiscoveryScreen } from '../features/client/screens/ClientDiscoveryScreen';
+import {BookingsScreen as RealBookingsScreen} from '../features/booking/screens/BookingsScreen';
 
 type AppTabParamList = {
   Home: undefined;
@@ -122,9 +123,8 @@ function ReelsScreen() {
 }
 
 function BookingsScreen() {
-  return <PlaceholderScreen title="Bookings" />;
+  return <RealBookingsScreen />;
 }
-
 
 function HomeScreen() {
   const {user} = useAuth();

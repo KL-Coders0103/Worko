@@ -10,12 +10,28 @@ import {
   WorkerOnboardingNavigator,
   WorkerOnboardingParamList,
 } from './WorkerOnboardingNavigator';
+import { ClientBookingCreateScreen } from '../features/client/screens/ClientBookingCreationScreen';
+import { BookingDetailsScreen } from '../features/booking/screens/BookingDetailsScreen';
+
 
 export type AppStackParamList = {
   Main: undefined;
 
   WorkerOnboarding: {
     initialRouteName?: keyof WorkerOnboardingParamList;
+  };
+
+  ClientBookingCreate: {
+    workerId: string;
+    workerName: string;
+    categoryId?: string;
+    categoryName?: string;
+    skillId?: string;
+    skillName?: string;
+  };
+
+  BookingDetails: {
+    bookingId: string;
   };
 };
 
@@ -28,7 +44,7 @@ export function AppNavigator() {
       screenOptions={{
         headerShown: false,
       }}>
-      
+
       <Stack.Screen
         name="Main"
         component={AppTabNavigator}
@@ -44,6 +60,16 @@ export function AppNavigator() {
           />
         )}
       </Stack.Screen>
+
+      <Stack.Screen
+        name="ClientBookingCreate"
+        component={ClientBookingCreateScreen}
+      />
+
+      <Stack.Screen
+        name="BookingDetails"
+        component={BookingDetailsScreen}
+      />
 
     </Stack.Navigator>
   );

@@ -1,4 +1,24 @@
-import { Module } from '@nestjs/common';
+import {Module} from '@nestjs/common';
 
-@Module({})
+import {BookingsController} from './bookings.controller';
+import {BookingsService} from './bookings.service';
+
+import {PrismaModule} from '../common/prisma/prisma.module';
+import {AuthModule} from '../auth/auth.module';
+
+@Module({
+  imports: [
+    PrismaModule,
+    AuthModule,
+  ],
+  controllers: [
+    BookingsController,
+  ],
+  providers: [
+    BookingsService,
+  ],
+  exports: [
+    BookingsService,
+  ],
+})
 export class BookingsModule {}

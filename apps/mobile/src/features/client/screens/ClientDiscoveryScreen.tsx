@@ -28,6 +28,12 @@ import {
   discoverWorkers,
   DiscoveryWorker,
 } from '../discovery.api';
+import {
+  useNavigation,
+  NavigationProp,
+} from '@react-navigation/native';
+
+import {AppStackParamList} from '../../../navigation/AppNavigator';
 
 type FilterState = {
   category?: string;
@@ -41,7 +47,8 @@ export function ClientDiscoveryScreen() {
   const {colors} = useTheme();
 
   const [search, setSearch] = useState('');
-
+  const navigation =
+  useNavigation<NavigationProp<AppStackParamList>>();
   const [workers, setWorkers] = useState<
     DiscoveryWorker[]
   >([]);
@@ -1205,9 +1212,29 @@ export function ClientDiscoveryScreen() {
                 </View>
 
                 <Pressable
-                  onPress={() =>
-                    setSelectedWorker(null)
-                  }
+                  onPress={() => {
+                    const worker = selectedWorker;
+
+                    if (!worker) {
+                      return;
+                    }
+
+                    setSelectedWorker(null);
+
+                    navigation.navigate('ClientBookingCreate', {
+                      workerId: worker.id,
+                      workerName:
+                        worker.name || 'Worko Worker',
+                      categoryId:
+                        worker.categories[0]?.id,
+                      categoryName:
+                        worker.categories[0]?.name,
+                      skillId:
+                        worker.skills[0]?.id,
+                      skillName:
+                        worker.skills[0]?.name,
+                    });
+                  }}
                   style={[
                     styles.modalCloseButton,
                     {
@@ -1221,6 +1248,29 @@ export function ClientDiscoveryScreen() {
                       {
                         color:
                           colors.onPrimary,
+                      },
+                    ]}>
+                    Book This Worker
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() =>
+                    setSelectedWorker(null)
+                  }
+                  style={[
+                    styles.modalSecondaryButton,
+                    {
+                      backgroundColor:
+                        colors.primary,
+                    },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.viewButtonText,
+                      {
+                        color:
+                          colors.text,
                       },
                     ]}>
                     Done
@@ -1633,6 +1683,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.xl,
   },
+
+  modalSecondaryButton: {
+  minHeight: 46,
+  borderRadius: 12,
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginTop: spacing.sm,
+  borderWidth: 1,
+},
 
   emptyTitle: {
     ...typography.bodyMedium,
