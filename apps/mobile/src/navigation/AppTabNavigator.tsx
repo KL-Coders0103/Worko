@@ -35,6 +35,7 @@ import {
 import {
   TabIcon,
 } from '../components/TabIcon';
+import { ClientProfileScreen } from '../features/client/screens/ClientProfileScreen';
 
 type AppTabParamList = {
   Home: undefined;
@@ -127,9 +128,6 @@ function BookingsScreen() {
   return <PlaceholderScreen title="Bookings" />;
 }
 
-function ClientProfileScreen() {
-  return <PlaceholderScreen title="Profile" />;
-}
 
 function HomeScreen() {
   const {user} = useAuth();
