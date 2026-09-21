@@ -13,6 +13,7 @@ import {
 import { ClientBookingCreateScreen } from '../features/client/screens/ClientBookingCreationScreen';
 import { BookingDetailsScreen } from '../features/booking/screens/BookingDetailsScreen';
 import { DemoPaymentScreen } from '../features/payment/screens/DemoPaymentScreen';
+import { WalletScreen } from '../features/wallet/screens/WalletScreen';
 
 
 export type AppStackParamList = {
@@ -38,6 +39,8 @@ export type AppStackParamList = {
   DemoPayment: {
     paymentId: string;
   };
+
+  Wallet: undefined;
 };
 
 const Stack =
@@ -79,6 +82,11 @@ export function AppNavigator() {
       <Stack.Screen
         name="DemoPayment"
         component={DemoPaymentScreen}
+      />
+
+      <Stack.Screen
+        name="Wallet"
+        component={WalletScreen}
       />
 
     </Stack.Navigator>

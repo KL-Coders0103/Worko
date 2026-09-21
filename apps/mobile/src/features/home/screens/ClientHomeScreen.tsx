@@ -172,6 +172,10 @@ export function ClientHomeScreen() {
       'Discover' as never,
     );
   };
+  
+  const opneBooking = () => {
+    navigation.navigate('Bookings' as never)
+  }
 
   return (
     <Screen scroll>
@@ -191,7 +195,7 @@ export function ClientHomeScreen() {
           icon="calendar-outline"
           title="My Bookings"
           description="View your upcoming and active bookings."
-          onPress={() => {}}
+          onPress={opneBooking}
         />
 
         <View style={styles.actionSpacing} />

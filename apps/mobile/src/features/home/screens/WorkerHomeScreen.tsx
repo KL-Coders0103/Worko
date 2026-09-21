@@ -104,6 +104,14 @@ export function WorkerHomeScreen() {
     }
   };
 
+  const openWallet = () => {
+    navigation.navigate('Wallet' as never);
+  }
+
+  const opneBooking = () => {
+    navigation.navigate('Bookings' as never)
+  }
+
   return (
     <Screen scroll>
       <HomeHeader user={user} />
@@ -168,13 +176,20 @@ export function WorkerHomeScreen() {
           onPress={() => {}}
         />
 
+        <QuickActionCard
+          icon="wallet-outline"
+          title="My Wallet"
+          description='View your balane and transaction history'
+          onPress={openWallet}
+        />
+
         <View style={styles.actionSpacing} />
 
         <QuickActionCard
           icon="briefcase-outline"
           title="My Bookings"
           description="View your upcoming and active work."
-          onPress={() => {}}
+          onPress={opneBooking}
         />
       </Section>
 

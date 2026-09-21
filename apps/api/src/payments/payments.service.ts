@@ -14,11 +14,13 @@ import {
 import {PrismaService} from '../common/prisma/prisma.service';
 import {CreatePaymentDto} from './dto/create-payment.dto';
 import {PaymentActionDto} from './dto/payment-action.dto';
+import { WalletService } from '../wallet/wallet.service';
 
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly walletService: WalletService,
   ) {}
 
   async createPayment(
@@ -406,86 +408,126 @@ export class PaymentsService {
   paymentId: string,
   success: boolean,
 ) {
-  const payment =
-    await this.prisma.payment.findUnique({
-      where: {
-        id: paymentId,
-      },
-      include: {
-        booking: {
-          select: {
-            clientId: true,
-            workerId: true,
+  return this.prisma.$transaction(
+    async (tx) => {
+      const payment =
+        await tx.payment.findUnique({
+          where: {
+            id: paymentId,
           },
+          include: {
+            booking: {
+              select: {
+                clientId: true,
+                workerId: true,
+                serviceTitle: true,
+              },
+            },
+          },
+        });
+
+      if (!payment) {
+        throw new NotFoundException(
+          'Payment not found',
+        );
+      }
+
+      const client =
+        await tx.client.findUnique({
+          where: {
+            userId,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+      if (
+        !client ||
+        client.id !== payment.booking.clientId
+      ) {
+        throw new ForbiddenException(
+          'Only the booking client can complete this payment',
+        );
+      }
+
+      if (
+        payment.status ===
+        PaymentStatus.SUCCESS
+      ) {
+        throw new BadRequestException(
+          'Payment has already been completed',
+        );
+      }
+
+      if (
+        payment.status ===
+        PaymentStatus.CANCELLED
+      ) {
+        throw new BadRequestException(
+          'Cancelled payment cannot be processed',
+        );
+      }
+
+      if (
+        payment.status ===
+        PaymentStatus.FAILED
+      ) {
+        throw new BadRequestException(
+          'Failed payment cannot be retried from this payment record',
+        );
+      }
+
+      await tx.payment.update({
+        where: {
+          id: payment.id,
         },
-      },
-    });
+        data: {
+          status: PaymentStatus.PROCESSING,
+        },
+      });
 
-  if (!payment) {
-    throw new NotFoundException(
-      'Payment not found',
-    );
-  }
+      /*
+       * DEMO FAILURE
+       *
+       * Payment becomes FAILED.
+       * No wallet movement occurs.
+       */
+      if (!success) {
+        const failedPayment =
+          await tx.payment.update({
+            where: {
+              id: payment.id,
+            },
+            data: {
+              status: PaymentStatus.FAILED,
+              gatewayOrderId:
+                `DEMO-ORDER-${payment.id}`,
+              failureCode:
+                'DEMO_PAYMENT_FAILED',
+              failureMessage:
+                'Demo payment was intentionally failed',
+            },
+          });
 
-  const client =
-    await this.prisma.client.findUnique({
-      where: {
-        userId,
-      },
-      select: {
-        id: true,
-      },
-    });
+        return {
+          payment: failedPayment,
+        };
+      }
 
-  if (
-    !client ||
-    client.id !== payment.booking.clientId
-  ) {
-    throw new ForbiddenException(
-      'Only the booking client can complete this payment',
-    );
-  }
+      /*
+       * DEMO SUCCESS
+       *
+       * Payment SUCCESS + worker wallet credit
+       * happen inside the same DB transaction.
+       */
 
-  if (
-    payment.status === PaymentStatus.SUCCESS
-  ) {
-    throw new BadRequestException(
-      'Payment has already been completed',
-    );
-  }
-
-  if (
-    payment.status === PaymentStatus.CANCELLED
-  ) {
-    throw new BadRequestException(
-      'Cancelled payment cannot be processed',
-    );
-  }
-
-  if (
-    payment.status === PaymentStatus.FAILED
-  ) {
-    throw new BadRequestException(
-      'Failed payment cannot be retried from this payment record',
-    );
-  }
-
-  await this.prisma.payment.update({
-    where: {
-      id: payment.id,
-    },
-    data: {
-      status: PaymentStatus.PROCESSING,
-    },
-  });
-
-  const updated =
-    await this.prisma.payment.update({
-      where: {
-        id: payment.id,
-      },
-      data: success
-        ? {
+      const updatedPayment =
+        await tx.payment.update({
+          where: {
+            id: payment.id,
+          },
+          data: {
             status: PaymentStatus.SUCCESS,
             gatewayOrderId:
               `DEMO-ORDER-${payment.id}`,
@@ -496,20 +538,44 @@ export class PaymentsService {
             paidAt: new Date(),
             failureCode: null,
             failureMessage: null,
-          }
-        : {
-            status: PaymentStatus.FAILED,
-            gatewayOrderId:
-              `DEMO-ORDER-${payment.id}`,
-            failureCode:
-              'DEMO_PAYMENT_FAILED',
-            failureMessage:
-              'Demo payment was intentionally failed',
           },
-    });
+        });
 
-  return {
-    payment: updated,
-  };
+      /*
+       * Find the worker's user ID.
+       */
+      const worker =
+        await tx.worker.findUnique({
+          where: {
+            id: payment.booking.workerId,
+          },
+          select: {
+            userId: true,
+          },
+        });
+
+      if (!worker) {
+        throw new NotFoundException(
+          'Booking worker not found',
+        );
+      }
+
+      /*
+       * Credit worker wallet.
+       */
+      await this.walletService.creditWalletInTransaction(
+        tx,
+        worker.userId,
+        payment.amount,
+        'PAYMENT',
+        payment.id,
+        `Payment received for ${payment.booking.serviceTitle}`,
+      );
+
+      return {
+        payment: updatedPayment,
+      };
+    },
+  );
 }
 }
