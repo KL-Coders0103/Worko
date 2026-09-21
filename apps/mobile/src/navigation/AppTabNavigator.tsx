@@ -36,6 +36,7 @@ import {
   TabIcon,
 } from '../components/TabIcon';
 import { ClientProfileScreen } from '../features/client/screens/ClientProfileScreen';
+import { ClientDiscoveryScreen } from '../features/client/screens/ClientDiscoveryScreen';
 
 type AppTabParamList = {
   Home: undefined;
@@ -116,10 +117,6 @@ function PlaceholderScreen({title}: {title: string}) {
   );
 }
 
-function DiscoverScreen() {
-  return <PlaceholderScreen title="Discover" />;
-}
-
 function ReelsScreen() {
   return <PlaceholderScreen title="Reels" />;
 }
@@ -188,7 +185,7 @@ export function AppTabNavigator() {
 
       <Tab.Screen
         name="Discover"
-        component={DiscoverScreen}
+        component={ClientDiscoveryScreen}
         options={{
           tabBarIcon: DiscoverTabIcon,
         }}
