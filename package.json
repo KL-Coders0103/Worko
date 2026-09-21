@@ -24,7 +24,8 @@
   },
   "devDependencies": {
     "prettier": "^3.6.2",
-    "prisma": "^6.19.3"
+    "prisma": "^6.19.3",
+    "tsx": "^4.23.15"
   },
   "keywords": [],
   "author": "Lovesh Bodhani",

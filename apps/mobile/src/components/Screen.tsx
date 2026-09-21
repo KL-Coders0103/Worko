@@ -2,10 +2,12 @@ import React from 'react';
 
 import {
   ScrollView,
+  StyleProp,
   StyleSheet,
   View,
   ViewStyle,
 } from 'react-native';
+
 import {
   SafeAreaView,
 } from 'react-native-safe-area-context';
@@ -18,8 +20,9 @@ import {
 type ScreenProps = {
   children: React.ReactNode;
   scroll?: boolean;
-  style?: ViewStyle;
-  contentContainerStyle?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
+  contentContainerStyle?: StyleProp<ViewStyle>;
+  edges?: ('top' | 'right' | 'bottom' | 'left')[];
 };
 
 export function Screen({
@@ -27,30 +30,34 @@ export function Screen({
   scroll = false,
   style,
   contentContainerStyle,
+  edges = ['top', 'left', 'right'],
 }: ScreenProps) {
-  const { colors } = useTheme();
+  const {colors} = useTheme();
 
   if (scroll) {
     return (
       <SafeAreaView
-        edges={['top', 'left', 'right']}
+        edges={edges}
         style={[
           styles.safeArea,
           {
             backgroundColor: colors.background,
           },
-        ]}
-      >
+          style,
+        ]}>
         <ScrollView
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          style={[
+            styles.scrollView,
+            {
+              backgroundColor: colors.background,
+            },
+          ]}
           contentContainerStyle={[
             styles.scrollContent,
             contentContainerStyle,
-          ]}
-          style={{
-            backgroundColor: colors.background,
-          }}
-        >
+          ]}>
           {children}
         </ScrollView>
       </SafeAreaView>
@@ -59,14 +66,13 @@ export function Screen({
 
   return (
     <SafeAreaView
-      edges={['top', 'left', 'right']}
+      edges={edges}
       style={[
         styles.safeArea,
         {
           backgroundColor: colors.background,
         },
-      ]}
-    >
+      ]}>
       <View
         style={[
           styles.container,
@@ -74,8 +80,7 @@ export function Screen({
             backgroundColor: colors.background,
           },
           style,
-        ]}
-      >
+        ]}>
         {children}
       </View>
     </SafeAreaView>
@@ -90,6 +95,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: spacing.lg,
+  },
+
+  scrollView: {
+    flex: 1,
   },
 
   scrollContent: {

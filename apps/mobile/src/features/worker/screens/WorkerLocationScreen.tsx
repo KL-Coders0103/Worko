@@ -9,9 +9,15 @@ import {
   View,
 } from 'react-native';
 
+import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+
+import type {WorkerOnboardingParamList} from '../../../navigation/WorkerOnboardingNavigator';
+
 import Geolocation from '@react-native-community/geolocation';
 
 import {Button} from '../../../components/Button';
+import {Screen} from '../../../components/Screen';
 
 import {
   spacing,
@@ -30,11 +36,19 @@ type Coordinates = {
 export function WorkerLocationScreen() {
   const {colors} = useTheme();
 
+  const navigation =
+    useNavigation<
+      NativeStackNavigationProp<WorkerOnboardingParamList>
+    >();
+
   const [coordinates, setCoordinates] =
     useState<Coordinates | null>(null);
 
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
+
+  const [saving, setSaving] =
+    useState(false);
 
   const requestLocationPermission =
     async (): Promise<boolean> => {
@@ -42,21 +56,41 @@ export function WorkerLocationScreen() {
         return true;
       }
 
-      const granted =
-        await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Location Permission',
-            message:
-              'Worko needs your location to help clients find workers available near them.',
-            buttonPositive: 'Allow',
-            buttonNegative: 'Deny',
-          },
+      const fineGranted =
+        await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS
+            .ACCESS_FINE_LOCATION,
         );
 
+      const coarseGranted =
+        await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS
+            .ACCESS_COARSE_LOCATION,
+        );
+
+      if (fineGranted || coarseGranted) {
+        return true;
+      }
+
+      const granted =
+        await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS
+            .ACCESS_FINE_LOCATION,
+          PermissionsAndroid.PERMISSIONS
+            .ACCESS_COARSE_LOCATION,
+        ]);
+
       return (
-        granted ===
-        PermissionsAndroid.RESULTS.GRANTED
+        granted[
+          PermissionsAndroid.PERMISSIONS
+            .ACCESS_FINE_LOCATION
+        ] ===
+          PermissionsAndroid.RESULTS.GRANTED ||
+        granted[
+          PermissionsAndroid.PERMISSIONS
+            .ACCESS_COARSE_LOCATION
+        ] ===
+          PermissionsAndroid.RESULTS.GRANTED
       );
     };
 
@@ -70,8 +104,9 @@ export function WorkerLocationScreen() {
       if (!permitted) {
         Alert.alert(
           'Location permission required',
-          'Please allow location permission to continue.',
+          'Please allow location permission from the app settings to continue.',
         );
+        setLoading(false);
         return;
       }
 
@@ -81,13 +116,37 @@ export function WorkerLocationScreen() {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
             accuracy:
-              position.coords.accuracy,
+              position.coords.accuracy ?? 0,
           });
 
           setLoading(false);
         },
         error => {
           setLoading(false);
+
+          if (error.code === 1) {
+            Alert.alert(
+              'Location permission denied',
+              'Please allow location permission for Worko.',
+            );
+            return;
+          }
+
+          if (error.code === 2) {
+            Alert.alert(
+              'Location unavailable',
+              'Please make sure Location/GPS is turned on and try again.',
+            );
+            return;
+          }
+
+          if (error.code === 3) {
+            Alert.alert(
+              'Location timeout',
+              'We could not get your location quickly enough. Please make sure GPS is enabled and try again.',
+            );
+            return;
+          }
 
           Alert.alert(
             'Unable to get location',
@@ -96,9 +155,9 @@ export function WorkerLocationScreen() {
           );
         },
         {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 10000,
+          enableHighAccuracy: false,
+          timeout: 30000,
+          maximumAge: 30000,
         },
       );
     } catch {
@@ -129,6 +188,8 @@ export function WorkerLocationScreen() {
         coordinates.accuracy,
       );
 
+      navigation.navigate('WorkerReview');
+
       Alert.alert(
         'Location saved',
         'Your work location has been updated.',
@@ -141,8 +202,7 @@ export function WorkerLocationScreen() {
         'Unable to save location',
         Array.isArray(message)
           ? message.join('\n')
-          : message ||
-              'Please try again.',
+          : message || 'Please try again.',
       );
     } finally {
       setSaving(false);
@@ -150,11 +210,7 @@ export function WorkerLocationScreen() {
   };
 
   return (
-    <View
-      style={[
-        styles.container,
-        {backgroundColor: colors.background},
-      ]}>
+    <Screen>
       <View style={styles.content}>
         <Text
           style={[
@@ -202,7 +258,10 @@ export function WorkerLocationScreen() {
               <Text
                 style={[
                   styles.coordinates,
-                  {color: colors.textSecondary},
+                  {
+                    color:
+                      colors.textSecondary,
+                  },
                 ]}>
                 Latitude:{' '}
                 {coordinates.latitude.toFixed(6)}
@@ -211,7 +270,10 @@ export function WorkerLocationScreen() {
               <Text
                 style={[
                   styles.coordinates,
-                  {color: colors.textSecondary},
+                  {
+                    color:
+                      colors.textSecondary,
+                  },
                 ]}>
                 Longitude:{' '}
                 {coordinates.longitude.toFixed(6)}
@@ -220,7 +282,10 @@ export function WorkerLocationScreen() {
               <Text
                 style={[
                   styles.accuracy,
-                  {color: colors.textSecondary},
+                  {
+                    color:
+                      colors.textSecondary,
+                  },
                 ]}>
                 Accuracy: ±
                 {Math.round(
@@ -242,7 +307,10 @@ export function WorkerLocationScreen() {
               <Text
                 style={[
                   styles.coordinates,
-                  {color: colors.textSecondary},
+                  {
+                    color:
+                      colors.textSecondary,
+                  },
                 ]}>
                 Tap the button below to detect your
                 current location.
@@ -282,18 +350,13 @@ export function WorkerLocationScreen() {
           to other users.
         </Text>
       </View>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-
   content: {
     flex: 1,
-    padding: spacing.xl,
     justifyContent: 'center',
   },
 

@@ -43,6 +43,10 @@ export async function updateWorkerProfile(
   return response.data.worker;
 }
 
+/* -------------------------------------------------------------------------- */
+/* PROFILE PHOTO                                                              */
+/* -------------------------------------------------------------------------- */
+
 export async function uploadWorkerProfilePhoto(
   file: {
     uri: string;
@@ -54,30 +58,39 @@ export async function uploadWorkerProfilePhoto(
 
   formData.append('file', {
     uri: file.uri,
-    name: file.name,
-    type: file.type,
+    name: file.name || 'profile-photo.jpg',
+    type: file.type || 'image/jpeg',
   } as any);
 
   const response = await api.post<{
     message: string;
     profilePhotoKey: string;
-  }>('/workers/me/profile-photo', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  }>(
+    '/workers/me/profile-photo',
+    formData,
+  );
 
   return response.data.profilePhotoKey;
 }
+
+/* -------------------------------------------------------------------------- */
+/* CATEGORIES                                                                 */
+/* -------------------------------------------------------------------------- */
 
 export async function getCategories(): Promise<
   WorkerCategory[]
 > {
   const response =
-    await api.get<WorkerCategory[]>('/categories');
+    await api.get<WorkerCategory[]>(
+      '/categories',
+    );
 
   return response.data;
 }
+
+/* -------------------------------------------------------------------------- */
+/* SKILLS                                                                     */
+/* -------------------------------------------------------------------------- */
 
 export async function getSkills(
   categoryId: string,
@@ -89,6 +102,10 @@ export async function getSkills(
 
   return response.data;
 }
+
+/* -------------------------------------------------------------------------- */
+/* WORKER CATEGORIES                                                          */
+/* -------------------------------------------------------------------------- */
 
 export async function updateWorkerCategories(
   categoryIds: string[],
@@ -103,6 +120,10 @@ export async function updateWorkerCategories(
   return response.data;
 }
 
+/* -------------------------------------------------------------------------- */
+/* WORKER SKILLS                                                              */
+/* -------------------------------------------------------------------------- */
+
 export async function updateWorkerSkills(
   skillIds: string[],
 ): Promise<unknown> {
@@ -115,6 +136,10 @@ export async function updateWorkerSkills(
 
   return response.data;
 }
+
+/* -------------------------------------------------------------------------- */
+/* WORKER LOCATION                                                            */
+/* -------------------------------------------------------------------------- */
 
 export async function updateWorkerLocation(
   latitude: number,
@@ -135,6 +160,10 @@ export async function updateWorkerLocation(
   return response.data;
 }
 
+/* -------------------------------------------------------------------------- */
+/* SUBMIT WORKER PROFILE                                                      */
+/* -------------------------------------------------------------------------- */
+
 export async function submitWorkerProfile(): Promise<WorkerProfile> {
   const response = await api.post<{
     message: string;
@@ -143,6 +172,10 @@ export async function submitWorkerProfile(): Promise<WorkerProfile> {
 
   return response.data.worker;
 }
+
+/* -------------------------------------------------------------------------- */
+/* AADHAAR                                                                     */
+/* -------------------------------------------------------------------------- */
 
 export async function uploadWorkerAadhaar(
   file: {
@@ -155,21 +188,26 @@ export async function uploadWorkerAadhaar(
 
   formData.append('file', {
     uri: file.uri,
-    name: file.name,
-    type: file.type,
+    name: file.name || 'aadhaar-document',
+    type:
+      file.type ||
+      'application/octet-stream',
   } as any);
 
   const response = await api.post<{
     message: string;
     documentKey: string;
-  }>('/workers/me/kyc/aadhaar', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  }>(
+    '/workers/me/kyc/aadhaar',
+    formData,
+  );
 
   return response.data.documentKey;
 }
+
+/* -------------------------------------------------------------------------- */
+/* POLICE VERIFICATION                                                        */
+/* -------------------------------------------------------------------------- */
 
 export async function uploadWorkerPoliceVerification(
   file: {
@@ -182,8 +220,12 @@ export async function uploadWorkerPoliceVerification(
 
   formData.append('file', {
     uri: file.uri,
-    name: file.name,
-    type: file.type,
+    name:
+      file.name ||
+      'police-verification-document',
+    type:
+      file.type ||
+      'application/octet-stream',
   } as any);
 
   const response = await api.post<{
@@ -192,15 +234,14 @@ export async function uploadWorkerPoliceVerification(
   }>(
     '/workers/me/kyc/police-verification',
     formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    },
   );
 
   return response.data.documentKey;
 }
+
+/* -------------------------------------------------------------------------- */
+/* SUBMIT KYC                                                                 */
+/* -------------------------------------------------------------------------- */
 
 export async function submitWorkerKyc(
   aadhaarDocumentKey: string,
@@ -211,8 +252,11 @@ export async function submitWorkerKyc(
     worker: WorkerProfile;
   }>('/workers/me/kyc', {
     aadhaarDocumentKey,
+
     ...(policeVerificationDocumentKey
-      ? {policeVerificationDocumentKey}
+      ? {
+          policeVerificationDocumentKey,
+        }
       : {}),
   });
 

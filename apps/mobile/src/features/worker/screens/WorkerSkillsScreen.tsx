@@ -4,13 +4,16 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
+import type {WorkerOnboardingParamList} from '../../../navigation/WorkerOnboardingNavigator';
 import {Button} from '../../../components/Button';
+import {Screen} from '../../../components/Screen';
 
 import {
   spacing,
@@ -28,15 +31,21 @@ import type {WorkerSkill} from '../worker.type';
 
 export function WorkerSkillsScreen() {
   const {colors} = useTheme();
-
+  const navigation =
+    useNavigation<
+      NativeStackNavigationProp<WorkerOnboardingParamList>
+    >();
   const [skills, setSkills] =
     useState<WorkerSkill[]>([]);
 
   const [selectedSkillIds, setSelectedSkillIds] =
     useState<string[]>([]);
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] =
+    useState(true);
+
+  const [saving, setSaving] =
+    useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -120,6 +129,8 @@ export function WorkerSkillsScreen() {
         selectedSkillIds,
       );
 
+      navigation.navigate('WorkerLocation');
+
       Alert.alert(
         'Skills saved',
         'Your skills have been updated.',
@@ -142,138 +153,115 @@ export function WorkerSkillsScreen() {
 
   if (loading) {
     return (
-      <View
-        style={[
-          styles.loading,
-          {backgroundColor: colors.background},
-        ]}>
-        <ActivityIndicator
-          size="large"
-          color={colors.primary}
-        />
-      </View>
+      <Screen>
+        <View style={styles.loading}>
+          <ActivityIndicator
+            size="large"
+            color={colors.primary}
+          />
+        </View>
+      </Screen>
     );
   }
 
   return (
-    <View
-      style={[
-        styles.container,
-        {backgroundColor: colors.background},
-      ]}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
-        <Text
-          style={[
-            styles.title,
-            {color: colors.text},
-          ]}>
-          Select your skills
-        </Text>
+    <Screen scroll>
+      <Text
+        style={[
+          styles.title,
+          {color: colors.text},
+        ]}>
+        Select your skills
+      </Text>
 
-        <Text
-          style={[
-            styles.subtitle,
-            {color: colors.textSecondary},
-          ]}>
-          Choose the skills you can provide to
-          clients.
-        </Text>
+      <Text
+        style={[
+          styles.subtitle,
+          {color: colors.textSecondary},
+        ]}>
+        Choose the skills you can provide to
+        clients.
+      </Text>
 
-        {skills.length === 0 ? (
-          <View
+      {skills.length === 0 ? (
+        <View
+          style={[
+            styles.empty,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            },
+          ]}>
+          <Text
             style={[
-              styles.empty,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              },
+              styles.emptyText,
+              {color: colors.textSecondary},
             ]}>
-            <Text
-              style={[
-                styles.emptyText,
-                {color: colors.textSecondary},
-              ]}>
-              Select a work category first to see
-              available skills.
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.skills}>
-            {skills.map(skill => {
-              const selected =
-                selectedSkillIds.includes(skill.id);
+            Select a work category first to see
+            available skills.
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.skills}>
+          {skills.map(skill => {
+            const selected =
+              selectedSkillIds.includes(skill.id);
 
-              return (
-                <Pressable
-                  key={skill.id}
-                  onPress={() =>
-                    toggleSkill(skill.id)
-                  }
+            return (
+              <Pressable
+                key={skill.id}
+                onPress={() =>
+                  toggleSkill(skill.id)
+                }
+                style={[
+                  styles.skill,
+                  {
+                    backgroundColor: selected
+                      ? colors.primary
+                      : colors.surface,
+                    borderColor: selected
+                      ? colors.primary
+                      : colors.border,
+                  },
+                ]}>
+                <Text
                   style={[
-                    styles.skill,
-                    {
-                      backgroundColor: selected
-                        ? colors.primary
-                        : colors.surface,
-                      borderColor: selected
-                        ? colors.primary
-                        : colors.border,
-                    },
+                    styles.skillText,
+                    {color: colors.text},
                   ]}>
+                  {skill.name}
+                </Text>
+
+                {selected ? (
                   <Text
                     style={[
-                      styles.skillText,
-                      {
-                        color: selected
-                          ? colors.text
-                          : colors.text,
-                      },
+                      styles.selectedMark,
+                      {color: colors.text},
                     ]}>
-                    {skill.name}
+                    ✓
                   </Text>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
 
-                  {selected ? (
-                    <Text
-                      style={[
-                        styles.selectedMark,
-                        {color: colors.text},
-                      ]}>
-                      ✓
-                    </Text>
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
-
-        <Button
-          title="Save & Continue"
-          onPress={handleContinue}
-          loading={saving}
-          disabled={skills.length === 0}
-        />
-      </ScrollView>
-    </View>
+      <Button
+        title="Save & Continue"
+        onPress={handleContinue}
+        loading={saving}
+        disabled={skills.length === 0}
+      />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-
   loading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  content: {
-    padding: spacing.xl,
-    paddingBottom: spacing.xxxl,
   },
 
   title: {

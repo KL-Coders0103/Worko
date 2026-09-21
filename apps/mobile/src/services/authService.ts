@@ -1,15 +1,22 @@
-import { api } from "./api";
-import { clearTokens, getTokens, saveTokens } from "./authStorage";
+import {api} from './api';
+
+import {
+  clearTokens,
+  getTokens,
+  saveTokens,
+} from './authStorage';
 
 export type RegisterPayload = {
   firstName: string;
   lastName?: string;
   email: string;
   phoneNumber: string;
+  role: 'CLIENT' | 'WORKER';
 };
 
 export type RegisterResponse = {
   message: string;
+
   user: {
     id: string;
     firstName: string | null;
@@ -46,10 +53,11 @@ export type CurrentUserResponse = {
 export async function registerUser(
   payload: RegisterPayload,
 ): Promise<RegisterResponse> {
-  const response = await api.post<RegisterResponse>(
-    '/auth/register',
-    payload,
-  );
+  const response =
+    await api.post<RegisterResponse>(
+      '/auth/register',
+      payload,
+    );
 
   return response.data;
 }
@@ -57,10 +65,11 @@ export async function registerUser(
 export async function verifyOtp(
   payload: VerifyOtpPayload,
 ): Promise<VerifyOtpResponse> {
-  const response = await api.post<VerifyOtpResponse>(
-    '/auth/verify-otp',
-    payload,
-  );
+  const response =
+    await api.post<VerifyOtpResponse>(
+      '/auth/verify-otp',
+      payload,
+    );
 
   await saveTokens(response.data.tokens);
 
@@ -71,12 +80,17 @@ export async function refreshAccessToken(): Promise<string> {
   const tokens = await getTokens();
 
   if (!tokens?.refreshToken) {
-    throw new Error('No refresh token available');
+    throw new Error(
+      'No refresh token available',
+    );
   }
 
-  const response = await api.post('/auth/refresh', {
-    refreshToken: tokens.refreshToken,
-  });
+  const response = await api.post(
+    '/auth/refresh',
+    {
+      refreshToken: tokens.refreshToken,
+    },
+  );
 
   await saveTokens(response.data.tokens);
 

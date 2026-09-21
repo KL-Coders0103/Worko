@@ -29,6 +29,10 @@ import {
 } from '../features/home/screens/ClientHomeScreen';
 
 import {
+  WorkerProfileScreen,
+} from '../features/worker/screens/WorkerProfileScreen';
+
+import {
   TabIcon,
 } from '../components/TabIcon';
 
@@ -40,100 +44,55 @@ type AppTabParamList = {
   Profile: undefined;
 };
 
-const Tab =
-  createBottomTabNavigator<AppTabParamList>();
+const Tab = createBottomTabNavigator<AppTabParamList>();
 
-function HomeTabIcon({
-  focused,
-}: {
-  focused: boolean;
-}) {
+function HomeTabIcon({focused}: {focused: boolean}) {
   return (
     <TabIcon
-      name={
-        focused
-          ? 'home'
-          : 'home-outline'
-      }
+      name={focused ? 'home' : 'home-outline'}
       focused={focused}
     />
   );
 }
 
-function DiscoverTabIcon({
-  focused,
-}: {
-  focused: boolean;
-}) {
+function DiscoverTabIcon({focused}: {focused: boolean}) {
   return (
     <TabIcon
-      name={
-        focused
-          ? 'search'
-          : 'search-outline'
-      }
+      name={focused ? 'search' : 'search-outline'}
       focused={focused}
     />
   );
 }
 
-function ReelsTabIcon({
-  focused,
-}: {
-  focused: boolean;
-}) {
+function ReelsTabIcon({focused}: {focused: boolean}) {
   return (
     <TabIcon
-      name={
-        focused
-          ? 'play-circle'
-          : 'play-circle-outline'
-      }
+      name={focused ? 'play-circle' : 'play-circle-outline'}
       focused={focused}
     />
   );
 }
 
-function BookingsTabIcon({
-  focused,
-}: {
-  focused: boolean;
-}) {
+function BookingsTabIcon({focused}: {focused: boolean}) {
   return (
     <TabIcon
-      name={
-        focused
-          ? 'briefcase'
-          : 'briefcase-outline'
-      }
+      name={focused ? 'briefcase' : 'briefcase-outline'}
       focused={focused}
     />
   );
 }
 
-function ProfileTabIcon({
-  focused,
-}: {
-  focused: boolean;
-}) {
+function ProfileTabIcon({focused}: {focused: boolean}) {
   return (
     <TabIcon
-      name={
-        focused
-          ? 'person'
-          : 'person-outline'
-      }
+      name={focused ? 'person' : 'person-outline'}
       focused={focused}
     />
   );
 }
 
-function PlaceholderScreen({
-  title,
-}: {
-  title: string;
-}) {
-  const { colors } = useTheme();
+function PlaceholderScreen({title}: {title: string}) {
+  const {colors} = useTheme();
 
   return (
     <View
@@ -142,16 +101,14 @@ function PlaceholderScreen({
         {
           backgroundColor: colors.background,
         },
-      ]}
-    >
+      ]}>
       <Text
         style={[
           styles.title,
           {
             color: colors.text,
           },
-        ]}
-      >
+        ]}>
         {title}
       </Text>
     </View>
@@ -170,12 +127,12 @@ function BookingsScreen() {
   return <PlaceholderScreen title="Bookings" />;
 }
 
-function ProfileScreen() {
+function ClientProfileScreen() {
   return <PlaceholderScreen title="Profile" />;
 }
 
 function HomeScreen() {
-  const { user } = useAuth();
+  const {user} = useAuth();
 
   if (user?.role === 'WORKER') {
     return <WorkerHomeScreen />;
@@ -185,25 +142,32 @@ function HomeScreen() {
     return <ClientHomeScreen />;
   }
 
-  return (
-    <PlaceholderScreen title="Worko" />
-  );
+  return <PlaceholderScreen title="Worko" />;
+}
+
+function ProfileScreen() {
+  const {user} = useAuth();
+
+  if (user?.role === 'WORKER') {
+    return <WorkerProfileScreen />;
+  }
+
+  if (user?.role === 'CLIENT') {
+    return <ClientProfileScreen />;
+  }
+
+  return <PlaceholderScreen title="Profile" />;
 }
 
 export function AppTabNavigator() {
-  const { colors } = useTheme();
+  const {colors} = useTheme();
 
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-
-        tabBarActiveTintColor:
-          colors.primary,
-
-        tabBarInactiveTintColor:
-          colors.textSecondary,
-
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
@@ -211,13 +175,11 @@ export function AppTabNavigator() {
           paddingTop: spacing.sm,
           paddingBottom: spacing.sm,
         },
-
         tabBarLabelStyle: {
           ...typography.small,
           marginBottom: spacing.xs,
         },
-      }}
-    >
+      }}>
       <Tab.Screen
         name="Home"
         component={HomeScreen}

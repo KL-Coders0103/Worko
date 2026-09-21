@@ -5,11 +5,18 @@ import {
 } from '@react-navigation/native-stack';
 
 import {AppTabNavigator} from './AppTabNavigator';
-import {WorkerOnboardingNavigator} from './WorkerOnboardingNavigator';
+
+import {
+  WorkerOnboardingNavigator,
+  WorkerOnboardingParamList,
+} from './WorkerOnboardingNavigator';
 
 export type AppStackParamList = {
   Main: undefined;
-  WorkerOnboarding: undefined;
+
+  WorkerOnboarding: {
+    initialRouteName?: keyof WorkerOnboardingParamList;
+  };
 };
 
 const Stack =
@@ -21,15 +28,23 @@ export function AppNavigator() {
       screenOptions={{
         headerShown: false,
       }}>
+      
       <Stack.Screen
         name="Main"
         component={AppTabNavigator}
       />
 
-      <Stack.Screen
-        name="WorkerOnboarding"
-        component={WorkerOnboardingNavigator}
-      />
+      <Stack.Screen name="WorkerOnboarding">
+        {({route}) => (
+          <WorkerOnboardingNavigator
+            initialRouteName={
+              route.params?.initialRouteName ??
+              'WorkerProfile'
+            }
+          />
+        )}
+      </Stack.Screen>
+
     </Stack.Navigator>
   );
 }

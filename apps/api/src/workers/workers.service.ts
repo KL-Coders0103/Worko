@@ -141,9 +141,9 @@ export class WorkersService {
       throw new NotFoundException('Worker profile not found');
     }
 
-    if (worker.status !== 'DRAFT' && worker.status !== 'REJECTED') {
+    if (worker.status !== 'DRAFT' && worker.status !== 'REJECTED' && worker.status !== 'VERIFIED') {
       throw new BadRequestException(
-        'Worker profile can only be edited while in DRAFT or REJECTED status',
+        'Worker profile can only be edited while in DRAFT ,REJECTED or VERIFIED status',
       );
     }
 
@@ -673,10 +673,11 @@ async uploadProfilePhoto(
 
   if (
     worker.status !== 'DRAFT' &&
-    worker.status !== 'REJECTED'
+    worker.status !== 'REJECTED' &&
+    worker.status !== 'VERIFIED'
   ) {
     throw new BadRequestException(
-      'Profile photo can only be uploaded while completing the worker profile',
+      'Profile photo can only be uploaded while completing or editing the worker profile',
     );
   }
 

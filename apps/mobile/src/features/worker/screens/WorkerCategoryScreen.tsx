@@ -4,13 +4,13 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
 import {Button} from '../../../components/Button';
+import {Screen} from '../../../components/Screen';
 
 import {
   spacing,
@@ -23,12 +23,18 @@ import {
   getMyWorkerProfile,
   updateWorkerCategories,
 } from '../worker.api';
+import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
+import type {WorkerOnboardingParamList} from '../../../navigation/WorkerOnboardingNavigator';
 import type {WorkerCategory} from '../worker.type';
 
 export function WorkerCategoryScreen() {
   const {colors} = useTheme();
-
+  const navigation =
+    useNavigation<
+      NativeStackNavigationProp<WorkerOnboardingParamList>
+    >();
   const [categories, setCategories] =
     useState<WorkerCategory[]>([]);
 
@@ -97,6 +103,8 @@ export function WorkerCategoryScreen() {
         selectedCategoryIds,
       );
 
+      navigation.navigate('WorkerSkills');
+
       Alert.alert(
         'Categories saved',
         'Your work categories have been updated.',
@@ -109,8 +117,7 @@ export function WorkerCategoryScreen() {
         'Unable to save',
         Array.isArray(message)
           ? message.join('\n')
-          : message ||
-              'Please try again.',
+          : message || 'Please try again.',
       );
     } finally {
       setSaving(false);
@@ -119,45 +126,56 @@ export function WorkerCategoryScreen() {
 
   if (loading) {
     return (
-      <View
-        style={[
-          styles.loading,
-          {backgroundColor: colors.background},
-        ]}>
-        <ActivityIndicator
-          size="large"
-          color={colors.primary}
-        />
-      </View>
+      <Screen>
+        <View style={styles.loading}>
+          <ActivityIndicator
+            size="large"
+            color={colors.primary}
+          />
+        </View>
+      </Screen>
     );
   }
 
   return (
-    <View
-      style={[
-        styles.container,
-        {backgroundColor: colors.background},
-      ]}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
-        <Text
-          style={[
-            styles.title,
-            {color: colors.text},
-          ]}>
-          What kind of work do you do?
-        </Text>
+    <Screen scroll>
+      <Text
+        style={[
+          styles.title,
+          {color: colors.text},
+        ]}>
+        What kind of work do you do?
+      </Text>
 
-        <Text
-          style={[
-            styles.subtitle,
-            {color: colors.textSecondary},
-          ]}>
-          Select all categories that match your
-          experience.
-        </Text>
+      <Text
+        style={[
+          styles.subtitle,
+          {color: colors.textSecondary},
+        ]}>
+        Select all categories that match your
+        experience.
+      </Text>
 
+      {categories.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text
+            style={[
+              styles.emptyTitle,
+              {color: colors.text},
+            ]}>
+            No work categories available
+          </Text>
+
+          <Text
+            style={[
+              styles.emptySubtitle,
+              {color: colors.textSecondary},
+            ]}>
+            Categories are currently unavailable.
+            Please try again.
+          </Text>
+        </View>
+      ) : (
         <View style={styles.list}>
           {categories.map(category => {
             const selected =
@@ -186,11 +204,7 @@ export function WorkerCategoryScreen() {
                   <Text
                     style={[
                       styles.categoryName,
-                      {
-                        color: selected
-                          ? colors.text
-                          : colors.text,
-                      },
+                      {color: colors.text},
                     ]}>
                     {category.name}
                   </Text>
@@ -238,31 +252,22 @@ export function WorkerCategoryScreen() {
             );
           })}
         </View>
+      )}
 
-        <Button
-          title="Save & Continue"
-          onPress={handleContinue}
-          loading={saving}
-        />
-      </ScrollView>
-    </View>
+      <Button
+        title="Save & Continue"
+        onPress={handleContinue}
+        loading={saving}
+      />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-
   loading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  content: {
-    padding: spacing.xl,
-    paddingBottom: spacing.xxxl,
   },
 
   title: {
@@ -278,6 +283,22 @@ const styles = StyleSheet.create({
   list: {
     gap: spacing.md,
     marginBottom: spacing.xl,
+  },
+
+  emptyState: {
+    paddingVertical: spacing.xxxl,
+    alignItems: 'center',
+  },
+
+  emptyTitle: {
+    ...typography.h3,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+
+  emptySubtitle: {
+    ...typography.body,
+    textAlign: 'center',
   },
 
   card: {

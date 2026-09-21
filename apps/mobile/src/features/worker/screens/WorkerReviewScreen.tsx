@@ -3,7 +3,6 @@ import React, {useCallback, useEffect, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -21,6 +20,7 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
 import type {WorkerOnboardingParamList} from '../../../navigation/WorkerOnboardingNavigator';
 import type {WorkerProfile} from '../worker.type';
+import { Screen } from '../../../components/Screen';
 
 export function WorkerReviewScreen() {
   const {colors} = useTheme();
@@ -92,27 +92,22 @@ export function WorkerReviewScreen() {
   };
 
   if (loading) {
-    return (
-      <View
-        style={[
-          styles.loading,
-          {backgroundColor: colors.background},
-        ]}>
+  return (
+    <Screen>
+      <View style={styles.loading}>
         <ActivityIndicator
           size="large"
           color={colors.primary}
         />
       </View>
-    );
-  }
+    </Screen>
+  );
+}
 
   if (!worker) {
-    return (
-      <View
-        style={[
-          styles.loading,
-          {backgroundColor: colors.background},
-        ]}>
+  return (
+    <Screen>
+      <View style={styles.loading}>
         <Text
           style={[
             styles.errorText,
@@ -127,259 +122,260 @@ export function WorkerReviewScreen() {
           style={styles.retry}
         />
       </View>
-    );
-  }
+    </Screen>
+  );
+}
 
-  const categories = worker.categories
-    .map(item => item.category.name)
+  const categories = (worker.categories ?? [])
+    .map(item => item.category?.name)
+    .filter(Boolean)
     .join(', ');
 
-  const skills = worker.skills
-    .map(item => item.skill.name)
+  const skills = (worker.skills ?? [])
+    .map(item => item.skill?.name)
+    .filter(Boolean)
     .join(', ');
 
   const hasRate =
-    worker.expectedHourlyRate !== null &&
-    worker.expectedHourlyRate !== undefined ||
-    worker.expectedDailyRate !== null &&
-    worker.expectedDailyRate !== undefined;
+    (worker.expectedHourlyRate !== null &&
+    worker.expectedHourlyRate !== undefined) ||
+    (worker.expectedDailyRate !== null &&
+    worker.expectedDailyRate !== undefined);
 
   const canSubmit =
     worker.status === 'DRAFT' ||
     worker.status === 'REJECTED';
 
   return (
+  <Screen scroll>
+    <Text
+      style={[
+        styles.title,
+        {color: colors.text},
+      ]}>
+      Review Your Profile
+    </Text>
+
+    <Text
+      style={[
+        styles.subtitle,
+        {color: colors.textSecondary},
+      ]}>
+      Check your information before submitting
+      your profile for verification.
+    </Text>
+
     <View
       style={[
-        styles.container,
-        {backgroundColor: colors.background},
+        styles.section,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
       ]}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
+      <Text
+        style={[
+          styles.sectionTitle,
+          {color: colors.text},
+        ]}>
+        Work Information
+      </Text>
+
+      <InfoRow
+        label="About"
+        value={worker.bio || 'Not provided'}
+      />
+
+      <InfoRow
+        label="Experience"
+        value={
+          worker.experienceYears !== null &&
+          worker.experienceYears !== undefined
+            ? `${worker.experienceYears} years`
+            : 'Not provided'
+        }
+      />
+
+      <InfoRow
+        label="Hourly Rate"
+        value={
+          worker.expectedHourlyRate !== null &&
+          worker.expectedHourlyRate !== undefined
+            ? `₹${worker.expectedHourlyRate}`
+            : 'Not provided'
+        }
+      />
+
+      <InfoRow
+        label="Daily Rate"
+        value={
+          worker.expectedDailyRate !== null &&
+          worker.expectedDailyRate !== undefined
+            ? `₹${worker.expectedDailyRate}`
+            : 'Not provided'
+        }
+      />
+
+      <InfoRow
+        label="Availability"
+        value={
+          worker.isAvailable
+            ? 'Available'
+            : 'Not currently available'
+        }
+      />
+    </View>
+
+    <View
+      style={[
+        styles.section,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
+      ]}>
+      <Text
+        style={[
+          styles.sectionTitle,
+          {color: colors.text},
+        ]}>
+        Categories & Skills
+      </Text>
+
+      <InfoRow
+        label="Categories"
+        value={
+          categories || 'Not selected'
+        }
+      />
+
+      <InfoRow
+        label="Skills"
+        value={
+          skills || 'Not selected'
+        }
+      />
+    </View>
+
+    <View
+      style={[
+        styles.section,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
+      ]}>
+      <Text
+        style={[
+          styles.sectionTitle,
+          {color: colors.text},
+        ]}>
+        Profile Requirements
+      </Text>
+
+      <RequirementRow
+        label="Profile photo"
+        completed={Boolean(
+          worker.profilePhotoKey,
+        )}
+      />
+
+      <RequirementRow
+        label="Experience"
+        completed={
+          worker.experienceYears !== null &&
+          worker.experienceYears !== undefined
+        }
+      />
+
+      <RequirementRow
+        label="Rate"
+        completed={hasRate}
+      />
+
+      <RequirementRow
+        label="Categories"
+        completed={
+          (worker.categories ?? []).length > 0
+        }
+      />
+
+      <RequirementRow
+        label="Skills"
+        completed={
+          (worker.skills ?? []).length > 0
+        }
+      />
+    </View>
+
+    {worker.status === 'REJECTED' ? (
+      <View
+        style={[
+          styles.warning,
+          {
+            backgroundColor:
+              colors.surfaceSecondary,
+            borderColor: colors.border,
+          },
+        ]}>
         <Text
           style={[
-            styles.title,
+            styles.warningTitle,
             {color: colors.text},
           ]}>
-          Review Your Profile
+          Profile needs resubmission
         </Text>
 
         <Text
           style={[
-            styles.subtitle,
+            styles.warningText,
             {color: colors.textSecondary},
           ]}>
-          Check your information before submitting
-          your profile for verification.
+          Update the required information and
+          submit your profile again.
+        </Text>
+      </View>
+    ) : null}
+
+    {worker.status === 'PENDING_KYC' ||
+    worker.status === 'KYC_SUBMITTED' ||
+    worker.status === 'UNDER_REVIEW' ||
+    worker.status === 'VERIFIED' ? (
+      <View
+        style={[
+          styles.statusCard,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+          },
+        ]}>
+        <Text
+          style={[
+            styles.statusTitle,
+            {color: colors.text},
+          ]}>
+          Current Status
         </Text>
 
-        <View
+        <Text
           style={[
-            styles.section,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-            },
+            styles.statusValue,
+            {color: colors.primary},
           ]}>
-          <Text
-            style={[
-              styles.sectionTitle,
-              {color: colors.text},
-            ]}>
-            Work Information
-          </Text>
+          {worker.status.replaceAll('_', ' ')}
+        </Text>
+      </View>
+    ) : null}
 
-          <InfoRow
-            label="About"
-            value={worker.bio || 'Not provided'}
-          />
-
-          <InfoRow
-            label="Experience"
-            value={
-              worker.experienceYears !== null &&
-              worker.experienceYears !== undefined
-                ? `${worker.experienceYears} years`
-                : 'Not provided'
-            }
-          />
-
-          <InfoRow
-            label="Hourly Rate"
-            value={
-              worker.expectedHourlyRate !== null &&
-              worker.expectedHourlyRate !== undefined
-                ? `₹${worker.expectedHourlyRate}`
-                : 'Not provided'
-            }
-          />
-
-          <InfoRow
-            label="Daily Rate"
-            value={
-              worker.expectedDailyRate !== null &&
-              worker.expectedDailyRate !== undefined
-                ? `₹${worker.expectedDailyRate}`
-                : 'Not provided'
-            }
-          />
-
-          <InfoRow
-            label="Availability"
-            value={
-              worker.isAvailable
-                ? 'Available'
-                : 'Not currently available'
-            }
-          />
-        </View>
-
-        <View
-          style={[
-            styles.section,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-            },
-          ]}>
-          <Text
-            style={[
-              styles.sectionTitle,
-              {color: colors.text},
-            ]}>
-            Categories & Skills
-          </Text>
-
-          <InfoRow
-            label="Categories"
-            value={
-              categories || 'Not selected'
-            }
-          />
-
-          <InfoRow
-            label="Skills"
-            value={skills || 'Not selected'}
-          />
-        </View>
-
-        <View
-          style={[
-            styles.section,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-            },
-          ]}>
-          <Text
-            style={[
-              styles.sectionTitle,
-              {color: colors.text},
-            ]}>
-            Profile Requirements
-          </Text>
-
-          <RequirementRow
-            label="Profile photo"
-            completed={Boolean(
-              worker.profilePhotoKey,
-            )}
-          />
-
-          <RequirementRow
-            label="Experience"
-            completed={
-              worker.experienceYears !== null &&
-              worker.experienceYears !== undefined
-            }
-          />
-
-          <RequirementRow
-            label="Rate"
-            completed={hasRate}
-          />
-
-          <RequirementRow
-            label="Categories"
-            completed={worker.categories.length > 0}
-          />
-
-          <RequirementRow
-            label="Skills"
-            completed={worker.skills.length > 0}
-          />
-        </View>
-
-        {worker.status === 'REJECTED' ? (
-          <View
-            style={[
-              styles.warning,
-              {
-                backgroundColor:
-                  colors.surfaceSecondary,
-                borderColor: colors.border,
-              },
-            ]}>
-            <Text
-              style={[
-                styles.warningTitle,
-                {color: colors.text},
-              ]}>
-              Profile needs resubmission
-            </Text>
-
-            <Text
-              style={[
-                styles.warningText,
-                {color: colors.textSecondary},
-              ]}>
-              Update the required information and
-              submit your profile again.
-            </Text>
-          </View>
-        ) : null}
-
-        {worker.status === 'PENDING_KYC' ||
-        worker.status === 'KYC_SUBMITTED' ||
-        worker.status === 'UNDER_REVIEW' ||
-        worker.status === 'VERIFIED' ? (
-          <View
-            style={[
-              styles.statusCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              },
-            ]}>
-            <Text
-              style={[
-                styles.statusTitle,
-                {color: colors.text},
-              ]}>
-              Current Status
-            </Text>
-
-            <Text
-              style={[
-                styles.statusValue,
-                {color: colors.primary},
-              ]}>
-              {worker.status.replaceAll('_', ' ')}
-            </Text>
-          </View>
-        ) : null}
-
-        {canSubmit ? (
-          <Button
-            title="Submit for KYC"
-            onPress={handleSubmit}
-            loading={submitting}
-          />
-        ) : null}
-      </ScrollView>
-    </View>
-  );
+    {canSubmit ? (
+      <Button
+        title="Submit for KYC"
+        onPress={handleSubmit}
+        loading={submitting}
+      />
+    ) : null}
+  </Screen>
+);
 }
 
 function InfoRow({
@@ -447,20 +443,11 @@ function RequirementRow({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-
   loading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xl,
-  },
-
-  content: {
-    padding: spacing.xl,
-    paddingBottom: spacing.xxxl,
   },
 
   title: {

@@ -6,9 +6,10 @@ import {
   View,
 } from 'react-native';
 
-import { useAuth } from '../../../context/AuthContext';
-import { HomeHeader } from '../components/HomeHeader';
-import { QuickActionCard } from '../components/QuickActionCard';
+import {useAuth} from '../../../context/AuthContext';
+
+import {HomeHeader} from '../components/HomeHeader';
+import {QuickActionCard} from '../components/QuickActionCard';
 
 import {
   spacing,
@@ -16,10 +17,10 @@ import {
   useTheme,
 } from '../../../theme';
 
-import { Screen } from '../../../components/Screen';
-import { Section } from '../../../components/Section';
-import { Card } from '../../../components/Card';
-import { EmptyState } from '../../../components/EmptyState';
+import {Screen} from '../../../components/Screen';
+import {Section} from '../../../components/Section';
+import {Card} from '../../../components/Card';
+import {EmptyState} from '../../../components/EmptyState';
 
 const categories = [
   'Industrial',
@@ -29,8 +30,8 @@ const categories = [
 ];
 
 export function ClientHomeScreen() {
-  const { colors } = useTheme();
-  const { user } = useAuth();
+  const {colors} = useTheme();
+  const {user} = useAuth();
 
   if (!user) {
     return null;
@@ -73,16 +74,12 @@ export function ClientHomeScreen() {
             <Card
               key={category}
               onPress={() => {}}
-              style={styles.categoryCard}
-            >
+              style={styles.categoryCard}>
               <Text
                 style={[
                   styles.categoryText,
-                  {
-                    color: colors.text,
-                  },
-                ]}
-              >
+                  {color: colors.text},
+                ]}>
                 {category}
               </Text>
             </Card>
@@ -93,8 +90,7 @@ export function ClientHomeScreen() {
       <Section
         title="Nearby Workers"
         actionLabel="View all"
-        onActionPress={() => {}}
-      >
+        onActionPress={() => {}}>
         <Card>
           <EmptyState
             icon="people-outline"
@@ -117,8 +113,7 @@ export function ClientHomeScreen() {
       <Section
         title="Bookings"
         actionLabel="View all"
-        onActionPress={() => {}}
-      >
+        onActionPress={() => {}}>
         <Card>
           <EmptyState
             icon="calendar-outline"

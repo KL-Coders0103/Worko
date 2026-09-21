@@ -1,26 +1,40 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useState} from 'react';
 
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
   View,
   Image,
 } from 'react-native';
+
 import {
   launchImageLibrary,
 } from 'react-native-image-picker';
+
 import {useAuth} from '../../../context/AuthContext';
+import {
+  useNavigation,
+  useFocusEffect,
+} from '@react-navigation/native';
+
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+
+import type {WorkerOnboardingParamList} from '../../../navigation/WorkerOnboardingNavigator';
 
 import {Button} from '../../../components/Button';
 import {Input} from '../../../components/Input';
+import {Screen} from '../../../components/Screen';
 
-import {spacing, typography, useTheme} from '../../../theme';
+import {
+  spacing,
+  typography,
+  useTheme,
+} from '../../../theme';
 
 import {
   createWorkerProfile,
@@ -34,8 +48,14 @@ import type {WorkerProfile} from '../worker.type';
 export function WorkerProfileScreen() {
   const {colors} = useTheme();
   const {user} = useAuth();
+
   const [worker, setWorker] =
     useState<WorkerProfile | null>(null);
+
+  const navigation =
+    useNavigation<
+      NativeStackNavigationProp<WorkerOnboardingParamList>
+    >();
 
   const [bio, setBio] = useState('');
   const [experienceYears, setExperienceYears] =
@@ -46,6 +66,7 @@ export function WorkerProfileScreen() {
     useState('');
   const [isAvailable, setIsAvailable] =
     useState(true);
+
   const [profilePhotoUri, setProfilePhotoUri] =
     useState<string | null>(null);
 
@@ -54,8 +75,12 @@ export function WorkerProfileScreen() {
 
   const [uploadingPhoto, setUploadingPhoto] =
     useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [saving, setSaving] =
+    useState(false);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -66,24 +91,27 @@ export function WorkerProfileScreen() {
 
       setWorker(profile);
       setBio(profile.bio ?? '');
+
       setExperienceYears(
         profile.experienceYears?.toString() ?? '',
       );
+
       setHourlyRate(
         profile.expectedHourlyRate?.toString() ?? '',
       );
+
       setDailyRate(
         profile.expectedDailyRate?.toString() ?? '',
       );
+
       setIsAvailable(profile.isAvailable);
-      setProfilePhotoKey(profile.profilePhotoKey ?? null);
+
+      setProfilePhotoKey(
+        profile.profilePhotoKey ?? null,
+      );
     } catch (error: any) {
       const status = error?.response?.status;
 
-      /*
-       * A newly registered worker may not have
-       * a Worker profile yet.
-       */
       if (status !== 404) {
         Alert.alert(
           'Unable to load profile',
@@ -95,91 +123,95 @@ export function WorkerProfileScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    void loadProfile();
-  }, [loadProfile]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadProfile();
+    }, [loadProfile]),
+  );
 
   const handlePickProfilePhoto = async () => {
-  try {
-    const result = await launchImageLibrary({
-      mediaType: 'photo',
-      selectionLimit: 1,
-      quality: 0.8,
-    });
+    try {
+      const result =
+        await launchImageLibrary({
+          mediaType: 'photo',
+          selectionLimit: 1,
+          quality: 0.8,
+        });
 
-    if (result.didCancel) {
-      return;
-    }
+      if (result.didCancel) {
+        return;
+      }
 
-    if (result.errorCode) {
+      if (result.errorCode) {
+        Alert.alert(
+          'Unable to select photo',
+          result.errorMessage ||
+            'Please try again.',
+        );
+        return;
+      }
+
+      const asset = result.assets?.[0];
+
+      if (!asset?.uri) {
+        Alert.alert(
+          'Photo required',
+          'Please select a valid profile photo.',
+        );
+        return;
+      }
+
+      if (
+        asset.fileSize !== undefined &&
+        asset.fileSize > 5 * 1024 * 1024
+      ) {
+        Alert.alert(
+          'Photo too large',
+          'Please select an image smaller than 5 MB.',
+        );
+        return;
+      }
+
+      const fileName =
+        asset.fileName ||
+        `profile-${Date.now()}.jpg`;
+
+      const fileType =
+        asset.type || 'image/jpeg';
+
+      setProfilePhotoUri(asset.uri);
+      setUploadingPhoto(true);
+
+      const uploadedKey =
+        await uploadWorkerProfilePhoto({
+          uri: asset.uri,
+          name: fileName,
+          type: fileType,
+        });
+
+      setProfilePhotoKey(uploadedKey);
+
       Alert.alert(
-        'Unable to select photo',
-        result.errorMessage ||
-          'Please try again.',
+        'Photo uploaded',
+        'Your profile photo has been uploaded successfully.',
       );
-      return;
-    }
+    } catch (error: any) {
+      setProfilePhotoUri(null);
 
-    const asset = result.assets?.[0];
+      const message =
+        error?.response?.data?.message;
 
-    if (!asset?.uri) {
       Alert.alert(
-        'Photo required',
-        'Please select a valid profile photo.',
+        'Upload failed',
+        Array.isArray(message)
+          ? message.join('\n')
+          : message ||
+              'Unable to upload profile photo. Please try again.',
       );
-      return;
+    } finally {
+      setUploadingPhoto(false);
     }
-
-    if (
-      asset.fileSize !== undefined &&
-      asset.fileSize > 5 * 1024 * 1024
-    ) {
-      Alert.alert(
-        'Photo too large',
-        'Please select an image smaller than 5 MB.',
-      );
-      return;
-    }
-
-    const fileName =
-      asset.fileName || `profile-${Date.now()}.jpg`;
-
-    const fileType =
-      asset.type || 'image/jpeg';
-
-    setProfilePhotoUri(asset.uri);
-    setUploadingPhoto(true);
-
-    const uploadedKey =
-      await uploadWorkerProfilePhoto({
-        uri: asset.uri,
-        name: fileName,
-        type: fileType,
-      });
-
-    setProfilePhotoKey(uploadedKey);
-
-    Alert.alert(
-      'Photo uploaded',
-      'Your profile photo has been uploaded successfully.',
-    );
-  } catch (error: any) {
-    setProfilePhotoUri(null);
-
-    const message =
-      error?.response?.data?.message;
-
-    Alert.alert(
-      'Upload failed',
-      Array.isArray(message)
-        ? message.join('\n')
-        : message ||
-            'Unable to upload profile photo. Please try again.',
-    );
-  } finally {
-    setUploadingPhoto(false);
-  }
-};
+  };
 
   const handleSave = async () => {
     if (!user || user.role !== 'WORKER') {
@@ -259,11 +291,8 @@ export function WorkerProfileScreen() {
             : bio.trim(),
 
         experienceYears: parsedExperience,
-
         expectedHourlyRate: parsedHourly,
-
         expectedDailyRate: parsedDaily,
-
         isAvailable,
       };
 
@@ -274,10 +303,15 @@ export function WorkerProfileScreen() {
 
       setWorker(updated);
 
-      Alert.alert(
-        'Profile saved',
-        'Your worker profile has been saved.',
-      );
+      if (worker?.status === 'VERIFIED') {
+        Alert.alert(
+          'Profile updated',
+          'Your profile has been updated successfully.',
+        );
+        return;
+      }
+
+      navigation.navigate('WorkerCategory');
     } catch (error: any) {
       const message =
         error?.response?.data?.message;
@@ -296,16 +330,14 @@ export function WorkerProfileScreen() {
 
   if (loading) {
     return (
-      <View
-        style={[
-          styles.loading,
-          {backgroundColor: colors.background},
-        ]}>
-        <ActivityIndicator
-          size="large"
-          color={colors.primary}
-        />
-      </View>
+      <Screen>
+        <View style={styles.loading}>
+          <ActivityIndicator
+            size="large"
+            color={colors.primary}
+          />
+        </View>
+      </Screen>
     );
   }
 
@@ -313,27 +345,23 @@ export function WorkerProfileScreen() {
   const lastName = user?.lastName ?? '';
 
   return (
-    <KeyboardAvoidingView
-      style={[
-        styles.container,
-        {backgroundColor: colors.background},
-      ]}
-      behavior={
-        Platform.OS === 'ios'
-          ? 'padding'
-          : undefined
-      }>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
+    <Screen scroll>
+      <KeyboardAvoidingView
+        style={styles.keyboardContainer}
+        behavior={
+          Platform.OS === 'ios'
+            ? 'padding'
+            : undefined
+        }>
         <View style={styles.header}>
           <Text
             style={[
               styles.title,
               {color: colors.text},
             ]}>
-            Complete Your Profile
+            {worker?.status === 'VERIFIED'
+              ? 'My Profile'
+              : 'Complete Your Profile'}
           </Text>
 
           <Text
@@ -341,63 +369,70 @@ export function WorkerProfileScreen() {
               styles.subtitle,
               {color: colors.textSecondary},
             ]}>
-            Tell clients a little about your work
-            and experience.
+            {worker?.status === 'VERIFIED'
+              ? 'Update your work details and availability'
+              : 'Tell clients a little about your work and experience.'}
           </Text>
         </View>
 
         <View style={styles.photoSection}>
-  <View
-    style={[
-      styles.photoContainer,
-      {
-        backgroundColor: colors.surface,
-        borderColor: colors.border,
-      },
-    ]}>
-    {profilePhotoUri ? (
-      <Image
-        source={{uri: profilePhotoUri}}
-        style={styles.profilePhoto}
-      />
-    ) : (
-      <View
-        style={[
-          styles.photoPlaceholder,
-          {backgroundColor: colors.background},
-        ]}>
-        <Text
-          style={[
-            styles.photoPlaceholderText,
-            {color: colors.textSecondary},
-          ]}>
-          Photo
-        </Text>
-      </View>
-    )}
-  </View>
+          <View
+            style={[
+              styles.photoContainer,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+            ]}>
+            {profilePhotoUri ? (
+              <Image
+                source={{uri: profilePhotoUri}}
+                style={styles.profilePhoto}
+              />
+            ) : (
+              <View
+                style={[
+                  styles.photoPlaceholder,
+                  {
+                    backgroundColor:
+                      colors.background,
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.photoPlaceholderText,
+                    {
+                      color:
+                        colors.textSecondary,
+                    },
+                  ]}>
+                  Photo
+                </Text>
+              </View>
+            )}
+          </View>
 
-  <Button
-    title={
-      uploadingPhoto
-        ? 'Uploading...'
-        : profilePhotoKey
-          ? 'Change Profile Photo'
-          : 'Add Profile Photo'
-    }
-    onPress={handlePickProfilePhoto}
-    loading={uploadingPhoto}
-  />
+          <Button
+            title={
+              uploadingPhoto
+                ? 'Uploading...'
+                : profilePhotoKey
+                  ? 'Change Profile Photo'
+                  : 'Add Profile Photo'
+            }
+            onPress={handlePickProfilePhoto}
+            loading={uploadingPhoto}
+          />
 
-  <Text
-    style={[
-      styles.photoHint,
-      {color: colors.textSecondary},
-    ]}>
-    Use a clear photo of yourself. JPG, PNG or WEBP,
-    maximum 5 MB.
-  </Text>
-</View>
+          <Text
+            style={[
+              styles.photoHint,
+              {color: colors.textSecondary},
+            ]}>
+            Use a clear photo of yourself. JPG,
+            PNG or WEBP, maximum 5 MB.
+          </Text>
+        </View>
 
         <View
           style={[
@@ -500,7 +535,11 @@ export function WorkerProfileScreen() {
         </View>
 
         <Button
-          title="Save & Continue"
+          title={
+            worker?.status === 'VERIFIED'
+              ? 'Save Changes'
+              : 'Save & Continue'
+          }
           onPress={handleSave}
           loading={saving}
         />
@@ -514,13 +553,13 @@ export function WorkerProfileScreen() {
             Profile status: {worker.status}
           </Text>
         ) : null}
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  keyboardContainer: {
     flex: 1,
   },
 
@@ -528,11 +567,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  content: {
-    padding: spacing.xl,
-    paddingBottom: spacing.xxxl,
   },
 
   header: {
@@ -596,37 +630,37 @@ const styles = StyleSheet.create({
   },
 
   photoSection: {
-  alignItems: 'center',
-  marginBottom: spacing.xl,
-},
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
 
-photoContainer: {
-  width: 120,
-  height: 120,
-  borderRadius: 60,
-  borderWidth: 1,
-  overflow: 'hidden',
-  marginBottom: spacing.md,
-},
+  photoContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
+  },
 
-profilePhoto: {
-  width: '100%',
-  height: '100%',
-},
+  profilePhoto: {
+    width: '100%',
+    height: '100%',
+  },
 
-photoPlaceholder: {
-  flex: 1,
-  alignItems: 'center',
-  justifyContent: 'center',
-},
+  photoPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
-photoPlaceholderText: {
-  ...typography.small,
-},
+  photoPlaceholderText: {
+    ...typography.small,
+  },
 
-photoHint: {
-  ...typography.small,
-  textAlign: 'center',
-  marginTop: spacing.sm,
-},
+  photoHint: {
+    ...typography.small,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
 });

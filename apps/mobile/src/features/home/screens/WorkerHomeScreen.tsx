@@ -1,4 +1,7 @@
-import React from 'react';
+import React, {
+  useCallback,
+  useState,
+} from 'react';
 
 import {
   StyleSheet,
@@ -6,10 +9,8 @@ import {
   View,
 } from 'react-native';
 
-import { useAuth } from '../../../context/AuthContext';
-import { HomeHeader } from '../components/HomeHeader';
-import { QuickActionCard } from '../components/QuickActionCard';
 import {
+  useFocusEffect,
   useNavigation,
 } from '@react-navigation/native';
 
@@ -17,44 +18,139 @@ import type {
   NativeStackNavigationProp,
 } from '@react-navigation/native-stack';
 
-import type {
-  AppStackParamList,
-} from '../../../navigation/AppNavigator';
+import {useAuth} from '../../../context/AuthContext';
+
+import {HomeHeader} from '../components/HomeHeader';
+import {QuickActionCard} from '../components/QuickActionCard';
+
 import {
   spacing,
   typography,
   useTheme,
 } from '../../../theme';
-import { Screen } from '../../../components/Screen';
-import { Section } from '../../../components/Section';
-import { Card } from '../../../components/Card';
-import { EmptyState } from '../../../components/EmptyState';
 
+import {Screen} from '../../../components/Screen';
+import {Section} from '../../../components/Section';
+import {Card} from '../../../components/Card';
+import {EmptyState} from '../../../components/EmptyState';
+
+import type {
+  AppStackParamList,
+} from '../../../navigation/AppNavigator';
+
+import type {
+  WorkerProfile,
+} from '../../worker/worker.type';
+
+import {
+  getMyWorkerProfile,
+} from '../../worker/worker.api';
 
 export function WorkerHomeScreen() {
-  const { colors } = useTheme();
-  const { user } = useAuth();
-  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const {colors} = useTheme();
+  const {user} = useAuth();
+
+  const navigation =
+    useNavigation<
+      NativeStackNavigationProp<AppStackParamList>
+    >();
+
+  const [worker, setWorker] =
+    useState<WorkerProfile | null>(null);
+
+  const [loadingWorker, setLoadingWorker] =
+    useState(true);
+
+  const loadWorkerProfile = useCallback(async () => {
+    try {
+      setLoadingWorker(true);
+
+      const profile =
+        await getMyWorkerProfile();
+
+      setWorker(profile);
+    } catch {
+      setWorker(null);
+    } finally {
+      setLoadingWorker(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadWorkerProfile();
+    }, [loadWorkerProfile]),
+  );
 
   if (!user) {
     return null;
   }
+
+  const getOnboardingRoute = () => {
+    switch (worker?.status) {
+      case 'PENDING_KYC':
+        return 'WorkerKyc';
+
+      case 'KYC_SUBMITTED':
+      case 'UNDER_REVIEW':
+        return 'WorkerKycStatus';
+
+      case 'REJECTED':
+        return 'WorkerProfile';
+
+      case 'DRAFT':
+      default:
+        return 'WorkerProfile';
+    }
+  };
 
   return (
     <Screen scroll>
       <HomeHeader user={user} />
 
       <Section title="Quick Actions">
-        <QuickActionCard
-          icon="person-outline"
-          title="Complete Your Profile"
-          description="Add your work details, skills and location."
-          onPress={() =>
-            navigation.navigate('WorkerOnboarding')
-          }
-        />
+        {!loadingWorker &&
+          worker?.status !== 'VERIFIED' && (
+            <>
+              <QuickActionCard
+                icon={
+                  worker?.status === 'KYC_SUBMITTED' ||
+                  worker?.status === 'UNDER_REVIEW'
+                    ? 'shield-checkmark-outline'
+                    : 'person-outline'
+                }
+                title={
+                  worker?.status === 'KYC_SUBMITTED' ||
+                  worker?.status === 'UNDER_REVIEW'
+                    ? 'Check Verification Status'
+                    : worker?.status === 'PENDING_KYC'
+                      ? 'Complete KYC'
+                      : 'Complete Your Profile'
+                }
+                description={
+                  worker?.status === 'KYC_SUBMITTED' ||
+                  worker?.status === 'UNDER_REVIEW'
+                    ? 'Check the current status of your worker verification.'
+                    : worker?.status === 'PENDING_KYC'
+                      ? 'Submit your Aadhaar and required KYC documents.'
+                      : worker?.status === 'REJECTED'
+                        ? 'Update your profile and resubmit your verification.'
+                        : 'Add your work details, skills and location.'
+                }
+                onPress={() => {
+                  navigation.navigate(
+                    'WorkerOnboarding',
+                    {
+                      initialRouteName:
+                        getOnboardingRoute(),
+                    },
+                  );
+                }}
+              />
 
-        <View style={styles.actionSpacing} />
+              <View style={styles.actionSpacing} />
+            </>
+          )}
 
         <QuickActionCard
           icon="search"
@@ -87,22 +183,16 @@ export function WorkerHomeScreen() {
           <Text
             style={[
               styles.amount,
-              {
-                color: colors.text,
-              },
-            ]}
-          >
+              {color: colors.text},
+            ]}>
             ₹0
           </Text>
 
           <Text
             style={[
               styles.secondaryText,
-              {
-                color: colors.textSecondary,
-              },
-            ]}
-          >
+              {color: colors.textSecondary},
+            ]}>
             Earnings from completed work today
           </Text>
         </Card>
@@ -111,8 +201,7 @@ export function WorkerHomeScreen() {
       <Section
         title="Nearby Jobs"
         actionLabel="View all"
-        onActionPress={() => {}}
-      >
+        onActionPress={() => {}}>
         <Card>
           <EmptyState
             icon="briefcase-outline"
@@ -125,8 +214,7 @@ export function WorkerHomeScreen() {
       <Section
         title="Recommended Jobs"
         actionLabel="View all"
-        onActionPress={() => {}}
-      >
+        onActionPress={() => {}}>
         <Card>
           <EmptyState
             icon="sparkles-outline"
@@ -152,22 +240,16 @@ export function WorkerHomeScreen() {
             <Text
               style={[
                 styles.performanceValue,
-                {
-                  color: colors.text,
-                },
-              ]}
-            >
+                {color: colors.text},
+              ]}>
               0
             </Text>
 
             <Text
               style={[
                 styles.secondaryText,
-                {
-                  color: colors.textSecondary,
-                },
-              ]}
-            >
+                {color: colors.textSecondary},
+              ]}>
               Jobs
             </Text>
           </Card>
@@ -176,22 +258,16 @@ export function WorkerHomeScreen() {
             <Text
               style={[
                 styles.performanceValue,
-                {
-                  color: colors.text,
-                },
-              ]}
-            >
+                {color: colors.text},
+              ]}>
               0.0
             </Text>
 
             <Text
               style={[
                 styles.secondaryText,
-                {
-                  color: colors.textSecondary,
-                },
-              ]}
-            >
+                {color: colors.textSecondary},
+              ]}>
               Rating
             </Text>
           </Card>

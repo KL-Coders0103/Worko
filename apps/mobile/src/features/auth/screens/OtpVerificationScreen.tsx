@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, {useState} from 'react';
+
 import {
   ActivityIndicator,
   Alert,
@@ -8,10 +9,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useAuth } from '../../../context/AuthContext';
-import type { AuthStackParamList } from '../auth.types';
-import { verifyOtp } from '../../../services/authService';
+
+import type {NativeStackScreenProps} from '@react-navigation/native-stack';
+
+import {useAuth} from '../../../context/AuthContext';
+import type {AuthStackParamList} from '../auth.types';
+import {verifyOtp} from '../../../services/authService';
+import {Screen} from '../../../components/Screen';
 
 type Props = NativeStackScreenProps<
   AuthStackParamList,
@@ -22,11 +26,12 @@ export function OtpVerificationScreen({
   route,
   navigation,
 }: Props) {
-  const { identifier, purpose } = route.params;
-  const { setAuthenticatedUser } = useAuth();
+  const {identifier, purpose} = route.params;
+
+  const {setAuthenticatedUser} = useAuth();
+
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
-
 
   const handleVerify = async () => {
     if (!/^\d{6}$/.test(otp)) {
@@ -74,24 +79,32 @@ export function OtpVerificationScreen({
   };
 
   return (
-    <View style={styles.container}>
+    <Screen>
       <View style={styles.content}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Text style={styles.back}>‹ Back</Text>
+          <Text style={styles.back}>
+            ‹ Back
+          </Text>
         </Pressable>
 
-        <Text style={styles.title}>Verify OTP</Text>
+        <Text style={styles.title}>
+          Verify OTP
+        </Text>
 
         <Text style={styles.subtitle}>
           Enter the 6-digit code sent to
         </Text>
 
-        <Text style={styles.identifier}>{identifier}</Text>
+        <Text style={styles.identifier}>
+          {identifier}
+        </Text>
 
         <TextInput
           value={otp}
-          onChangeText={(value) =>
-            setOtp(value.replace(/\D/g, '').slice(0, 6))
+          onChangeText={value =>
+            setOtp(
+              value.replace(/\D/g, '').slice(0, 6),
+            )
           }
           placeholder="000000"
           placeholderTextColor="#777"
@@ -103,44 +116,44 @@ export function OtpVerificationScreen({
         <Pressable
           style={styles.button}
           onPress={handleVerify}
-          disabled={loading}
-        >
+          disabled={loading}>
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Verify OTP</Text>
+            <Text style={styles.buttonText}>
+              Verify OTP
+            </Text>
           )}
         </Pressable>
       </View>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B0B0B',
-  },
   content: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
   },
+
   back: {
     color: '#FF6B00',
     fontSize: 16,
     marginBottom: 30,
   },
+
   title: {
     color: '#FFFFFF',
     fontSize: 30,
     fontWeight: '700',
     marginBottom: 10,
   },
+
   subtitle: {
     color: '#999999',
     fontSize: 15,
   },
+
   identifier: {
     color: '#FFFFFF',
     fontSize: 15,
@@ -148,6 +161,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 28,
   },
+
   otpInput: {
     height: 60,
     borderWidth: 1,
@@ -161,6 +175,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16,
   },
+
   button: {
     height: 54,
     borderRadius: 12,
@@ -168,6 +183,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   buttonText: {
     color: '#FFFFFF',
     fontSize: 16,

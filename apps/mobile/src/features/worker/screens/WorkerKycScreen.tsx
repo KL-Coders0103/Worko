@@ -3,7 +3,6 @@ import React, {useEffect, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -34,6 +33,7 @@ import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
 import type {WorkerOnboardingParamList} from '../../../navigation/WorkerOnboardingNavigator';
+import { Screen } from '../../../components/Screen';
 type SelectedDocument = {
   uri: string;
   name: string;
@@ -281,102 +281,92 @@ export function WorkerKycScreen() {
   };
 
   if (loading) {
-    return (
-      <View
-        style={[
-          styles.loading,
-          {backgroundColor: colors.background},
-        ]}>
+  return (
+    <Screen>
+      <View style={styles.loading}>
         <ActivityIndicator
           size="large"
           color={colors.primary}
         />
       </View>
-    );
-  }
+    </Screen>
+  );
+}
 
   return (
+  <Screen scroll>
+    <Text
+      style={[
+        styles.title,
+        {color: colors.text},
+      ]}>
+      Identity Verification
+    </Text>
+
+    <Text
+      style={[
+        styles.subtitle,
+        {color: colors.textSecondary},
+      ]}>
+      Upload your documents securely for Worko
+      verification.
+    </Text>
+
+    <DocumentCard
+      title="Aadhaar Card"
+      required
+      document={aadhaar}
+      uploaded={Boolean(aadhaarKey)}
+      onSelect={() =>
+        void selectDocument('aadhaar')
+      }
+      onUpload={handleAadhaarUpload}
+      uploading={uploadingAadhaar}
+    />
+
+    <DocumentCard
+      title="Police Verification Certificate"
+      description="Optional. Recommended where applicable, especially for security and domestic work."
+      document={policeVerification}
+      uploaded={Boolean(policeKey)}
+      onSelect={() =>
+        void selectDocument('police')
+      }
+      onUpload={handlePoliceUpload}
+      uploading={uploadingPolice}
+    />
+
     <View
       style={[
-        styles.container,
-        {backgroundColor: colors.background},
+        styles.info,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
       ]}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
-        <Text
-          style={[
-            styles.title,
-            {color: colors.text},
-          ]}>
-          Identity Verification
-        </Text>
-
-        <Text
-          style={[
-            styles.subtitle,
-            {color: colors.textSecondary},
-          ]}>
-          Upload your documents securely for Worko
-          verification.
-        </Text>
-
-        <DocumentCard
-          title="Aadhaar Card"
-          required
-          document={aadhaar}
-          uploaded={Boolean(aadhaarKey)}
-          onSelect={() =>
-            void selectDocument('aadhaar')
-          }
-          onUpload={handleAadhaarUpload}
-          uploading={uploadingAadhaar}
-        />
-
-        <DocumentCard
-          title="Police Verification Certificate"
-          description="Optional. Recommended where applicable, especially for security and domestic work."
-          document={policeVerification}
-          uploaded={Boolean(policeKey)}
-          onSelect={() =>
-            void selectDocument('police')
-          }
-          onUpload={handlePoliceUpload}
-          uploading={uploadingPolice}
-        />
-
-        <View
-          style={[
-            styles.info,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-            },
-          ]}>
-          <Text
-            style={[
-              styles.infoText,
-              {color: colors.textSecondary},
-            ]}>
-            Accepted formats: PDF, JPG, PNG
-            {'\n'}
-            Maximum file size: 5 MB
-            {'\n'}
-            Your documents are stored privately and
-            are only accessible to authorized Worko
-            reviewers.
-          </Text>
-        </View>
-
-        <Button
-          title="Submit KYC"
-          onPress={handleSubmit}
-          loading={submitting}
-          disabled={!aadhaarKey}
-        />
-      </ScrollView>
+      <Text
+        style={[
+          styles.infoText,
+          {color: colors.textSecondary},
+        ]}>
+        Accepted formats: PDF, JPG, PNG
+        {'\n'}
+        Maximum file size: 5 MB
+        {'\n'}
+        Your documents are stored privately and
+        are only accessible to authorized Worko
+        reviewers.
+      </Text>
     </View>
-  );
+
+    <Button
+      title="Submit KYC"
+      onPress={handleSubmit}
+      loading={submitting}
+      disabled={!aadhaarKey}
+    />
+  </Screen>
+);
 }
 
 function DocumentCard({
@@ -480,19 +470,11 @@ function DocumentCard({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
 
   loading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  content: {
-    padding: spacing.xl,
-    paddingBottom: spacing.xxxl,
   },
 
   title: {

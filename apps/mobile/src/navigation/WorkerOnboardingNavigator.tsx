@@ -25,10 +25,16 @@ export type WorkerOnboardingParamList = {
 const Stack =
   createNativeStackNavigator<WorkerOnboardingParamList>();
 
-export function WorkerOnboardingNavigator() {
+type WorkerOnboardingNavigatorProps = {
+  initialRouteName?: keyof WorkerOnboardingParamList;
+};
+
+export function WorkerOnboardingNavigator({
+  initialRouteName = 'WorkerProfile',
+}: WorkerOnboardingNavigatorProps) {
   return (
     <Stack.Navigator
-      initialRouteName="WorkerProfile"
+      initialRouteName={initialRouteName}
       screenOptions={{
         headerShown: false,
       }}>
@@ -60,12 +66,12 @@ export function WorkerOnboardingNavigator() {
       <Stack.Screen
         name="WorkerKyc"
         component={WorkerKycScreen}
-       />
+      />
 
-       <Stack.Screen
+      <Stack.Screen
         name="WorkerKycStatus"
         component={WorkerKycStatusScreen}
-       />
+      />
     </Stack.Navigator>
   );
 }
