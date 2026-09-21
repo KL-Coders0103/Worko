@@ -1,4 +1,11 @@
-import { IsEmail, IsOptional, IsString, Length, Matches } from 'class-validator';
+import {
+  IsEmail,
+  IsIn,
+  IsOptional,
+  IsString,
+  Length,
+  Matches,
+} from 'class-validator';
 
 export class RegisterDto {
   @IsString()
@@ -18,6 +25,10 @@ export class RegisterDto {
     message: 'phoneNumber must be a valid phone number',
   })
   phoneNumber!: string;
+
+  @IsString()
+  @IsIn(['CLIENT', 'WORKER'])
+  role!: 'CLIENT' | 'WORKER';
 }
 
 export class SendOtpDto {
@@ -27,7 +38,11 @@ export class SendOtpDto {
 
   @IsOptional()
   @IsString()
-  purpose?: 'LOGIN' | 'REGISTRATION' | 'PHONE_VERIFICATION' | 'EMAIL_VERIFICATION';
+  purpose?:
+    | 'LOGIN'
+    | 'REGISTRATION'
+    | 'PHONE_VERIFICATION'
+    | 'EMAIL_VERIFICATION';
 }
 
 export class VerifyOtpDto {
@@ -43,7 +58,11 @@ export class VerifyOtpDto {
 
   @IsOptional()
   @IsString()
-  purpose?: 'LOGIN' | 'REGISTRATION' | 'PHONE_VERIFICATION' | 'EMAIL_VERIFICATION';
+  purpose?:
+    | 'LOGIN'
+    | 'REGISTRATION'
+    | 'PHONE_VERIFICATION'
+    | 'EMAIL_VERIFICATION';
 }
 
 export class LoginDto {

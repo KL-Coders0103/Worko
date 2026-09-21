@@ -21,6 +21,7 @@ import { DisputesModule } from './disputes/disputes.module';
 import { SosModule } from './sos/sos.module';
 import { AdminModule } from './admin/admin.module';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -45,7 +46,8 @@ import { PrismaModule } from './common/prisma/prisma.module';
     DisputesModule,
     SosModule,
     AdminModule,
-    PrismaModule
+    PrismaModule,
+    StorageModule
   ],
   controllers: [AppController],
   providers: [AppService],

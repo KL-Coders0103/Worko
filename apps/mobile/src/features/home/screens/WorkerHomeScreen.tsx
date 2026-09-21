@@ -9,7 +9,17 @@ import {
 import { useAuth } from '../../../context/AuthContext';
 import { HomeHeader } from '../components/HomeHeader';
 import { QuickActionCard } from '../components/QuickActionCard';
+import {
+  useNavigation,
+} from '@react-navigation/native';
 
+import type {
+  NativeStackNavigationProp,
+} from '@react-navigation/native-stack';
+
+import type {
+  AppStackParamList,
+} from '../../../navigation/AppNavigator';
 import {
   spacing,
   typography,
@@ -24,6 +34,7 @@ import { EmptyState } from '../../../components/EmptyState';
 export function WorkerHomeScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
 
   if (!user) {
     return null;
@@ -34,6 +45,17 @@ export function WorkerHomeScreen() {
       <HomeHeader user={user} />
 
       <Section title="Quick Actions">
+        <QuickActionCard
+          icon="person-outline"
+          title="Complete Your Profile"
+          description="Add your work details, skills and location."
+          onPress={() =>
+            navigation.navigate('WorkerOnboarding')
+          }
+        />
+
+        <View style={styles.actionSpacing} />
+
         <QuickActionCard
           icon="search"
           title="Find Nearby Jobs"

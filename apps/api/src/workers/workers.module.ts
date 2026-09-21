@@ -1,4 +1,26 @@
-import { Module } from '@nestjs/common';
+import {Module} from '@nestjs/common';
 
-@Module({})
+import {AuthModule} from '../auth/auth.module';
+import {PrismaModule} from '../common/prisma/prisma.module';
+import {StorageModule} from '../storage/storage.module';
+
+import {WorkersController} from './workers.controller';
+import {WorkersService} from './workers.service';
+
+@Module({
+  imports: [
+    PrismaModule,
+    AuthModule,
+    StorageModule,
+  ],
+  controllers: [
+    WorkersController,
+  ],
+  providers: [
+    WorkersService,
+  ],
+  exports: [
+    WorkersService,
+  ],
+})
 export class WorkersModule {}

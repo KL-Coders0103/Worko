@@ -70,6 +70,11 @@ enum OtpStatus {
   LOCKED
 }
 
+enum KycReviewDecision {
+  APPROVED
+  REJECTED
+}
+
 model User {
   id     String     @id @default(uuid()) @db.Uuid
   role   UserRole   @default(CLIENT)
@@ -93,6 +98,7 @@ model User {
   client        Client?
   otpCodes      OtpCode[]
   refreshTokens RefreshToken[]
+  kycReviews    WorkerKycReview[] @relation("KycReviewer")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -110,13 +116,20 @@ model Worker {
 
   status WorkerStatus @default(DRAFT)
 
+  profilePhotoKey String?
+
+  aadhaarDocumentKey            String?
+  policeVerificationDocumentKey String?
+
   bio                String?  @db.Text
   experienceYears    Int?
   expectedHourlyRate Decimal? @db.Decimal(10, 2)
   expectedDailyRate  Decimal? @db.Decimal(10, 2)
 
-  isAvailable Boolean       @default(true)
+  isAvailable Boolean           @default(true)
   skills      WorkerSkill[]
+  categories  WorkerCategory[]
+  kycReviews  WorkerKycReview[]
 
   kycSubmittedAt DateTime?
   verifiedAt     DateTime?
@@ -129,6 +142,44 @@ model Worker {
   @@index([status])
   @@index([isAvailable])
   @@index([createdAt])
+}
+
+model WorkerKycReview {
+  id String @id @default(uuid()) @db.Uuid
+
+  workerId String @db.Uuid
+  worker   Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  reviewerId String @db.Uuid
+  reviewer   User   @relation("KycReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  decision KycReviewDecision?
+
+  rejectionReason String? @db.Text
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workerId])
+  @@index([reviewerId])
+  @@index([decision])
+  @@index([createdAt])
+}
+
+model WorkerCategory {
+  workerId   String @db.Uuid
+  categoryId String @db.Uuid
+
+  worker   Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([workerId, categoryId])
+  @@index([categoryId])
 }
 
 model Client {
@@ -160,7 +211,8 @@ model Category {
   status      CategoryStatus @default(ACTIVE)
   sortOrder   Int            @default(0)
 
-  skills Skill[]
+  skills  Skill[]
+  workers WorkerCategory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
