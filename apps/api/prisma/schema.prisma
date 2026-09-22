@@ -78,10 +78,16 @@ enum KycReviewDecision {
 enum BookingStatus {
   PENDING
   ACCEPTED
+  CONFIRMED
+  WORKER_EN_ROUTE
+  ARRIVED
+  CHECKED_IN
+  IN_PROGRESS
+  CHECKED_OUT
+  COMPLETED
+  PAYMENT_RELEASED
   REJECTED
   CANCELLED
-  IN_PROGRESS
-  COMPLETED
 }
 
 enum PaymentStatus {
@@ -115,6 +121,31 @@ enum WalletTransactionSource {
   BONUS
   ADJUSTMENT
   DEMO
+}
+
+enum AttendanceStatus {
+  NOT_STARTED
+  CHECKED_IN
+  IN_PROGRESS
+  CHECKED_OUT
+  COMPLETED
+  FAILED
+}
+
+enum AttendanceEventType {
+  ARRIVED
+  CHECK_IN
+  CHECK_OUT
+}
+
+enum AttendanceEvidenceType {
+  BEFORE_PHOTO
+  AFTER_PHOTO
+}
+
+enum AttendanceQrPurpose {
+  CHECK_IN
+  CHECK_OUT
 }
 
 model User {
@@ -169,11 +200,12 @@ model Worker {
   expectedHourlyRate Decimal? @db.Decimal(10, 2)
   expectedDailyRate  Decimal? @db.Decimal(10, 2)
 
-  isAvailable      Boolean           @default(true)
-  skills           WorkerSkill[]
-  categories       WorkerCategory[]
-  kycReviews       WorkerKycReview[]
-  bookingsAsWorker Booking[]         @relation("BookingWorker")
+  isAvailable       Boolean           @default(true)
+  skills            WorkerSkill[]
+  categories        WorkerCategory[]
+  kycReviews        WorkerKycReview[]
+  bookingsAsWorker  Booking[]         @relation("BookingWorker")
+  attendanceRecords Attendance[]
 
   kycSubmittedAt DateTime?
   verifiedAt     DateTime?
@@ -397,6 +429,8 @@ model Booking {
 
   completedAt DateTime?
   payment     Payment?
+  attendance  Attendance?
+  qrTokens    AttendanceQrToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -409,6 +443,107 @@ model Booking {
   @@index([createdAt])
   @@index([workerId, status])
   @@index([clientId, status])
+}
+
+model Attendance {
+  id String @id @default(uuid()) @db.Uuid
+
+  bookingId String  @unique @db.Uuid
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  workerId String @db.Uuid
+  worker   Worker @relation(fields: [workerId], references: [id], onDelete: Restrict)
+
+  status AttendanceStatus @default(NOT_STARTED)
+
+  checkInAt  DateTime?
+  checkOutAt DateTime?
+
+  checkInLatitude   Decimal? @db.Decimal(10, 7)
+  checkInLongitude  Decimal? @db.Decimal(10, 7)
+  checkOutLatitude  Decimal? @db.Decimal(10, 7)
+  checkOutLongitude Decimal? @db.Decimal(10, 7)
+
+  checkInAccuracyMeters  Decimal? @db.Decimal(8, 2)
+  checkOutAccuracyMeters Decimal? @db.Decimal(8, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events   AttendanceEvent[]
+  evidence AttendanceEvidence[]
+
+  @@index([workerId])
+  @@index([status])
+  @@index([checkInAt])
+  @@index([checkOutAt])
+}
+
+model AttendanceEvent {
+  id String @id @default(uuid()) @db.Uuid
+
+  attendanceId String     @db.Uuid
+  attendance   Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+
+  type AttendanceEventType
+
+  latitude       Decimal? @db.Decimal(10, 7)
+  longitude      Decimal? @db.Decimal(10, 7)
+  accuracyMeters Decimal? @db.Decimal(8, 2)
+
+  qrVerified Boolean @default(false)
+
+  occurredAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  @@index([attendanceId])
+  @@index([type])
+  @@index([occurredAt])
+}
+
+model AttendanceEvidence {
+  id String @id @default(uuid()) @db.Uuid
+
+  attendanceId String     @db.Uuid
+  attendance   Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+
+  type AttendanceEvidenceType
+
+  storageKey String
+
+  latitude  Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+
+  capturedAt DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([attendanceId])
+  @@index([type])
+  @@index([capturedAt])
+}
+
+model AttendanceQrToken {
+  id String @id @default(uuid()) @db.Uuid
+
+  bookingId String  @db.Uuid
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  purpose AttendanceQrPurpose
+
+  tokenHash String @unique
+
+  expiresAt DateTime
+  usedAt    DateTime?
+  revokedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([bookingId])
+  @@index([bookingId, purpose])
+  @@index([expiresAt])
+  @@index([usedAt])
 }
 
 model Payment {

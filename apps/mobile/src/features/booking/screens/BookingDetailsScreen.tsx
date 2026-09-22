@@ -40,17 +40,17 @@ import {
   Payment,
   acceptBooking,
   cancelBooking,
-  completeBooking,
   createPayment,
   getBooking,
   getBookingPayment,
-  rejectBooking,
-  startBooking,
+  rejectBooking
 } from '../../client/bookings.api';
 
 import {
   useAuth,
 } from '../../../context/AuthContext';
+import { createAttendanceQrToken, getAttendanceEvidence } from '../../attendance/attendance.api';
+import QRCode from 'react-native-qrcode-svg';
 
 type Props =
   NativeStackScreenProps<
@@ -74,12 +74,57 @@ export function BookingDetailsScreen({
 
   const [paymentLoading, setPaymentLoading] =
     useState(false);
+  
+  const [attendance, setAttendance] =
+  useState<any>(null);
+
+  const [attendanceLoading, setAttendanceLoading] =
+    useState(false);
+
+  const [qrToken, setQrToken] =
+    useState<string | null>(null);
+
+  const [qrPurpose, setQrPurpose] =
+    useState<'CHECK_IN' | 'CHECK_OUT' | null>(null);
+
+  const [qrExpiresAt, setQrExpiresAt] =
+    useState<string | null>(null);
+
+  const [qrLoading, setQrLoading] =
+    useState(false);
+
+  const [qrSecondsLeft, setQrSecondsLeft] =
+    useState(0);
 
   const [loading, setLoading] =
     useState(true);
 
   const [actionLoading, setActionLoading] =
     useState(false);
+
+  const loadAttendance = useCallback(
+    async () => {
+      try {
+        setAttendanceLoading(true);
+
+        const result =
+          await getAttendanceEvidence(
+            route.params.bookingId,
+          );
+
+        setAttendance(
+          result?.attendance ?? result,
+        );
+      } catch {
+        // Attendance may not exist before the
+        // booking reaches the attendance stage.
+        setAttendance(null);
+      } finally {
+        setAttendanceLoading(false);
+      }
+    },
+    [route.params.bookingId],
+  );
 
   const loadBooking = useCallback(
     async () => {
@@ -95,6 +140,8 @@ export function BookingDetailsScreen({
               route.params.bookingId,
             ),
           ]);
+
+        await loadAttendance();
 
         setBooking(bookingResult);
         setPayment(paymentResult.payment);
@@ -117,12 +164,87 @@ export function BookingDetailsScreen({
         setLoading(false);
       }
     },
-    [route.params.bookingId],
+    [route.params.bookingId, loadAttendance],
   );
 
   useEffect(() => {
     loadBooking();
   }, [loadBooking]);
+
+  const generateAttendanceQr = async (
+  purpose: 'CHECK_IN' | 'CHECK_OUT',
+) => {
+  try {
+    setQrLoading(true);
+    setQrToken(null);
+    setQrPurpose(null);
+    setQrExpiresAt(null);
+    setQrSecondsLeft(0);
+
+    const result =
+      await createAttendanceQrToken(
+        route.params.bookingId,
+        purpose,
+      );
+
+    setQrToken(result.token);
+    setQrPurpose(purpose);
+    setQrExpiresAt(result.expiresAt);
+
+    const seconds = Math.max(
+      0,
+      Math.ceil(
+        (new Date(result.expiresAt).getTime() -
+          Date.now()) /
+          1000,
+      ),
+    );
+
+    setQrSecondsLeft(seconds);
+  } catch (error: any) {
+    const rawMessage =
+      error?.response?.data?.message;
+
+    const message =
+      Array.isArray(rawMessage)
+        ? rawMessage.join('\n')
+        : typeof rawMessage === 'string'
+          ? rawMessage
+          : 'Unable to generate attendance QR.';
+
+    Alert.alert('Attendance', message);
+  } finally {
+    setQrLoading(false);
+  }
+};
+
+useEffect(() => {
+  if (!qrExpiresAt) {
+    return;
+  }
+
+  const interval = setInterval(() => {
+    const remaining = Math.max(
+      0,
+      Math.ceil(
+        (new Date(qrExpiresAt).getTime() -
+          Date.now()) /
+          1000,
+      ),
+    );
+
+    setQrSecondsLeft(remaining);
+
+    if (remaining <= 0) {
+      setQrToken(null);
+      setQrPurpose(null);
+      setQrExpiresAt(null);
+      clearInterval(interval);
+    }
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, [qrExpiresAt]);
 
   const calculateEstimatedAmount = () => {
     if (!booking) {
@@ -259,6 +381,7 @@ export function BookingDetailsScreen({
         await action();
 
       setBooking(updated);
+      await loadAttendance();
 
       Alert.alert(
         'Booking Updated',
@@ -408,11 +531,11 @@ export function BookingDetailsScreen({
     isWorker &&
     booking.status === 'PENDING';
 
-  const canStart =
+  const canCheckIn =
     isWorker &&
     booking.status === 'ACCEPTED';
 
-  const canComplete =
+  const canCheckOut =
     isWorker &&
     booking.status === 'IN_PROGRESS';
 
@@ -613,6 +736,218 @@ export function BookingDetailsScreen({
           {booking.address}
         </Text>
       </Card>
+
+      {!isWorker ? (
+  <Card>
+    <Text
+      style={[
+        styles.sectionTitle,
+        {
+          color: colors.text,
+        },
+      ]}>
+      Attendance
+    </Text>
+
+    {attendanceLoading ? (
+      <View style={styles.attendanceLoading}>
+        <ActivityIndicator
+          size="small"
+          color={colors.primary}
+        />
+
+        <Text
+          style={[
+            styles.info,
+            {
+              color: colors.textSecondary,
+            },
+          ]}>
+          Loading attendance...
+        </Text>
+      </View>
+    ) : (
+      <>
+        <Text
+          style={[
+            styles.attendanceStatus,
+            {
+              color: colors.primary,
+            },
+          ]}>
+          {attendance?.status
+            ? attendance.status.replace(
+                '_',
+                ' ',
+              )
+            : booking.status === 'IN_PROGRESS'
+              ? 'IN PROGRESS'
+              : booking.status === 'COMPLETED'
+                ? 'COMPLETED'
+                : 'NOT STARTED'}
+        </Text>
+
+        {attendance?.checkInAt ? (
+          <Text
+            style={[
+              styles.info,
+              {
+                color: colors.textSecondary,
+              },
+            ]}>
+            Checked in:{' '}
+            {formatDateTime(
+              attendance.checkInAt,
+            )}
+          </Text>
+        ) : null}
+
+        {attendance?.checkOutAt ? (
+          <Text
+            style={[
+              styles.info,
+              {
+                color: colors.textSecondary,
+              },
+            ]}>
+            Checked out:{' '}
+            {formatDateTime(
+              attendance.checkOutAt,
+            )}
+          </Text>
+        ) : null}
+      </>
+    )}
+  </Card>
+) : null}
+
+{!isWorker &&
+booking.status === 'ACCEPTED' ? (
+  <Card>
+    <Text
+      style={[
+        styles.sectionTitle,
+        {
+          color: colors.text,
+        },
+      ]}>
+      Worker Check-in
+    </Text>
+
+    {qrPurpose === 'CHECK_IN' &&
+    qrToken ? (
+      <View style={styles.qrContainer}>
+        <QRCode
+          value={qrToken}
+          size={220}
+          backgroundColor="#FFFFFF"
+          color="#000000"
+        />
+
+        <Text
+          style={[
+            styles.qrTimer,
+            {
+              color:
+                qrSecondsLeft <= 10
+                  ? colors.error
+                  : colors.primary,
+            },
+          ]}>
+          QR expires in {qrSecondsLeft}s
+        </Text>
+
+        <Text
+          style={[
+            styles.info,
+            {
+              color: colors.textSecondary,
+            },
+          ]}>
+          Ask the worker to scan this QR
+          at your location.
+        </Text>
+      </View>
+    ) : (
+      <ActionButton
+        title={
+          qrLoading
+            ? 'Generating QR...'
+            : 'Generate Check-in QR'
+        }
+        loading={qrLoading}
+        colors={colors}
+        onPress={() =>
+          generateAttendanceQr('CHECK_IN')
+        }
+      />
+    )}
+  </Card>
+) : null}
+
+{!isWorker &&
+booking.status === 'IN_PROGRESS' ? (
+  <Card>
+    <Text
+      style={[
+        styles.sectionTitle,
+        {
+          color: colors.text,
+        },
+      ]}>
+      Worker Check-out
+    </Text>
+
+    {qrPurpose === 'CHECK_OUT' &&
+    qrToken ? (
+      <View style={styles.qrContainer}>
+        <QRCode
+          value={qrToken}
+          size={220}
+          backgroundColor="#FFFFFF"
+          color="#000000"
+        />
+
+        <Text
+          style={[
+            styles.qrTimer,
+            {
+              color:
+                qrSecondsLeft <= 10
+                  ? colors.error
+                  : colors.primary,
+            },
+          ]}>
+          QR expires in {qrSecondsLeft}s
+        </Text>
+
+        <Text
+          style={[
+            styles.info,
+            {
+              color: colors.textSecondary,
+            },
+          ]}>
+          Ask the worker to scan this QR
+          after completing the work.
+        </Text>
+      </View>
+    ) : (
+      <ActionButton
+        title={
+          qrLoading
+            ? 'Generating QR...'
+            : 'Generate Check-out QR'
+        }
+        loading={qrLoading}
+        colors={colors}
+        onPress={() =>
+          generateAttendanceQr('CHECK_OUT')
+        }
+      />
+    )}
+  </Card>
+) : null}
 
       <Card>
         <Text
@@ -931,41 +1266,39 @@ booking.status !== 'CANCELLED' ? (
           />
         ) : null}
 
-        {canStart ? (
-          <ActionButton
-            title="Start Work"
-            loading={actionLoading}
-            colors={colors}
-            onPress={() =>
-              performAction(
-                () =>
-                  startBooking(
-                    booking.id,
-                  ),
-                'Booking is now in progress.',
-              )
-            }
-          />
-        ) : null}
+        {canCheckIn ? (
+  <ActionButton
+    title="Start Check-in"
+    loading={actionLoading}
+    colors={colors}
+    onPress={() =>
+      navigation.navigate(
+        'AttendanceAction',
+        {
+          bookingId: booking.id,
+          purpose: 'CHECK_IN',
+        },
+      )
+    }
+  />
+) : null}
 
-        {canComplete ? (
-          <ActionButton
-            title="Complete Work"
-            loading={actionLoading}
-            colors={colors}
-            onPress={() =>
-              confirmAction(
-                'Complete Booking',
-                'Mark this booking as completed?',
-                () =>
-                  completeBooking(
-                    booking.id,
-                  ),
-                'Booking completed.',
-              )
-            }
-          />
-        ) : null}
+{canCheckOut ? (
+  <ActionButton
+    title="Check Out"
+    loading={actionLoading}
+    colors={colors}
+    onPress={() =>
+      navigation.navigate(
+        'AttendanceAction',
+        {
+          bookingId: booking.id,
+          purpose: 'CHECK_OUT',
+        },
+      )
+    }
+  />
+) : null}
 
         {canCancel ? (
           <ActionButton
@@ -1170,4 +1503,28 @@ const styles = StyleSheet.create({
   paymentButtonText: {
     ...typography.bodyMedium,
   },
+
+  attendanceLoading: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: spacing.sm,
+},
+
+attendanceStatus: {
+  ...typography.bodyMedium,
+  fontWeight: '700',
+  marginTop: spacing.xs,
+},
+
+qrContainer: {
+  alignItems: 'center',
+  marginTop: spacing.md,
+},
+
+qrTimer: {
+  ...typography.bodyMedium,
+  fontWeight: '700',
+  marginTop: spacing.md,
+},
+
 });

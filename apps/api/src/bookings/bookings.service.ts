@@ -406,13 +406,39 @@ export class BookingsService {
       'Only pending bookings can be accepted',
     );
 
-    return this.prisma.booking.update({
+    const acceptedBooking =
+      await this.prisma.$transaction(
+        async tx => {
+          const updatedBooking =
+            await tx.booking.update({
+              where: {
+                id: booking.id,
+              },
+              data: {
+                status:
+                  BookingStatus.ACCEPTED,
+              },
+            });
+
+          await tx.attendance.upsert({
+            where: {
+              bookingId: booking.id,
+            },
+            create: {
+              bookingId: booking.id,
+              workerId: booking.workerId,
+              status: 'NOT_STARTED',
+            },
+            update: {},
+          });
+
+          return updatedBooking;
+        },
+      );
+
+    return this.prisma.booking.findUnique({
       where: {
-        id: booking.id,
-      },
-      data: {
-        status:
-          BookingStatus.ACCEPTED,
+        id: acceptedBooking.id,
       },
       include: this.bookingInclude(),
     });
