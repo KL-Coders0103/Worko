@@ -45,7 +45,7 @@ type Coordinates = {
 };
 export function ClientProfileScreen() {
   const {colors} = useTheme();
-  const {user} = useAuth();
+  const {user, logout} = useAuth();
   const [coordinates, setCoordinates] =
     useState<Coordinates | null>(null);
 
@@ -865,6 +865,38 @@ const handleSaveLocation = async () => {
         )}
       </Pressable>
 
+      <Button
+  title="Logout"
+  onPress={() => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+            } catch {
+              Alert.alert(
+                'Logout Failed',
+                'Unable to logout. Please try again.',
+              );
+            }
+          },
+        },
+      ],
+    );
+  }}
+  variant="outline"
+  style={styles.logoutButton}
+/>
+
       {profile ? (
         <Text
           style={[
@@ -889,6 +921,11 @@ const styles = StyleSheet.create({
   title: {
     ...typography.h2,
   },
+
+  logoutButton: {
+  marginTop: spacing.md,
+  marginBottom: spacing.xl,
+},
 
   subtitle: {
     ...typography.body,

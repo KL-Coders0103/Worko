@@ -48,7 +48,7 @@ import { AppStackParamList } from '../../../navigation/AppNavigator';
 
 export function WorkerProfileScreen() {
   const {colors} = useTheme();
-  const {user} = useAuth();
+  const {user, logout} = useAuth();
 
   const [worker, setWorker] =
     useState<WorkerProfile | null>(null);
@@ -577,6 +577,38 @@ export function WorkerProfileScreen() {
           loading={saving}
         />
 
+        <Button
+  title="Logout"
+  onPress={() => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+            } catch {
+              Alert.alert(
+                'Logout Failed',
+                'Unable to logout. Please try again.',
+              );
+            }
+          },
+        },
+      ],
+    );
+  }}
+  variant="outline"
+  style={styles.logoutButton}
+/>
+
         {worker?.status ? (
           <Text
             style={[
@@ -630,6 +662,11 @@ const styles = StyleSheet.create({
   phone: {
     ...typography.small,
   },
+
+  logoutButton: {
+  marginTop: spacing.md,
+  marginBottom: spacing.xl,
+},
 
   availabilityRow: {
     minHeight: 72,
