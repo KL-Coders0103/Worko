@@ -1,16 +1,43 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
+
 import { Request, Response } from 'express';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
+
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const status = exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+    const status =
+      exception instanceof HttpException
+        ? exception.getStatus()
+        : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const exceptionResponse = exception instanceof HttpException ? exception.getResponse() : null;
+    // IMPORTANT: log the real unexpected error
+    if (!(exception instanceof HttpException)) {
+      this.logger.error(
+        `Unhandled exception: ${request.method} ${request.url}`,
+        exception instanceof Error
+          ? exception.stack
+          : JSON.stringify(exception),
+      );
+    }
+
+    const exceptionResponse =
+      exception instanceof HttpException
+        ? exception.getResponse()
+        : null;
 
     let message: string | string[] = 'Internal server error';
     let error = 'Internal Server Error';

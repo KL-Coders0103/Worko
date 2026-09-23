@@ -12,19 +12,36 @@ import {
 
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 
-import {sendLoginOtp} from '../../../services/authService';
-import {signInWithGoogle} from '../../../services/googleAuthService';
-import {useAuth} from '../../../context/AuthContext';
+import {
+  sendLoginOtp,
+  type OtpChannel,
+} from '../../../services/authService';
+
 import type {AuthStackParamList} from '../auth.types';
+
 import {Screen} from '../../../components/Screen';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
+type Props = NativeStackScreenProps<
+  AuthStackParamList,
+  'Login'
+>;
 
 export function LoginScreen({navigation}: Props) {
-  const [identifier, setIdentifier] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [channel, setChannel] =
+    useState<OtpChannel>('EMAIL');
 
-  const {setAuthenticatedUser} = useAuth();
+  const [identifier, setIdentifier] =
+    useState('');
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const handleChannelChange = (
+    nextChannel: OtpChannel,
+  ) => {
+    setChannel(nextChannel);
+    setIdentifier('');
+  };
 
   const handleContinue = async () => {
     const value = identifier.trim();
@@ -32,53 +49,58 @@ export function LoginScreen({navigation}: Props) {
     if (!value) {
       Alert.alert(
         'Required',
-        'Enter your email or phone number.',
+        channel === 'EMAIL'
+          ? 'Enter your email address.'
+          : 'Enter your mobile number.',
       );
+
+      return;
+    }
+
+    if (
+      channel === 'EMAIL' &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+    ) {
+      Alert.alert(
+        'Invalid email',
+        'Please enter a valid email address.',
+      );
+
+      return;
+    }
+
+    if (
+      channel === 'SMS' &&
+      !/^\+?[1-9]\d{7,14}$/.test(value)
+    ) {
+      Alert.alert(
+        'Invalid mobile number',
+        'Enter your mobile number with country code. Example: +919876543210',
+      );
+
       return;
     }
 
     try {
       setLoading(true);
 
-      await sendLoginOtp(value);
+      await sendLoginOtp(value, channel);
 
       navigation.navigate('VerifyOtp', {
         identifier: value,
         purpose: 'LOGIN',
+        channel,
       });
     } catch (error: any) {
       const message =
         error?.response?.data?.message ||
         'Unable to send OTP. Please try again.';
 
-      Alert.alert('Login failed', message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      setLoading(true);
-
-      const response = await signInWithGoogle();
-
-      setAuthenticatedUser(response.user);
-
-      navigation.getParent()?.navigate('App');
-    } catch (error: any) {
-      if (
-        error?.code === 'SIGN_IN_CANCELLED' ||
-        error?.code === '12501'
-      ) {
-        return;
-      }
-
       Alert.alert(
-        'Google Login Failed',
-        error?.response?.data?.message ||
-          error?.message ||
-          'Unable to continue with Google.',
+        'OTP failed',
+        Array.isArray(message)
+          ? message.join('\n')
+          : message,
       );
     } finally {
       setLoading(false);
@@ -88,7 +110,9 @@ export function LoginScreen({navigation}: Props) {
   return (
     <Screen>
       <View style={styles.content}>
-        <Text style={styles.logo}>WORKO</Text>
+        <Text style={styles.logo}>
+          WORKO
+        </Text>
 
         <Text style={styles.title}>
           Welcome back
@@ -98,13 +122,63 @@ export function LoginScreen({navigation}: Props) {
           Login to find work or hire trusted workers.
         </Text>
 
+        <View style={styles.selector}>
+          <Pressable
+            style={[
+              styles.selectorButton,
+              channel === 'EMAIL' &&
+                styles.selectorButtonActive,
+            ]}
+            onPress={() =>
+              handleChannelChange('EMAIL')
+            }
+            disabled={loading}>
+            <Text
+              style={[
+                styles.selectorText,
+                channel === 'EMAIL' &&
+                  styles.selectorTextActive,
+              ]}>
+              Email
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[
+              styles.selectorButton,
+              channel === 'SMS' &&
+                styles.selectorButtonActive,
+            ]}
+            onPress={() =>
+              handleChannelChange('SMS')
+            }
+            disabled={loading}>
+            <Text
+              style={[
+                styles.selectorText,
+                channel === 'SMS' &&
+                  styles.selectorTextActive,
+              ]}>
+              Mobile
+            </Text>
+          </Pressable>
+        </View>
+
         <TextInput
           value={identifier}
           onChangeText={setIdentifier}
-          placeholder="Email or phone number"
+          placeholder={
+            channel === 'EMAIL'
+              ? 'Enter your email'
+              : '+91 9876543210'
+          }
           placeholderTextColor="#777"
           autoCapitalize="none"
-          keyboardType="email-address"
+          keyboardType={
+            channel === 'EMAIL'
+              ? 'email-address'
+              : 'phone-pad'
+          }
           style={styles.input}
         />
 
@@ -115,19 +189,11 @@ export function LoginScreen({navigation}: Props) {
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.primaryButtonText}>
-              Continue with OTP
+            <Text
+              style={styles.primaryButtonText}>
+              Send OTP
             </Text>
           )}
-        </Pressable>
-
-        <Pressable
-          style={styles.secondaryButton}
-          disabled={loading}
-          onPress={handleGoogleLogin}>
-          <Text style={styles.secondaryButtonText}>
-            Continue with Google
-          </Text>
         </Pressable>
 
         <View style={styles.registerRow}>
@@ -136,7 +202,9 @@ export function LoginScreen({navigation}: Props) {
           </Text>
 
           <Pressable
-            onPress={() => navigation.navigate('Register')}>
+            onPress={() =>
+              navigation.navigate('Register')
+            }>
             <Text style={styles.link}>
               Create account
             </Text>
@@ -174,6 +242,36 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
 
+  selector: {
+    flexDirection: 'row',
+    backgroundColor: '#151515',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 14,
+  },
+
+  selectorButton: {
+    flex: 1,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 9,
+  },
+
+  selectorButtonActive: {
+    backgroundColor: '#FF6B00',
+  },
+
+  selectorText: {
+    color: '#888888',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  selectorTextActive: {
+    color: '#FFFFFF',
+  },
+
   input: {
     height: 54,
     borderWidth: 1,
@@ -197,22 +295,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-  },
-
-  secondaryButton: {
-    height: 54,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#333333',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-
-  secondaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
   },
 
   registerRow: {

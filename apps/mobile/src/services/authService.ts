@@ -28,10 +28,13 @@ export type RegisterResponse = {
   };
 };
 
+export type OtpChannel = 'EMAIL' | 'SMS';
+
 export type VerifyOtpPayload = {
   identifier: string;
   otp: string;
   purpose: 'REGISTRATION' | 'LOGIN';
+  channel: OtpChannel;
 };
 
 export type AuthTokens = {
@@ -113,10 +116,12 @@ export async function logoutUser(): Promise<void> {
 
 export async function sendLoginOtp(
   identifier: string,
+  channel: OtpChannel,
 ): Promise<void> {
   await api.post('/auth/send-otp', {
     identifier,
     purpose: 'LOGIN',
+    channel,
   });
 }
 

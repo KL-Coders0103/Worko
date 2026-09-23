@@ -4,6 +4,7 @@ export type AuthStackParamList = {
   VerifyOtp: {
     identifier: string;
     purpose: 'REGISTRATION' | 'LOGIN';
+    channel: 'EMAIL' | 'SMS'
   };
 };
 

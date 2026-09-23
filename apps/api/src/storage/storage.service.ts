@@ -3,20 +3,22 @@ import {
   Injectable,
 } from '@nestjs/common';
 
-import { LocalStorageService } from './local-storage.service';
+import { CloudinaryStorageService } from './cloudinary-storage.service';
 
 @Injectable()
 export class StorageService {
-  private static readonly MAX_REEL_SIZE_BYTES = 100 * 1024 * 1024;
+  private static readonly MAX_REEL_SIZE_BYTES =
+    100 * 1024 * 1024;
 
-  private static readonly ALLOWED_REEL_MIME_TYPES = new Set([
-    'video/mp4',
-    'video/quicktime',
-    'video/webm',
-  ]);
+  private static readonly ALLOWED_REEL_MIME_TYPES =
+    new Set([
+      'video/mp4',
+      'video/quicktime',
+      'video/webm',
+    ]);
 
   constructor(
-    private readonly localStorage: LocalStorageService,
+    private readonly cloudinaryStorage: CloudinaryStorageService,
   ) {}
 
   async uploadPrivateObject(
@@ -25,7 +27,7 @@ export class StorageService {
     folder: string,
     originalName?: string,
   ) {
-    return this.localStorage.upload(
+    return this.cloudinaryStorage.upload(
       buffer,
       contentType,
       folder,
@@ -34,11 +36,13 @@ export class StorageService {
   }
 
   async downloadPrivateObject(key: string) {
-    return this.localStorage.download(key);
+    return this.cloudinaryStorage.download(key);
   }
 
-  async deletePrivateObject(key: string) {
-    return this.localStorage.delete(key);
+  async deletePrivateObject(
+    key: string,
+  ) {
+    return this.cloudinaryStorage.delete(key);
   }
 
   async uploadReelVideo(
@@ -46,13 +50,34 @@ export class StorageService {
     contentType: string,
     originalName?: string,
   ) {
-    this.validateReelVideo(buffer, contentType);
+    this.validateReelVideo(
+      buffer,
+      contentType,
+    );
 
-    return this.localStorage.upload(
+    return this.cloudinaryStorage.upload(
       buffer,
       contentType,
       'reels/videos',
       originalName,
+    );
+  }
+
+  async getPrivateObjectInfo(key: string) {
+    return this.cloudinaryStorage.getFileInfo(
+      key,
+    );
+  }
+
+  createPrivateObjectReadStream(
+    key: string,
+    start: number,
+    end: number,
+  ) {
+    return this.cloudinaryStorage.createReadStream(
+      key,
+      start,
+      end,
     );
   }
 
@@ -85,20 +110,4 @@ export class StorageService {
       );
     }
   }
-
-  async getPrivateObjectInfo(key: string) {
-  return this.localStorage.getFileInfo(key);
-}
-
-createPrivateObjectReadStream(
-  key: string,
-  start: number,
-  end: number,
-) {
-  return this.localStorage.createReadStream(
-    key,
-    start,
-    end,
-  );
-}
 }

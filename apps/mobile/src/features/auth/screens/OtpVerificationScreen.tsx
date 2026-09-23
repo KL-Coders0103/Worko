@@ -26,7 +26,7 @@ export function OtpVerificationScreen({
   route,
   navigation,
 }: Props) {
-  const {identifier, purpose} = route.params;
+  const {identifier, purpose, channel} = route.params;
 
   const {setAuthenticatedUser} = useAuth();
 
@@ -49,6 +49,7 @@ export function OtpVerificationScreen({
         identifier,
         otp,
         purpose,
+        channel,
       });
 
       setAuthenticatedUser(response.user);

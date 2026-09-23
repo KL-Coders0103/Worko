@@ -99,7 +99,7 @@ export class ReelsController {
           video.size - 1,
         );
 
-      return new StreamableFile(stream).getStream()
+      return new StreamableFile(await stream).getStream()
         .pipe(response);
     }
 
@@ -223,7 +223,7 @@ export class ReelsController {
         end,
       );
 
-    return new StreamableFile(stream).getStream()
+    return new StreamableFile(await stream).getStream()
       .pipe(response);
   }
 

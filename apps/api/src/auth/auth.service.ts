@@ -1,11 +1,13 @@
 import {BadRequestException, HttpException, HttpStatus,
   Injectable,
+  NotFoundException,
   UnauthorizedException} from '@nestjs/common';
-import { randomInt, createHash } from 'crypto';
+import { createHash } from 'crypto';
 import { PrismaService } from '../common/prisma/prisma.service';
 import {LoginDto, RegisterDto, SendOtpDto, VerifyOtpDto,
 } from './dto/auth.dto';
 import { AuthJwtService } from './jwt.service';
+import { OtpDeliveryService } from './otp-delivery.service';
 
 @Injectable()
 export class AuthService {
@@ -15,7 +17,8 @@ export class AuthService {
 
   constructor(
     private readonly prisma: PrismaService, 
-    private readonly authJwtService: AuthJwtService
+    private readonly authJwtService: AuthJwtService,
+    private readonly otpDeliveryService: OtpDeliveryService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -65,7 +68,7 @@ export class AuthService {
     return createdUser;
   });
 
-  await this.createOtp(user.id, 'REGISTRATION');
+  await this.createOtp(user.id, 'REGISTRATION', 'EMAIL');
 
   return {
     message: 'Registration successful. OTP sent.',
@@ -74,25 +77,42 @@ export class AuthService {
 }
 
   async sendOtp(dto: SendOtpDto) {
-    const purpose = dto.purpose ?? 'LOGIN';
-    const identifier = dto.identifier.trim().toLowerCase();
+  const purpose = dto.purpose ?? 'LOGIN';
 
-    const user = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ email: identifier }, { phoneNumber: identifier }],
-      },
-    });
+  const identifier = dto.identifier
+    .trim()
+    .toLowerCase();
 
-    if (!user) {
-      throw new BadRequestException('User not found');
-    }
+  const channel =
+    dto.channel ??
+    (identifier.includes('@') ? 'EMAIL' : 'SMS');
 
-    await this.createOtp(user.id, purpose);
+  const user = await this.prisma.user.findFirst({
+    where:
+      channel === 'EMAIL'
+        ? { email: identifier }
+        : { phoneNumber: identifier },
+  });
 
-    return {
-      message: 'OTP sent successfully',
-    };
+  if (!user) {
+    throw new NotFoundException(
+      'No account found for this login method',
+    );
   }
+
+  await this.createOtp(
+    user.id,
+    purpose,
+    channel,
+  );
+
+  return {
+    message:
+      channel === 'EMAIL'
+        ? 'OTP sent to your email'
+        : 'OTP sent to your mobile number',
+  };
+}
 
   async verifyOtp(dto: VerifyOtpDto) {
     const purpose = dto.purpose ?? 'LOGIN';
@@ -203,12 +223,13 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    return this.verifyOtp({
-      identifier: dto.identifier,
-      otp: dto.otp,
-      purpose: 'LOGIN',
-    });
-  }
+  return this.verifyOtp({
+    identifier: dto.identifier,
+    otp: dto.otp,
+    purpose: 'LOGIN',
+    channel: dto.channel,
+  });
+}
 
   async getCurrentUser(userId: string) {
   const user = await this.prisma.user.findUnique({
@@ -245,58 +266,117 @@ export class AuthService {
 }
 
   private async createOtp(
-    userId: string,
-    purpose:
-      | 'LOGIN'
-      | 'REGISTRATION'
-      | 'PHONE_VERIFICATION'
-      | 'EMAIL_VERIFICATION',
-  ) {
-    const cooldownStart = new Date(
-      Date.now() - this.otpCooldownSeconds * 1000,
-    );
+  userId: string,
+  purpose:
+    | 'LOGIN'
+    | 'REGISTRATION'
+    | 'PHONE_VERIFICATION'
+    | 'EMAIL_VERIFICATION',
+  channel: 'EMAIL' | 'SMS',
+) {
+  const now = new Date();
 
-    const recentOtp = await this.prisma.otpCode.findFirst({
-      where: {
-        userId,
-        purpose,
-        createdAt: {
-          gte: cooldownStart,
-        },
-      },
-    });
+  const latestOtp = await this.prisma.otpCode.findFirst({
+    where: {
+      userId,
+      purpose,
+      status: 'ACTIVE',
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
 
-    if (recentOtp) {
-      throw new HttpException('Please wait before requesting another OTP', HttpStatus.TOO_MANY_REQUESTS);
+  if (latestOtp) {
+    const elapsedSeconds =
+      (now.getTime() - latestOtp.createdAt.getTime()) /
+      1000;
+
+    if (elapsedSeconds < this.otpCooldownSeconds) {
+      throw new BadRequestException(
+        `Please wait ${Math.ceil(
+          this.otpCooldownSeconds - elapsedSeconds,
+        )} seconds before requesting another OTP`,
+      );
     }
-
-    await this.prisma.otpCode.updateMany({
-      where: {
-        userId,
-        purpose,
-        status: 'ACTIVE',
-      },
-      data: {
-        status: 'EXPIRED',
-      },
-    });
-
-    const otp = randomInt(100000, 1000000).toString();
-
-    await this.prisma.otpCode.create({
-      data: {
-        userId,
-        purpose,
-        codeHash: this.hashOtp(otp),
-        expiresAt: new Date(
-          Date.now() + this.otpExpiryMinutes * 60 * 1000,
-        ),
-      },
-    });
-
-    // Development only.
-    console.log(`[DEV OTP] user=${userId} purpose=${purpose} otp=${otp}`);
   }
+
+  await this.prisma.otpCode.updateMany({
+    where: {
+      userId,
+      purpose,
+      status: 'ACTIVE',
+    },
+    data: {
+      status: 'EXPIRED',
+    },
+  });
+
+  const otp = Math.floor(
+    100000 + Math.random() * 900000
+  ).toString();
+
+  const codeHash = createHash('sha256')
+    .update(otp)
+    .digest('hex');
+
+  const expiresAt = new Date(
+    now.getTime() +
+      this.otpExpiryMinutes * 60 * 1000,
+  );
+
+  await this.prisma.otpCode.create({
+    data: {
+      userId,
+      purpose,
+      status: 'ACTIVE',
+      codeHash,
+      expiresAt,
+      attempts: 0,
+    },
+  });
+
+  const user = await this.prisma.user.findUnique({
+    where: {
+      id: userId,
+    },
+    select: {
+      email: true,
+      phoneNumber: true,
+    },
+  });
+
+  if (!user) {
+    throw new NotFoundException(
+      'User not found',
+    );
+  }
+
+  const destination =
+    channel === 'EMAIL'
+      ? user.email
+      : user.phoneNumber;
+
+  if (!destination) {
+    throw new BadRequestException(
+      channel === 'EMAIL'
+        ? 'No email address is available for this account'
+        : 'No mobile number is available for this account',
+    );
+  }
+
+  await this.otpDeliveryService.sendOtp({
+    channel,
+    destination,
+    otp,
+    purpose,
+  });
+
+  return {
+    expiresAt,
+    channel,
+  };
+}
 
   private hashOtp(otp: string): string {
     return createHash('sha256').update(otp).digest('hex');

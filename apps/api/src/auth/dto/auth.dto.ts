@@ -38,11 +38,22 @@ export class SendOtpDto {
 
   @IsOptional()
   @IsString()
+  @IsIn([
+    'LOGIN',
+    'REGISTRATION',
+    'PHONE_VERIFICATION',
+    'EMAIL_VERIFICATION',
+  ])
   purpose?:
     | 'LOGIN'
     | 'REGISTRATION'
     | 'PHONE_VERIFICATION'
     | 'EMAIL_VERIFICATION';
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['EMAIL', 'SMS'])
+  channel?: 'EMAIL' | 'SMS';
 }
 
 export class VerifyOtpDto {
@@ -52,17 +63,28 @@ export class VerifyOtpDto {
 
   @IsString()
   @Matches(/^\d{6}$/, {
-    message: 'OTP must be a 6-digit code',
+    message: 'OTP must be a 6-digit OTP',
   })
   otp!: string;
 
   @IsOptional()
   @IsString()
+  @IsIn([
+    'LOGIN',
+    'REGISTRATION',
+    'PHONE_VERIFICATION',
+    'EMAIL_VERIFICATION',
+  ])
   purpose?:
     | 'LOGIN'
     | 'REGISTRATION'
     | 'PHONE_VERIFICATION'
     | 'EMAIL_VERIFICATION';
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['EMAIL', 'SMS'])
+  channel?: 'EMAIL' | 'SMS';
 }
 
 export class LoginDto {
@@ -72,9 +94,14 @@ export class LoginDto {
 
   @IsString()
   @Matches(/^\d{6}$/, {
-    message: 'OTP must be a 6-digit code',
+    message: 'OTP must be a 6-digit OTP',
   })
   otp!: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['EMAIL', 'SMS'])
+  channel?: 'EMAIL' | 'SMS';
 }
 
 export class RefreshTokenDto {

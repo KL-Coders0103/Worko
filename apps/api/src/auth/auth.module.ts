@@ -8,6 +8,7 @@ import { AuthJwtService } from './jwt.service';
 import { GoogleAuthService } from './google-auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/role.guards';
+import { OtpDeliveryService } from './otp-delivery.service';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { RolesGuard } from './guards/role.guards';
     AuthService,
     AuthJwtService,
     GoogleAuthService,
+    OtpDeliveryService,
     JwtAuthGuard,
     RolesGuard,
   ],
@@ -28,6 +30,7 @@ import { RolesGuard } from './guards/role.guards';
   AuthService,
   AuthJwtService,
   GoogleAuthService,
+  OtpDeliveryService,
   JwtAuthGuard,
   RolesGuard,
 ],

@@ -43,3 +43,7 @@ temp/
 
 # Android local signing/debug keystore
 **/android/app/debug.keystore
+
+/storage/
+/storage/private/
+*.local

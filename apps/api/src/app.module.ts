@@ -14,11 +14,7 @@ import { BookingsModule } from './bookings/bookings.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { PaymentsModule } from './payments/payments.module';
 import { WalletModule } from './wallet/wallet.module';
-import { NotificationsModule } from './notifications/notifications.module';
 import { ReelsModule } from './reels/reels.module';
-import { RatingsModule } from './ratings/ratings.module';
-import { DisputesModule } from './disputes/disputes.module';
-import { SosModule } from './sos/sos.module';
 import { AdminModule } from './admin/admin.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { StorageModule } from './storage/storage.module';
@@ -40,11 +36,7 @@ import { StorageModule } from './storage/storage.module';
     AttendanceModule,
     PaymentsModule,
     WalletModule,
-    NotificationsModule,
     ReelsModule,
-    RatingsModule,
-    DisputesModule,
-    SosModule,
     AdminModule,
     PrismaModule,
     StorageModule
