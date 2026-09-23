@@ -44,6 +44,7 @@ import {
 } from '../worker.api';
 
 import type {WorkerProfile} from '../worker.type';
+import { AppStackParamList } from '../../../navigation/AppNavigator';
 
 export function WorkerProfileScreen() {
   const {colors} = useTheme();
@@ -56,6 +57,11 @@ export function WorkerProfileScreen() {
     useNavigation<
       NativeStackNavigationProp<WorkerOnboardingParamList>
     >();
+
+  const appNavigation =
+  useNavigation<
+    NativeStackNavigationProp<AppStackParamList>
+  >();
 
   const [bio, setBio] = useState('');
   const [experienceYears, setExperienceYears] =
@@ -533,6 +539,33 @@ export function WorkerProfileScreen() {
             }}
           />
         </View>
+
+        {worker?.status === 'VERIFIED' ? (
+          <>
+            <Button
+              title="Create a Reel"
+              onPress={() =>
+                appNavigation.navigate(
+                  'CreateReel',
+                )
+              }
+            />
+
+            {worker.id ? (
+              <Button
+                title="My Reels"
+                onPress={() =>
+                  appNavigation.navigate(
+                    'WorkerReels',
+                    {
+                      workerId: worker.id,
+                    },
+                  )
+                }
+              />
+            ) : null}
+          </>
+        ) : null}
 
         <Button
           title={

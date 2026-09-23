@@ -5,8 +5,21 @@ import {
 } from '@nestjs/common';
 
 import { randomUUID } from 'crypto';
-import { mkdir, readFile, unlink, writeFile } from 'fs/promises';
-import { extname, join } from 'path';
+
+import { createReadStream } from 'fs';
+
+import {
+  mkdir,
+  readFile,
+  stat,
+  unlink,
+  writeFile,
+} from 'fs/promises';
+
+import {
+  extname,
+  join,
+} from 'path';
 
 @Injectable()
 export class LocalStorageService {
@@ -17,9 +30,12 @@ export class LocalStorageService {
   );
 
   private async ensureRootDirectory() {
-    await mkdir(this.rootDirectory, {
-      recursive: true,
-    });
+    await mkdir(
+      this.rootDirectory,
+      {
+        recursive: true,
+      },
+    );
   }
 
   private resolvePath(key: string) {
@@ -54,16 +70,22 @@ export class LocalStorageService {
     await this.ensureRootDirectory();
 
     const extension =
-      extname(originalName ?? '').toLowerCase();
+      extname(
+        originalName ?? '',
+      ).toLowerCase();
 
     const safeExtension =
-      /^[.][a-z0-9]{1,10}$/.test(extension)
+      /^[.][a-z0-9]{1,10}$/.test(
+        extension,
+      )
         ? extension
         : '';
 
-    const key = `${folder}/${randomUUID()}${safeExtension}`;
+    const key =
+      `${folder}/${randomUUID()}${safeExtension}`;
 
-    const filePath = this.resolvePath(key);
+    const filePath =
+      this.resolvePath(key);
 
     await mkdir(
       join(
@@ -75,7 +97,10 @@ export class LocalStorageService {
       },
     );
 
-    await writeFile(filePath, buffer);
+    await writeFile(
+      filePath,
+      buffer,
+    );
 
     return {
       key,
@@ -84,10 +109,12 @@ export class LocalStorageService {
   }
 
   async download(key: string) {
-    const filePath = this.resolvePath(key);
+    const filePath =
+      this.resolvePath(key);
 
     try {
-      const buffer = await readFile(filePath);
+      const buffer =
+        await readFile(filePath);
 
       return {
         buffer,
@@ -101,12 +128,49 @@ export class LocalStorageService {
   }
 
   async delete(key: string) {
-    const filePath = this.resolvePath(key);
+    const filePath =
+      this.resolvePath(key);
 
     try {
       await unlink(filePath);
     } catch {
       // File may already be deleted.
     }
+  }
+
+  async getFileInfo(key: string) {
+    const filePath =
+      this.resolvePath(key);
+
+    try {
+      const fileStats =
+        await stat(filePath);
+
+      return {
+        size: fileStats.size,
+        key,
+      };
+    } catch {
+      throw new NotFoundException(
+        'Stored file not found',
+      );
+    }
+  }
+
+  createReadStream(
+    key: string,
+    start: number,
+    end: number,
+  ) {
+    const filePath =
+      this.resolvePath(key);
+
+    return createReadStream(
+      filePath,
+      {
+        start,
+        end,
+      },
+    );
   }
 }

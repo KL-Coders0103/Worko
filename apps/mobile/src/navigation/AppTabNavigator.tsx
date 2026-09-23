@@ -38,6 +38,7 @@ import {
 import { ClientProfileScreen } from '../features/client/screens/ClientProfileScreen';
 import { ClientDiscoveryScreen } from '../features/client/screens/ClientDiscoveryScreen';
 import {BookingsScreen as RealBookingsScreen} from '../features/booking/screens/BookingsScreen';
+import { ReelsScreen } from '../features/reels/screens/ReelsScreen';
 
 type AppTabParamList = {
   Home: undefined;
@@ -116,10 +117,6 @@ function PlaceholderScreen({title}: {title: string}) {
       </Text>
     </View>
   );
-}
-
-function ReelsScreen() {
-  return <PlaceholderScreen title="Reels" />;
 }
 
 function BookingsScreen() {

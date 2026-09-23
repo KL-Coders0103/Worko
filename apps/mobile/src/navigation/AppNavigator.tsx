@@ -16,6 +16,8 @@ import { DemoPaymentScreen } from '../features/payment/screens/DemoPaymentScreen
 import { WalletScreen } from '../features/wallet/screens/WalletScreen';
 import { AttendanceActionScreen } from '../features/attendance/screens/AttendanceActionScreen';
 import { QrScannerScreen } from '../features/attendance/screens/QrScannerScreen';
+import { CreateReelScreen } from '../features/reels/screens/CreateReelScreen';
+import { WorkerReelsScreen } from '../features/reels/screens/WorkerReelScreen';
 
 
 export type AppStackParamList = {
@@ -54,6 +56,12 @@ export type AppStackParamList = {
     bookingId: string;
     purpose: 'CHECK_IN' | 'CHECK_OUT';
   };
+
+  CreateReel: undefined;
+
+  WorkerReels: {
+    workerId: string
+  }
 };
 
 const Stack =
@@ -110,6 +118,16 @@ export function AppNavigator() {
       <Stack.Screen
         name="Wallet"
         component={WalletScreen}
+      />
+
+      <Stack.Screen
+        name="CreateReel"
+        component={CreateReelScreen}
+      />
+
+      <Stack.Screen
+        name="WorkerReels"
+        component={WorkerReelsScreen}
       />
 
     </Stack.Navigator>
