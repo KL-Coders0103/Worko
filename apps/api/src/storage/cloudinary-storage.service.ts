@@ -134,66 +134,44 @@ export class CloudinaryStorageService {
       );
     }
 
-    const resourceType =
-      this.detectResourceType(contentType);
-
+    const resourceType = this.detectResourceType(contentType);
     const uniqueId = cryptoRandomId();
-
-    const publicId = this.buildPublicId(
-      folder,
-      uniqueId,
-    );
+    const publicId = this.buildPublicId(folder, uniqueId);
 
     const uploadResponse =
       await new Promise<UploadApiResponse>(
         (resolve, reject) => {
           const uploadOptions = {
-  resource_type: resourceType,
-  type: 'authenticated' as const,
-  public_id: publicId,
-  overwrite: false,
-  invalidate: true,
-  context: originalName
-    ? {
-        original_name: originalName,
-      }
-    : undefined,
-};
+            // FIX: Force Cloudinary to auto-detect the file type from binary bytes
+            // This prevents the "Image file format mp4 not allowed" bug completely.
+            resource_type: 'auto' as const, 
+            type: 'authenticated' as const,
+            public_id: publicId,
+            overwrite: false,
+            invalidate: true,
+            context: originalName
+              ? {
+                  original_name: originalName,
+                }
+              : undefined,
+          };
 
-const uploadStream =
-  resourceType === 'video'
-    ? cloudinary.uploader.upload_stream(
-        uploadOptions,
-        (error, result) => {
-          if (error || !result) {
-            reject(
-              error ??
-                new Error(
-                  'Cloudinary video upload failed',
-                ),
-            );
-            return;
-          }
-
-          resolve(result);
-        },
-      )
-    : cloudinary.uploader.upload_stream(
-        uploadOptions,
-        (error, result) => {
-          if (error || !result) {
-            reject(
-              error ??
-                new Error(
-                  'Cloudinary upload failed',
-                ),
-            );
-            return;
-          }
-
-          resolve(result);
-        },
-      );
+          // We can use the same stream handler for both now since resource_type is auto
+          const uploadStream = cloudinary.uploader.upload_stream(
+            uploadOptions,
+            (error, result) => {
+              if (error || !result) {
+                reject(
+                  error ??
+                    new Error(
+                      'Cloudinary upload failed',
+                    ),
+                );
+                return;
+              }
+              resolve(result);
+            },
+          );
 
           Readable.from(buffer).pipe(uploadStream);
         },
@@ -202,7 +180,8 @@ const uploadStream =
     const key = this.encodeKey({
       folder,
       publicId: uploadResponse.public_id,
-      resourceType,
+      // We still store the originally detected or final returned resource type for DB
+      resourceType: uploadResponse.resource_type === 'video' ? 'video' : resourceType, 
       format: uploadResponse.format,
     });
 

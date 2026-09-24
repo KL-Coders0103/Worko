@@ -1,314 +1,105 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { AuthStackParamList } from '../../../app/navigation/types';
+import { Screen } from '../../../components/common/Screen';
+import { Typography } from '../../../components/common/Typography';
+import { Input } from '../../../components/inputs/Input';
+import { Button } from '../../../components/buttons/Button';
+import { sendLoginOtp, OtpChannel } from '../../../services/authService';
+import { spacing } from '../../../theme';
 
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
-import type {NativeStackScreenProps} from '@react-navigation/native-stack';
+export function LoginScreen({ navigation }: Props) {
+  const [identifier, setIdentifier] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | undefined>();
 
-import {
-  sendLoginOtp,
-  type OtpChannel,
-} from '../../../services/authService';
+  const handleSendOtp = async () => {
+    Keyboard.dismiss();
+    setError(undefined);
 
-import type {AuthStackParamList} from '../auth.types';
-
-import {Screen} from '../../../components/Screen';
-
-type Props = NativeStackScreenProps<
-  AuthStackParamList,
-  'Login'
->;
-
-export function LoginScreen({navigation}: Props) {
-  const [channel, setChannel] =
-    useState<OtpChannel>('EMAIL');
-
-  const [identifier, setIdentifier] =
-    useState('');
-
-  const [loading, setLoading] =
-    useState(false);
-
-  const handleChannelChange = (
-    nextChannel: OtpChannel,
-  ) => {
-    setChannel(nextChannel);
-    setIdentifier('');
-  };
-
-  const handleContinue = async () => {
-    const value = identifier.trim();
-
-    if (!value) {
-      Alert.alert(
-        'Required',
-        channel === 'EMAIL'
-          ? 'Enter your email address.'
-          : 'Enter your mobile number.',
-      );
-
+    if (!identifier.trim()) {
+      setError('Please enter a valid phone number or email.');
       return;
     }
 
-    if (
-      channel === 'EMAIL' &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-    ) {
-      Alert.alert(
-        'Invalid email',
-        'Please enter a valid email address.',
-      );
-
-      return;
-    }
-
-    if (
-      channel === 'SMS' &&
-      !/^\+?[1-9]\d{7,14}$/.test(value)
-    ) {
-      Alert.alert(
-        'Invalid mobile number',
-        'Enter your mobile number with country code. Example: +919876543210',
-      );
-
-      return;
-    }
+    const channel: OtpChannel = identifier.includes('@') ? 'EMAIL' : 'SMS';
 
     try {
-      setLoading(true);
-
-      await sendLoginOtp(value, channel);
-
-      navigation.navigate('VerifyOtp', {
-        identifier: value,
-        purpose: 'LOGIN',
-        channel,
-      });
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        'Unable to send OTP. Please try again.';
-
-      Alert.alert(
-        'OTP failed',
-        Array.isArray(message)
-          ? message.join('\n')
-          : message,
-      );
+      setIsLoading(true);
+      await sendLoginOtp(identifier.trim(), channel);
+      navigation.navigate('VerifyOTP', { identifier: identifier.trim(), channel, purpose:'LOGIN' });
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Failed to send OTP. Please try again.';
+      setError(message);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
     <Screen>
-      <View style={styles.content}>
-        <Text style={styles.logo}>
-          WORKO
-        </Text>
-
-        <Text style={styles.title}>
-          Welcome back
-        </Text>
-
-        <Text style={styles.subtitle}>
-          Login to find work or hire trusted workers.
-        </Text>
-
-        <View style={styles.selector}>
-          <Pressable
-            style={[
-              styles.selectorButton,
-              channel === 'EMAIL' &&
-                styles.selectorButtonActive,
-            ]}
-            onPress={() =>
-              handleChannelChange('EMAIL')
-            }
-            disabled={loading}>
-            <Text
-              style={[
-                styles.selectorText,
-                channel === 'EMAIL' &&
-                  styles.selectorTextActive,
-              ]}>
-              Email
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[
-              styles.selectorButton,
-              channel === 'SMS' &&
-                styles.selectorButtonActive,
-            ]}
-            onPress={() =>
-              handleChannelChange('SMS')
-            }
-            disabled={loading}>
-            <Text
-              style={[
-                styles.selectorText,
-                channel === 'SMS' &&
-                  styles.selectorTextActive,
-              ]}>
-              Mobile
-            </Text>
-          </Pressable>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <View style={styles.header}>
+          <Typography variant="h1">Welcome to Worko</Typography>
+          <Typography variant="body" color="gray" style={styles.subtitle}>
+            Enter your phone number or email to login or register.
+          </Typography>
         </View>
 
-        <TextInput
-          value={identifier}
-          onChangeText={setIdentifier}
-          placeholder={
-            channel === 'EMAIL'
-              ? 'Enter your email'
-              : '+91 9876543210'
-          }
-          placeholderTextColor="#777"
-          autoCapitalize="none"
-          keyboardType={
-            channel === 'EMAIL'
-              ? 'email-address'
-              : 'phone-pad'
-          }
-          style={styles.input}
-        />
+        <View style={styles.form}>
+          <Input
+            label="Phone Number or Email"
+            placeholder="e.g. +919876543210 or name@mail.com"
+            value={identifier}
+            onChangeText={(text) => {
+              setIdentifier(text);
+              if (error) setError(undefined);
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            error={error}
+          />
+          
+          <Button 
+            title="Continue" 
+            onPress={handleSendOtp} 
+            isLoading={isLoading} 
+            style={styles.button}
+          />
 
-        <Pressable
-          style={styles.primaryButton}
-          onPress={handleContinue}
-          disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text
-              style={styles.primaryButtonText}>
-              Send OTP
-            </Text>
-          )}
-        </Pressable>
-
-        <View style={styles.registerRow}>
-          <Text style={styles.registerText}>
-            Don't have an account?{' '}
-          </Text>
-
-          <Pressable
-            onPress={() =>
-              navigation.navigate('Register')
-            }>
-            <Text style={styles.link}>
-              Create account
-            </Text>
-          </Pressable>
+          <Button 
+            title="Don't have an account? Register" 
+            variant="ghost"
+            onPress={() => navigation.navigate('Register')} 
+            disabled={isLoading}
+          />
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
+  container: {
     flex: 1,
-    justifyContent: 'center',
+    paddingTop: spacing.xxl,
   },
-
-  logo: {
-    color: '#FF6B00',
-    fontSize: 28,
-    fontWeight: '800',
-    marginBottom: 40,
+  header: {
+    marginBottom: spacing.xxl,
   },
-
-  title: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '700',
-    marginBottom: 10,
-  },
-
   subtitle: {
-    color: '#A3A3A3',
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 28,
+    marginTop: spacing.xs,
   },
-
-  selector: {
-    flexDirection: 'row',
-    backgroundColor: '#151515',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 14,
-  },
-
-  selectorButton: {
+  form: {
     flex: 1,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 9,
   },
-
-  selectorButtonActive: {
-    backgroundColor: '#FF6B00',
-  },
-
-  selectorText: {
-    color: '#888888',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-
-  selectorTextActive: {
-    color: '#FFFFFF',
-  },
-
-  input: {
-    height: 54,
-    borderWidth: 1,
-    borderColor: '#333333',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    color: '#FFFFFF',
-    backgroundColor: '#151515',
-    marginBottom: 14,
-  },
-
-  primaryButton: {
-    height: 54,
-    borderRadius: 12,
-    backgroundColor: '#FF6B00',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-
-  registerRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 28,
-  },
-
-  registerText: {
-    color: '#888888',
-  },
-
-  link: {
-    color: '#FF6B00',
-    fontWeight: '700',
-  },
+  button: {
+    marginTop: spacing.md,
+  }
 });
