@@ -1230,8 +1230,8 @@ export class RequirementsService {
                 requirement.booking.worker.user.firstName,
               lastName:
                 requirement.booking.worker.user.lastName,
-              profilePhotoKey:
-                requirement.booking.worker.profilePhotoKey,
+              hasProfilePhoto:
+                Boolean(requirement.booking.worker.profilePhotoKey),
             },
           }
         : null,
