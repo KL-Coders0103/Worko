@@ -8,6 +8,7 @@ import {
   Req,
   UploadedFile,
   UseGuards,
+  Param,
   UseInterceptors,
   Version,
 } from '@nestjs/common';
@@ -15,6 +16,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles, RolesGuard } from '../auth/guards/role.guards';
 import type { AccessTokenPayload } from '../auth/jwt.service';
 
 import {
@@ -33,7 +35,7 @@ type AuthenticatedRequest = Request & {
 };
 
 @Controller('workers')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class WorkersController {
   constructor(
     private readonly workersService: WorkersService,
@@ -287,4 +289,37 @@ uploadProfilePhoto(
       file,
     );
   }
+  @Get('kyc/pending')
+  @Version('1')
+  @Roles('ADMIN', 'OPERATIONS', 'SUPER_ADMIN')
+  getPendingKyc() {
+    return this.workersService.getPendingKyc();
+  }
+
+  @Post(':workerId/kyc/approve')
+  @Version('1')
+  @Roles('ADMIN', 'OPERATIONS', 'SUPER_ADMIN')
+  approveKyc(
+    @Req() request: AuthenticatedRequest,
+    @Param('workerId') workerId: string,
+  ) {
+    return this.workersService.reviewKyc(request.user.sub, workerId, 'APPROVED');
+  }
+
+  @Post(':workerId/kyc/reject')
+  @Version('1')
+  @Roles('ADMIN', 'OPERATIONS', 'SUPER_ADMIN')
+  rejectKyc(
+    @Req() request: AuthenticatedRequest,
+    @Param('workerId') workerId: string,
+    @Body() body: {reason?: string},
+  ) {
+    return this.workersService.reviewKyc(
+      request.user.sub,
+      workerId,
+      'REJECTED',
+      body.reason,
+    );
+  }
+
 }
