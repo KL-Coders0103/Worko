@@ -158,7 +158,7 @@ export class BookingsService {
           BookingStatus.COMPLETED,
         );
 
-        return tx.booking.update({
+        const updated = await tx.booking.update({
           where: { id: booking.id },
           data: {
             status: BookingStatus.COMPLETED,
@@ -166,6 +166,13 @@ export class BookingsService {
           },
           include: this.bookingInclude(),
         });
+
+        await tx.attendance.updateMany({
+          where: { bookingId: booking.id },
+          data: { status: 'COMPLETED' },
+        });
+
+        return updated;
       },
     );
 
