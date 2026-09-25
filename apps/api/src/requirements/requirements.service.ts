@@ -382,7 +382,7 @@ export class RequirementsService {
       );
     }
 
-    return this.prisma.$transaction(
+    const result = await this.prisma.$transaction(
       async tx => {
         const assignment =
           await tx.requirementAssignment.findUnique({
@@ -540,6 +540,30 @@ export class RequirementsService {
         };
       },
     );
+
+    const client = await this.prisma.client.findUnique({
+      where: {
+        id: result.booking.clientId,
+      },
+      select: {
+        userId: true,
+      },
+    });
+
+    if (client) {
+      this.realtime.notifyUser(
+        client.userId,
+        REALTIME_EVENTS.REQUIREMENT_ACCEPTED,
+        {
+          requirementId,
+          bookingId: result.booking.id,
+          workerId: result.booking.workerId,
+          status: result.booking.status,
+        },
+      );
+    }
+
+    return result;
   }
 
   async reject(
