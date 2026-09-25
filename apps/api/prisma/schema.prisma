@@ -732,6 +732,8 @@ model Payment {
 
   paidAt DateTime?
 
+  webhookEvents PaymentWebhookEvent[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -755,6 +757,21 @@ model Wallet {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([createdAt])
+}
+
+model PaymentWebhookEvent {
+  id String @id @default(uuid()) @db.Uuid
+
+  eventId String @unique @db.VarChar(200)
+  paymentId String @db.Uuid
+  type String @db.VarChar(100)
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([paymentId])
   @@index([createdAt])
 }
 
