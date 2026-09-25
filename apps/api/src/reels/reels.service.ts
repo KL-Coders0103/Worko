@@ -227,11 +227,7 @@ export class ReelsService {
     },
   });
 
-return {
-  ...updatedReel,
-  fileSizeBytes:
-    updatedReel.fileSizeBytes?.toString() ?? null,
-};
+return this.toWorkerReelResponse(updatedReel);
 }
 
 async publishReel(
@@ -315,10 +311,7 @@ async publishReel(
     },
   });
 
-  return {
-    ...updateReel,
-    fileSizeBytes: updateReel.fileSizeBytes?.toString() ?? null
-  }
+  return this.toWorkerReelResponse(updateReel);
 }
 
 async deleteReel(
@@ -366,12 +359,8 @@ async deleteReel(
   }
 
   if (reel.status === 'DELETED') {
-  return {
-    ...reel,
-    fileSizeBytes:
-      reel.fileSizeBytes?.toString() ?? null,
-  };
-}
+    return this.toWorkerReelResponse(reel);
+  }
 
   const updated = await this.prisma.reel.update({
     where: {
@@ -383,10 +372,7 @@ async deleteReel(
     },
   });
 
-  return {
-    ...updated,
-    fileSizeBytes: updated.fileSizeBytes?.toString() ?? null
-  };
+  return this.toWorkerReelResponse(updated);
 }
 
 async getFeed(
@@ -667,4 +653,22 @@ createReelVideoStream(
     end,
   );
 }
+  private toWorkerReelResponse(reel: any) {
+    return {
+      id: reel.id,
+      status: reel.status,
+      title: reel.title,
+      description: reel.description,
+      mimeType: reel.mimeType,
+      durationSeconds: reel.durationSeconds,
+      publishedAt: reel.publishedAt,
+      createdAt: reel.createdAt,
+      updatedAt: reel.updatedAt,
+      fileSizeBytes:
+        reel.fileSizeBytes?.toString() ?? null,
+      videoPath: `/api/v1/reels/${reel.id}/video`,
+    };
+  }
+
+
 }
