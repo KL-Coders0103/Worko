@@ -22,7 +22,6 @@ import type { AccessTokenPayload } from '../auth/jwt.service';
 import {
   CreateWorkerProfileDto,
   UpdateWorkerCategoriesDto,
-  UpdateWorkerKycDocumentsDto,
   UpdateWorkerLocationDto,
   UpdateWorkerProfileDto,
   UpdateWorkerSkillsDto,
@@ -59,7 +58,6 @@ export class WorkersController {
   ) {
     return this.workersService.createProfile(
       request.user.sub,
-      dto,
     );
   }
 
@@ -125,7 +123,7 @@ export class WorkersController {
   @Version('1')
   submitKycDocuments(
     @Req() request: AuthenticatedRequest,
-    @Body() dto: UpdateWorkerKycDocumentsDto,
+    
   ) {
     return this.workersService.submitKycDocuments(
       request.user.sub,
