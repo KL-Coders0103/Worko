@@ -19,12 +19,16 @@ import { PrismaModule } from './common/prisma/prisma.module';
 import { StorageModule } from './storage/storage.module';
 import { RequirementsModule } from './requirements/requirements.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import configuration from './config/configuration';
+import { validateEnv } from './config/env.validation';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
+      load: [configuration],
+      validate: validateEnv,
     }),
     ThrottlerModule.forRoot([
       {
