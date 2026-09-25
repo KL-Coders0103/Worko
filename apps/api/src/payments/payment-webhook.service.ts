@@ -1,0 +1,102 @@
+import {BadRequestException, Injectable, UnauthorizedException} from '@nestjs/common';
+import {createHmac, timingSafeEqual} from 'node:crypto';
+import {PaymentStatus} from '@prisma/client';
+import {PrismaService} from '../common/prisma/prisma.service';
+import {WalletService} from '../wallet/wallet.service';
+import {RealtimeGateway} from '../realtime/realtime.gateway';
+import {REALTIME_EVENTS} from '../realtime/realtime.types';
+import {PaymentWebhookDto, PaymentWebhookEventType} from './dto/payment-webhook.dto';
+
+@Injectable()
+export class PaymentWebhookService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly walletService: WalletService,
+    private readonly realtime: RealtimeGateway,
+  ) {}
+
+  private verifySignature(rawBody: string, signature: string | undefined) {
+    if (!signature) throw new UnauthorizedException('Missing webhook signature');
+    const secret = process.env.PAYMENT_WEBHOOK_SECRET;
+    if (!secret) throw new UnauthorizedException('Webhook signing is not configured');
+
+    const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
+    const received = signature.replace(/^sha256=/, '').trim();
+    const a = Buffer.from(expected, 'utf8');
+    const b = Buffer.from(received, 'utf8');
+    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+      throw new UnauthorizedException('Invalid webhook signature');
+    }
+  }
+
+  async handle(rawBody: string, signature: string | undefined, dto: PaymentWebhookDto) {
+    this.verifySignature(rawBody, signature);
+
+    return this.prisma.$transaction(async tx => {
+      const existing = await tx.paymentWebhookEvent.findUnique({
+        where: {eventId: dto.eventId},
+      });
+      if (existing) return {processed: true, duplicate: true};
+
+      const payment = await tx.payment.findUnique({
+        where: {id: dto.paymentId},
+        include: {booking: {select: {workerId: true, serviceTitle: true}}},
+      });
+      if (!payment) throw new BadRequestException('Payment not found');
+
+      const target = dto.type === PaymentWebhookEventType.PAYMENT_SUCCEEDED
+        ? PaymentStatus.SUCCESS
+        : PaymentStatus.FAILED;
+
+      if (payment.status !== PaymentStatus.PROCESSING) {
+        throw new BadRequestException(
+          `Payment is not processing: ${payment.status}`,
+        );
+      }
+
+      const updated = await tx.payment.update({
+        where: {id: payment.id},
+        data: {
+          status: target,
+          gatewayPaymentId: dto.gatewayPaymentId ?? undefined,
+          gatewaySignature: dto.gatewaySignature ?? undefined,
+          paidAt: target === PaymentStatus.SUCCESS ? new Date() : null,
+          failureCode: dto.failureCode ?? null,
+          failureMessage: dto.failureMessage ?? null,
+        },
+      });
+
+      if (target === PaymentStatus.SUCCESS) {
+        if (!payment.booking.workerId) {
+          throw new BadRequestException('Booking worker not found');
+        }
+
+        await this.walletService.creditWalletInTransaction(
+          tx,
+          payment.booking.workerId,
+          payment.amount,
+          'PAYMENT',
+          payment.id,
+          `Payment received for ${payment.booking.serviceTitle}`,
+        );
+      }
+
+      await tx.paymentWebhookEvent.create({
+        data: {
+          eventId: dto.eventId,
+          paymentId: payment.id,
+          type: dto.type,
+        },
+      });
+
+      return {processed: true, duplicate: false, payment: updated};
+    }).then(async result => {
+      this.realtime.notifyUsers([], REALTIME_EVENTS.PAYMENT_STATUS_CHANGED, {
+        paymentId: dto.paymentId,
+        status: result.payment?.status,
+        changedAt: new Date(),
+      });
+      return result;
+    });
+  }
+}
