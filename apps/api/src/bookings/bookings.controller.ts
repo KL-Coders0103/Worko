@@ -10,7 +10,6 @@ import {
 
 
 import {BookingsService} from './bookings.service';
-import {CreateBookingDto} from './dto/create-booking.dto';
 import {BookingActionDto} from './dto/booking-action.dto';
 
 
@@ -32,18 +31,6 @@ export class BookingsController {
     private readonly bookingsService: BookingsService,
   ) {}
 
-  @Post()
-  @Version('1')
-  @Roles('CLIENT')
-  createBooking(
-    @Req() req: AuthenticatedRequest,
-    @Body() dto: CreateBookingDto,
-  ) {
-    return this.bookingsService.createBooking(
-      req.user.sub,
-      dto,
-    );
-  }
 
   @Get()
   @Version('1')
