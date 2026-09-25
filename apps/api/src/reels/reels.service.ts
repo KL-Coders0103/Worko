@@ -352,11 +352,11 @@ export class ReelsService {
 }
 
   async getFeed(
-  limit = 10,
-  cursor?: string,
-  userId?: string,
-) {
-  const safeLimit = Math.min(Math.max(limit, 1), 20);
+    limit = 10,
+    cursor?: string,
+    userId?: string,
+  ) {
+    const safeLimit = Math.min(Math.max(limit, 1), 20);
 
     let cursorReel:
       | { id: string; publishedAt: Date; createdAt: Date }
@@ -389,64 +389,68 @@ export class ReelsService {
 
     const reels = await this.prisma.reel.findMany({
       where: {
-      status: 'PUBLISHED',
-      publishedAt: { not: null },
-      ...(cursorReel
-        ? {
-            OR: [
-              { publishedAt: { lt: cursorReel.publishedAt } },
-              {
-                publishedAt: cursorReel.publishedAt,
-                createdAt: { lt: cursorReel.createdAt },
-              },
-              {
-                publishedAt: cursorReel.publishedAt,
-                createdAt: cursorReel.createdAt,
-                id: { lt: cursorReel.id },
-              },
-            ],
-          }
-        : {}),
-    },
-    orderBy: [
-      { publishedAt: 'desc' },
-      { createdAt: 'desc' },
-      { id: 'desc' },
-    ],
+        status: 'PUBLISHED',
+        publishedAt: { not: null },
+        ...(cursorReel
+          ? {
+              OR: [
+                { publishedAt: { lt: cursorReel.publishedAt } },
+                {
+                  publishedAt: cursorReel.publishedAt,
+                  createdAt: { lt: cursorReel.createdAt },
+                },
+                {
+                  publishedAt: cursorReel.publishedAt,
+                  createdAt: cursorReel.createdAt,
+                  id: { lt: cursorReel.id },
+                },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [
+        { publishedAt: 'desc' },
+        { createdAt: 'desc' },
+        { id: 'desc' },
+      ],
       take: safeLimit + 1,
       include: {
-      likes: {
-        where: { status: 'ACTIVE' },
-        select: { userId: true },
+        likes: {
+          where: { status: 'ACTIVE' },
+          select: { userId: true },
+        },
       },
     });
 
     const hasMore = reels.length > safeLimit;
-  const items = hasMore ? reels.slice(0, safeLimit) : reels;
-  const nextCursor =
-    hasMore && items.length > 0
-      ? items[items.length - 1].id
-      : null;
+    const items = hasMore
+      ? reels.slice(0, safeLimit)
+      : reels;
 
-  return {
-    items: items.map(reel => ({
-      id: reel.id,
-      status: reel.status,
-      title: reel.title,
-      description: reel.description,
-      durationSeconds: reel.durationSeconds,
-      publishedAt: reel.publishedAt,
-      createdAt: reel.createdAt,
-      likes: reel.likes.length,
-      liked: userId
-        ? reel.likes.some(like => like.userId === userId)
-        : false,
-      videoPath: `/api/v1/reels/${reel.id}/video`,
-    })),
-    nextCursor,
-    hasMore,
-  };
-}
+    const nextCursor =
+      hasMore && items.length > 0
+        ? items[items.length - 1].id
+        : null;
+
+    return {
+      items: items.map((reel) => ({
+        id: reel.id,
+        status: reel.status,
+        title: reel.title,
+        description: reel.description,
+        durationSeconds: reel.durationSeconds,
+        publishedAt: reel.publishedAt,
+        createdAt: reel.createdAt,
+        likes: reel.likes.length,
+        liked: userId
+          ? reel.likes.some((like) => like.userId === userId)
+          : false,
+        videoPath: `/api/v1/reels/${reel.id}/video`,
+      })),
+      nextCursor,
+      hasMore,
+    };
+  }
 
   async likeReel(
   userId: string,
