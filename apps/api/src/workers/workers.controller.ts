@@ -287,6 +287,19 @@ uploadProfilePhoto(
       file,
     );
   }
+  @Get(':workerId/kyc/:documentType')
+  @Version('1')
+  @Roles('ADMIN', 'OPERATIONS', 'SUPER_ADMIN')
+  async downloadKycDocument(
+    @Param('workerId') workerId: string,
+    @Param('documentType') documentType: 'aadhaar' | 'policeVerification',
+  ) {
+    if (documentType !== 'aadhaar' && documentType !== 'policeVerification') {
+      throw new BadRequestException('Invalid KYC document type');
+    }
+    return this.workersService.downloadKycDocument(workerId, documentType);
+  }
+
   @Get('kyc/pending')
   @Version('1')
   @Roles('ADMIN', 'OPERATIONS', 'SUPER_ADMIN')
