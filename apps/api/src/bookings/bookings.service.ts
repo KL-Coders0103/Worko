@@ -115,10 +115,11 @@ export class BookingsService {
       bookingId,
     );
 
-    return this.transitionBooking(
+    const updated = await this.transitionBooking(
       booking.id,
       BookingStatus.CONFIRMED,
     );
+    return this.toBookingResponse(updated, 'CLIENT');
   }
 
   async markWorkerEnRoute(
@@ -131,10 +132,11 @@ export class BookingsService {
       bookingId,
     );
 
-    return this.transitionBooking(
+    const updated = await this.transitionBooking(
       booking.id,
       BookingStatus.WORKER_EN_ROUTE,
     );
+    return this.toBookingResponse(updated, 'WORKER');
   }
 
   async markWorkerArrived(
@@ -147,10 +149,11 @@ export class BookingsService {
       bookingId,
     );
 
-    return this.transitionBooking(
+    const updated = await this.transitionBooking(
       booking.id,
       BookingStatus.ARRIVED,
     );
+    return this.toBookingResponse(updated, 'WORKER');
   }
 
   async startBooking(
@@ -163,10 +166,11 @@ export class BookingsService {
       bookingId,
     );
 
-    return this.transitionBooking(
+    const updated = await this.transitionBooking(
       booking.id,
       BookingStatus.IN_PROGRESS,
     );
+    return this.toBookingResponse(updated, 'WORKER');
   }
 
   async completeBooking(
@@ -204,7 +208,7 @@ export class BookingsService {
       },
     );
 
-    return completed;
+    return this.toBookingResponse(completed, 'WORKER');
   }
 
   async cancelBooking(
@@ -219,7 +223,7 @@ export class BookingsService {
       bookingId,
     );
 
-    return this.prisma.$transaction(async tx => {
+    const updated = await this.prisma.$transaction(async tx => {
       assertBookingTransition(
         booking.status,
         BookingStatus.CANCELLED,
@@ -236,6 +240,8 @@ export class BookingsService {
         include: this.bookingInclude(),
       });
     });
+
+    return this.toBookingResponse(updated, role);
   }
 
   async transitionBooking(
