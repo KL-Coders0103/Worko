@@ -27,7 +27,6 @@ import {toPaymentResponse} from './dto/payment-response.dto';
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly walletService: WalletService,
     private readonly realtime: RealtimeGateway,
     @Inject(PAYMENT_PROVIDER)
     private readonly paymentProvider: PaymentProvider,
@@ -561,37 +560,6 @@ export class PaymentsService {
             failureMessage: null,
           },
         });
-
-      /*
-       * Find the worker's user ID.
-       */
-      const worker =
-        await tx.worker.findUnique({
-          where: {
-            id: payment.booking.workerId!,
-          },
-          select: {
-            userId: true,
-          },
-        });
-
-      if (!worker) {
-        throw new NotFoundException(
-          'Booking worker not found',
-        );
-      }
-
-      /*
-       * Credit worker wallet.
-       */
-      await this.walletService.creditWalletInTransaction(
-        tx,
-        worker.userId,
-        payment.amount,
-        'PAYMENT',
-        payment.id,
-        `Payment received for ${payment.booking.serviceTitle}`,
-      );
 
       return {
         payment: updatedPayment,
