@@ -172,17 +172,63 @@ export class BookingsService {
   ) {
     await this.getOwnedBooking(workerUserId, 'WORKER', bookingId);
 
-    const updated = await this.prisma.$transaction(async tx => {
-      return this.transitionBookingInTransaction(
-        tx,
-        bookingId,
-        BookingStatus.IN_PROGRESS,
-      );
+    const result = await this.prisma.$transaction(async tx => {
+      const booking = await tx.booking.findUnique({
+        where: { id: bookingId },
+        include: { attendance: true },
+      });
+
+      if (!booking) {
+        throw new NotFoundException('Booking not found');
+      }
+
+      if (!booking.attendance) {
+        throw new BadRequestException(
+          'Attendance record not found',
+        );
+      }
+
+      if (booking.attendance.status !== 'CHECKED_IN') {
+        throw new BadRequestException(
+          'Worker must be checked in before starting the work',
+        );
+      }
+
+      const updatedBooking =
+        await this.transitionBookingInTransaction(
+          tx,
+          bookingId,
+          BookingStatus.IN_PROGRESS,
+        );
+
+      const attendance = await tx.attendance.update({
+        where: {
+          id: booking.attendance.id,
+        },
+        data: {
+          status: 'IN_PROGRESS',
+        },
+      });
+
+      return {
+        booking: updatedBooking,
+        attendance,
+      };
     });
 
-    await this.notifyBookingStatusChanged(updated.id, updated.status);
+    await this.notifyBookingStatusChanged(
+      result.booking.id,
+      result.booking.status,
+    );
 
-    return this.toBookingResponse(updated, 'WORKER');
+    await this.notifyAttendanceUpdated(
+      result.booking.id,
+      result.booking.status,
+      result.attendance.status,
+      result.attendance.updatedAt,
+    );
+
+    return this.toBookingResponse(result.booking, 'WORKER');
   }
 
   async completeBooking(
@@ -295,6 +341,39 @@ export class BookingsService {
     );
 
     return this.toBookingResponse(updated, role);
+  }
+
+  private async notifyAttendanceUpdated(
+    bookingId: string,
+    bookingStatus: BookingStatus,
+    attendanceStatus: string,
+    occurredAt: Date,
+  ) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        client: { select: { userId: true } },
+        worker: { select: { userId: true } },
+      },
+    });
+
+    if (!booking) {
+      return;
+    }
+
+    this.realtime.notifyUsers(
+      [
+        booking.client.userId,
+        ...(booking.worker?.userId ? [booking.worker.userId] : []),
+      ],
+      REALTIME_EVENTS.ATTENDANCE_UPDATED,
+      {
+        bookingId,
+        bookingStatus,
+        attendanceStatus,
+        occurredAt,
+      },
+    );
   }
 
   private async notifyBookingStatusChanged(
