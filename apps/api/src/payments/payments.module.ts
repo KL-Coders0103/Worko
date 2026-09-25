@@ -3,6 +3,8 @@ import {Module} from '@nestjs/common';
 import {PaymentsController} from './payments.controller';
 import {PaymentsService} from './payments.service';
 import {PaymentProvidersModule} from './providers/providers.module';
+import {PaymentWebhookController} from './payment-webhook.controller';
+import {PaymentWebhookService} from './payment-webhook.service';
 
 import {PrismaModule} from '../common/prisma/prisma.module';
 import {AuthModule} from '../auth/auth.module';
@@ -19,9 +21,11 @@ import { RealtimeModule } from '../realtime/realtime.module';
   ],
   controllers: [
     PaymentsController,
+    PaymentWebhookController,
   ],
   providers: [
     PaymentsService,
+    PaymentWebhookService,
   ],
   exports: [
     PaymentsService,
