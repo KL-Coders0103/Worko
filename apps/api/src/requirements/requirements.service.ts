@@ -62,9 +62,7 @@ export class RequirementsService {
       !Number.isFinite(end.getTime()) ||
       start >= end
     ) {
-      throw new BadRequestException(
-        'Invalid scheduled time range',
-      );
+      throw new BadRequestException('Invalid scheduled time range');
     }
 
     if (start <= new Date()) {
@@ -74,10 +72,8 @@ export class RequirementsService {
     }
 
     if (
-      (dto.latitude !== undefined &&
-        dto.longitude === undefined) ||
-      (dto.latitude === undefined &&
-        dto.longitude !== undefined)
+      (dto.latitude !== undefined && dto.longitude === undefined) ||
+      (dto.latitude === undefined && dto.longitude !== undefined)
     ) {
       throw new BadRequestException(
         'Latitude and longitude must be provided together',
@@ -107,9 +103,7 @@ export class RequirementsService {
       );
     }
 
-    let skill:
-      | {id: string; name: string}
-      | null = null;
+    let skill: {id: string; name: string} | null = null;
 
     if (dto.skillId) {
       skill = await this.prisma.skill.findFirst({
@@ -131,29 +125,26 @@ export class RequirementsService {
       }
     }
 
-    const requirement =
-      await this.prisma.requirement.create({
-        data: {
-          clientId: client.id,
-          categoryId: category.id,
-          categoryName: category.name,
-          skillId: skill?.id,
-          skillName: skill?.name,
-          title: dto.title.trim(),
-          description: dto.description?.trim(),
-          budget: dto.budget,
-          scheduledStart: start,
-          scheduledEnd: end,
-          address: dto.address.trim(),
-          latitude: dto.latitude,
-          longitude: dto.longitude,
-          status: RequirementStatus.MATCHING,
-        },
-      });
+    const requirement = await this.prisma.requirement.create({
+      data: {
+        clientId: client.id,
+        categoryId: category.id,
+        categoryName: category.name,
+        skillId: skill?.id,
+        skillName: skill?.name,
+        title: dto.title.trim(),
+        description: dto.description?.trim(),
+        budget: dto.budget,
+        scheduledStart: start,
+        scheduledEnd: end,
+        address: dto.address.trim(),
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        status: RequirementStatus.MATCHING,
+      },
+    });
 
-    const matching = await this.matchWorkers(
-      requirement.id,
-    );
+    const matching = await this.matchWorkers(requirement.id);
 
     for (const offer of matching.offers) {
       this.realtime.notifyUser(
@@ -191,27 +182,19 @@ export class RequirementsService {
     };
   }
 
-  async listMine(
-    userId: string,
-    role: 'CLIENT' | 'WORKER',
-  ) {
+  async listMine(userId: string, role: 'CLIENT' | 'WORKER') {
     if (role === 'CLIENT') {
-      const client =
-        await this.prisma.client.findUnique({
-          where: {userId},
-          select: {id: true},
-        });
+      const client = await this.prisma.client.findUnique({
+        where: {userId},
+        select: {id: true},
+      });
 
       if (!client) {
-        throw new NotFoundException(
-          'Client profile not found',
-        );
+        throw new NotFoundException('Client profile not found');
       }
 
       const requirements = await this.prisma.requirement.findMany({
-        where: {
-          clientId: client.id,
-        },
+        where: {clientId: client.id},
         include: {
           assignments: {
             select: {
@@ -241,9 +224,7 @@ export class RequirementsService {
             },
           },
         },
-        orderBy: {
-          createdAt: 'desc',
-        },
+        orderBy: {createdAt: 'desc'},
       });
 
       return requirements.map(requirement =>
@@ -251,31 +232,24 @@ export class RequirementsService {
       );
     }
 
-    const worker =
-      await this.prisma.worker.findUnique({
-        where: {userId},
-        select: {id: true},
-      });
+    const worker = await this.prisma.worker.findUnique({
+      where: {userId},
+      select: {id: true},
+    });
 
     if (!worker) {
-      throw new NotFoundException(
-        'Worker profile not found',
-      );
+      throw new NotFoundException('Worker profile not found');
     }
 
     const requirements = await this.prisma.requirement.findMany({
       where: {
         assignments: {
-          some: {
-            workerId: worker.id,
-          },
+          some: {workerId: worker.id},
         },
       },
       include: {
         assignments: {
-          where: {
-            workerId: worker.id,
-          },
+          where: {workerId: worker.id},
           select: {
             id: true,
             workerId: true,
@@ -286,16 +260,11 @@ export class RequirementsService {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: {createdAt: 'desc'},
     });
 
     return requirements.map(requirement =>
-      this.toWorkerRequirementResponse(
-        requirement,
-        worker.id,
-      ),
+      this.toWorkerRequirementResponse(requirement, worker.id),
     );
   }
 
@@ -304,58 +273,51 @@ export class RequirementsService {
     role: 'CLIENT' | 'WORKER',
     requirementId: string,
   ) {
-    const requirement =
-      await this.prisma.requirement.findUnique({
-        where: {id: requirementId},
-        include: {
-          assignments: {
-            select: {
-              id: true,
-              workerId: true,
-              status: true,
-              matchScore: true,
-              distanceKm: true,
-              createdAt: true,
-              respondedAt: true,
-            },
+    const requirement = await this.prisma.requirement.findUnique({
+      where: {id: requirementId},
+      include: {
+        assignments: {
+          select: {
+            id: true,
+            workerId: true,
+            status: true,
+            matchScore: true,
+            distanceKm: true,
+            createdAt: true,
+            respondedAt: true,
           },
-          booking: {
-            select: {
-              id: true,
-              status: true,
-              worker: {
-                select: {
-                  user: {
-                    select: {
-                      firstName: true,
-                      lastName: true,
-                    },
+        },
+        booking: {
+          select: {
+            id: true,
+            status: true,
+            worker: {
+              select: {
+                user: {
+                  select: {
+                    firstName: true,
+                    lastName: true,
                   },
-                  profilePhotoKey: true,
                 },
+                profilePhotoKey: true,
               },
             },
           },
         },
-      });
+      },
+    });
 
     if (!requirement) {
-      throw new NotFoundException(
-        'Requirement not found',
-      );
+      throw new NotFoundException('Requirement not found');
     }
 
     if (role === 'CLIENT') {
-      const client =
-        await this.prisma.client.findUnique({
-          where: {userId},
-          select: {id: true},
-        });
+      const client = await this.prisma.client.findUnique({
+        where: {userId},
+        select: {id: true},
+      });
 
-      if (
-        !client ||
-        client.id !== requirement.clientId
-      ) {
+      if (!client || client.id !== requirement.clientId) {
         throw new ForbiddenException(
           'You do not have access to this requirement',
         );
@@ -364,17 +326,15 @@ export class RequirementsService {
       return this.toClientRequirementResponse(requirement);
     }
 
-    const worker =
-      await this.prisma.worker.findUnique({
-        where: {userId},
-        select: {id: true},
-      });
+    const worker = await this.prisma.worker.findUnique({
+      where: {userId},
+      select: {id: true},
+    });
 
     if (
       !worker ||
       !requirement.assignments.some(
-        assignment =>
-          assignment.workerId === worker.id,
+        assignment => assignment.workerId === worker.id,
       )
     ) {
       throw new ForbiddenException(
@@ -382,32 +342,21 @@ export class RequirementsService {
       );
     }
 
-    return this.toWorkerRequirementResponse(
-      requirement,
-      worker.id,
-    );
+    return this.toWorkerRequirementResponse(requirement, worker.id);
   }
 
-  async accept(
-    userId: string,
-    requirementId: string,
-  ) {
-    const worker =
-      await this.prisma.worker.findUnique({
-        where: {userId},
-        include: {
-          user: {
-            select: {
-              status: true,
-            },
-          },
+  async accept(userId: string, requirementId: string) {
+    const worker = await this.prisma.worker.findUnique({
+      where: {userId},
+      include: {
+        user: {
+          select: {status: true},
         },
-      });
+      },
+    });
 
     if (!worker) {
-      throw new ForbiddenException(
-        'Worker profile not found',
-      );
+      throw new ForbiddenException('Worker profile not found');
     }
 
     if (
@@ -420,185 +369,184 @@ export class RequirementsService {
       );
     }
 
-    let result: {
-      booking: any;
-    } | null = null;
+    let result: {booking: any} | null = null;
 
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
         result = await this.prisma.$transaction(
           async tx => {
-        const assignment =
-          await tx.requirementAssignment.findUnique({
-            where: {
-              requirementId_workerId: {
-                requirementId,
+            const assignment =
+              await tx.requirementAssignment.findUnique({
+                where: {
+                  requirementId_workerId: {
+                    requirementId,
+                    workerId: worker.id,
+                  },
+                },
+                include: {requirement: true},
+              });
+
+            if (!assignment) {
+              throw new NotFoundException(
+                'Requirement is not available to you',
+              );
+            }
+
+            if (assignment.status !== RequirementAssignmentStatus.OFFERED) {
+              throw new BadRequestException(
+                'This requirement offer is no longer pending',
+              );
+            }
+
+            if (
+              assignment.requirement.status !== RequirementStatus.MATCHING &&
+              assignment.requirement.status !== RequirementStatus.OPEN
+            ) {
+              throw new BadRequestException(
+                'Requirement is no longer available',
+              );
+            }
+
+            const existingBooking = await tx.booking.findUnique({
+              where: {requirementId},
+              select: {id: true},
+            });
+
+            if (existingBooking) {
+              throw new BadRequestException(
+                'This requirement has already been matched',
+              );
+            }
+
+            const conflictingBooking = await tx.booking.findFirst({
+              where: {
                 workerId: worker.id,
+                status: {in: ACTIVE_BOOKING_STATUSES as any},
+                scheduledStart: {
+                  lt: assignment.requirement.scheduledEnd,
+                },
+                scheduledEnd: {
+                  gt: assignment.requirement.scheduledStart,
+                },
               },
-            },
-            include: {
-              requirement: true,
-            },
-          });
+              select: {id: true},
+            });
 
-        if (!assignment) {
-          throw new NotFoundException(
-            'Requirement is not available to you',
-          );
-        }
+            if (conflictingBooking) {
+              throw new BadRequestException(
+                'You already have another booking during this time',
+              );
+            }
 
-        if (
-          assignment.status !==
-          RequirementAssignmentStatus.OFFERED
-        ) {
-          throw new BadRequestException(
-            'This requirement offer is no longer pending',
-          );
-        }
-
-        if (
-          assignment.requirement.status !==
-            RequirementStatus.MATCHING &&
-          assignment.requirement.status !==
-            RequirementStatus.OPEN
-        ) {
-          throw new BadRequestException(
-            'Requirement is no longer available',
-          );
-        }
-
-        const existingBooking =
-          await tx.booking.findUnique({
-            where: {
-              requirementId,
-            },
-            select: {id: true},
-          });
-
-        if (existingBooking) {
-          throw new BadRequestException(
-            'This requirement has already been matched',
-          );
-        }
-
-        const conflictingBooking =
-          await tx.booking.findFirst({
-            where: {
-              workerId: worker.id,
-              status: {
-                in: ACTIVE_BOOKING_STATUSES as any,
+            const booking = await tx.booking.create({
+              data: {
+                clientId: assignment.requirement.clientId,
+                workerId: worker.id,
+                requirementId,
+                status: BookingStatus.ACCEPTED,
+                categoryId: assignment.requirement.categoryId,
+                categoryName: assignment.requirement.categoryName,
+                skillId: assignment.requirement.skillId,
+                skillName: assignment.requirement.skillName,
+                serviceTitle: assignment.requirement.title,
+                serviceDescription: assignment.requirement.description,
+                hourlyRate: worker.expectedHourlyRate,
+                dailyRate: worker.expectedDailyRate,
+                scheduledStart: assignment.requirement.scheduledStart,
+                scheduledEnd: assignment.requirement.scheduledEnd,
+                address: assignment.requirement.address,
+                latitude: assignment.requirement.latitude,
+                longitude: assignment.requirement.longitude,
               },
-              scheduledStart: {
-                lt: assignment.requirement.scheduledEnd,
+            });
+
+            await tx.attendance.create({
+              data: {
+                bookingId: booking.id,
+                workerId: worker.id,
+                status: 'NOT_STARTED',
               },
-              scheduledEnd: {
-                gt: assignment.requirement.scheduledStart,
+            });
+
+            const updatedAssignment =
+              await tx.requirementAssignment.updateMany({
+                where: {
+                  id: assignment.id,
+                  status: RequirementAssignmentStatus.OFFERED,
+                },
+                data: {
+                  status: RequirementAssignmentStatus.ACCEPTED,
+                  respondedAt: new Date(),
+                },
+              });
+
+            if (updatedAssignment.count !== 1) {
+              throw new BadRequestException(
+                'This requirement offer is no longer pending',
+              );
+            }
+
+            await tx.requirementAssignment.updateMany({
+              where: {
+                requirementId,
+                id: {not: assignment.id},
+                status: RequirementAssignmentStatus.OFFERED,
               },
-            },
-            select: {id: true},
-          });
+              data: {
+                status: RequirementAssignmentStatus.EXPIRED,
+                respondedAt: new Date(),
+              },
+            });
 
-        if (conflictingBooking) {
-          throw new BadRequestException(
-            'You already have another booking during this time',
-          );
-        }
+            const updatedRequirement =
+              await tx.requirement.updateMany({
+                where: {
+                  id: requirementId,
+                  status: {
+                    in: [
+                      RequirementStatus.MATCHING,
+                      RequirementStatus.OPEN,
+                    ],
+                  },
+                },
+                data: {
+                  status: RequirementStatus.MATCHED,
+                },
+              });
 
-        const booking =
-          await tx.booking.create({
-            data: {
-              clientId:
-                assignment.requirement.clientId,
-              workerId: worker.id,
-              requirementId,
-              status: BookingStatus.ACCEPTED,
-              categoryId:
-                assignment.requirement.categoryId,
-              categoryName:
-                assignment.requirement.categoryName,
-              skillId:
-                assignment.requirement.skillId,
-              skillName:
-                assignment.requirement.skillName,
-              serviceTitle:
-                assignment.requirement.title,
-              serviceDescription:
-                assignment.requirement.description,
-              hourlyRate:
-                worker.expectedHourlyRate,
-              dailyRate:
-                worker.expectedDailyRate,
-              scheduledStart:
-                assignment.requirement.scheduledStart,
-              scheduledEnd:
-                assignment.requirement.scheduledEnd,
-              address:
-                assignment.requirement.address,
-              latitude:
-                assignment.requirement.latitude,
-              longitude:
-                assignment.requirement.longitude,
-            },
-          });
+            if (updatedRequirement.count !== 1) {
+              throw new BadRequestException(
+                'Requirement was matched by another worker',
+              );
+            }
 
-        await tx.attendance.create({
-          data: {
-            bookingId: booking.id,
-            workerId: worker.id,
-            status: 'NOT_STARTED',
-          },
-        });
-
-        await tx.requirementAssignment.update({
-          where: {id: assignment.id},
-          data: {
-            status:
-              RequirementAssignmentStatus.ACCEPTED,
-            respondedAt: new Date(),
-          },
-        });
-
-        await tx.requirementAssignment.updateMany({
-          where: {
-            requirementId,
-            id: {not: assignment.id},
-            status:
-              RequirementAssignmentStatus.OFFERED,
-          },
-          data: {
-            status:
-              RequirementAssignmentStatus.EXPIRED,
-            respondedAt: new Date(),
-          },
-        });
-
-        await tx.requirement.update({
-          where: {id: requirementId},
-          data: {
-            status: RequirementStatus.MATCHED,
-          },
-        });
-
-        return {
-          booking,
-        };
+            return {booking};
           },
           {
-            isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+            isolationLevel:
+              Prisma.TransactionIsolationLevel.Serializable,
             maxWait: 5000,
             timeout: 10000,
           },
         );
+
         break;
       } catch (error: unknown) {
         const code =
           error instanceof Prisma.PrismaClientKnownRequestError
             ? error.code
             : null;
-        if (code === 'P2034' && attempt < 3) continue;
-        if (code === 'P2002') {
-          throw new BadRequestException('This requirement has already been matched');
+
+        if (code === 'P2034' && attempt < 3) {
+          continue;
         }
+
+        if (code === 'P2002') {
+          throw new BadRequestException(
+            'This requirement has already been matched',
+          );
+        }
+
         throw error;
       }
     }
@@ -610,12 +558,8 @@ export class RequirementsService {
     }
 
     const client = await this.prisma.client.findUnique({
-      where: {
-        id: result.booking.clientId,
-      },
-      select: {
-        userId: true,
-      },
+      where: {id: result.booking.clientId},
+      select: {userId: true},
     });
 
     if (client) {
@@ -638,16 +582,13 @@ export class RequirementsService {
     requirementId: string,
     dto: RequirementActionDto,
   ) {
-    const worker =
-      await this.prisma.worker.findUnique({
-        where: {userId},
-        select: {id: true},
-      });
+    const worker = await this.prisma.worker.findUnique({
+      where: {userId},
+      select: {id: true},
+    });
 
     if (!worker) {
-      throw new ForbiddenException(
-        'Worker profile not found',
-      );
+      throw new ForbiddenException('Worker profile not found');
     }
 
     const assignment =
@@ -671,45 +612,51 @@ export class RequirementsService {
       );
     }
 
-    if (
-      assignment.status !==
-      RequirementAssignmentStatus.OFFERED
-    ) {
+    if (assignment.status !== RequirementAssignmentStatus.OFFERED) {
       throw new BadRequestException(
         'This requirement offer is no longer pending',
       );
     }
 
-    const updated = await this.prisma.requirementAssignment.updateMany({
-      where: {
-        id: assignment.id,
-        status: RequirementAssignmentStatus.OFFERED,
-      },
-      data: {
-        status: RequirementAssignmentStatus.REJECTED,
-        respondedAt: new Date(),
-        responseReason: dto.reason?.trim(),
-      },
-    });
+    const respondedAt = new Date();
+    const updated =
+      await this.prisma.requirementAssignment.updateMany({
+        where: {
+          id: assignment.id,
+          status: RequirementAssignmentStatus.OFFERED,
+        },
+        data: {
+          status: RequirementAssignmentStatus.REJECTED,
+          respondedAt,
+          responseReason: dto.reason?.trim() || null,
+        },
+      });
 
     if (updated.count !== 1) {
-      throw new BadRequestException('This requirement offer is no longer pending');
+      throw new BadRequestException(
+        'This requirement offer is no longer pending',
+      );
     }
 
-    const remainingOffers = await this.prisma.requirementAssignment.count({
-      where: {
-        requirementId,
-        status: RequirementAssignmentStatus.OFFERED,
-      },
-    });
+    const remainingOffers =
+      await this.prisma.requirementAssignment.count({
+        where: {
+          requirementId,
+          status: RequirementAssignmentStatus.OFFERED,
+        },
+      });
 
-    let matching = null;
+    let matching:
+      | Awaited<ReturnType<RequirementsService['matchWorkers']>>
+      | null = null;
+
     if (
       remainingOffers === 0 &&
       (assignment.requirement.status === RequirementStatus.MATCHING ||
         assignment.requirement.status === RequirementStatus.OPEN)
     ) {
       matching = await this.matchWorkers(requirementId);
+
       for (const offer of matching.offers) {
         this.realtime.notifyUser(
           offer.workerUserId,
@@ -728,7 +675,7 @@ export class RequirementsService {
       assignment: {
         id: assignment.id,
         status: RequirementAssignmentStatus.REJECTED,
-        respondedAt: new Date(),
+        respondedAt,
         responseReason: dto.reason?.trim() || null,
       },
       matching: matching
@@ -745,30 +692,21 @@ export class RequirementsService {
     requirementId: string,
     dto: RequirementActionDto,
   ) {
-    const client =
-      await this.prisma.client.findUnique({
-        where: {userId},
-        select: {id: true},
-      });
+    const client = await this.prisma.client.findUnique({
+      where: {userId},
+      select: {id: true},
+    });
 
     if (!client) {
-      throw new ForbiddenException(
-        'Client profile not found',
-      );
+      throw new ForbiddenException('Client profile not found');
     }
 
-    const requirement =
-      await this.prisma.requirement.findUnique({
-        where: {id: requirementId},
-      });
+    const requirement = await this.prisma.requirement.findUnique({
+      where: {id: requirementId},
+    });
 
-    if (
-      !requirement ||
-      requirement.clientId !== client.id
-    ) {
-      throw new NotFoundException(
-        'Requirement not found',
-      );
+    if (!requirement || requirement.clientId !== client.id) {
+      throw new NotFoundException('Requirement not found');
     }
 
     const nonCancellableStatuses: RequirementStatus[] = [
@@ -783,465 +721,348 @@ export class RequirementsService {
       );
     }
 
-    const offeredAssignments =
-      await this.prisma.requirementAssignment.findMany({
+    const cancelledAt = new Date();
+
+    const result = await this.prisma.$transaction(async tx => {
+      const updated = await tx.requirement.updateMany({
+        where: {
+          id: requirementId,
+          clientId: client.id,
+          status: requirement.status,
+        },
+        data: {
+          status: RequirementStatus.CANCELLED,
+          cancelledAt,
+          cancellationReason: dto.reason?.trim() || null,
+        },
+      });
+
+      if (updated.count !== 1) {
+        throw new BadRequestException(
+          'Requirement state changed; refresh and try again',
+        );
+      }
+
+      await tx.requirementAssignment.updateMany({
         where: {
           requirementId,
-          status: RequirementAssignmentStatus.OFFERED,
+          status: {
+            in: [
+              RequirementAssignmentStatus.OFFERED,
+              RequirementAssignmentStatus.ACCEPTED,
+            ],
+          },
         },
-        select: {
-          worker: {
-            select: {
-              userId: true,
+        data: {
+          status: RequirementAssignmentStatus.CANCELLED,
+          respondedAt: cancelledAt,
+          responseReason: dto.reason?.trim() || null,
+        },
+      });
+
+      return tx.requirement.findUniqueOrThrow({
+        where: {id: requirementId},
+      });
+    });
+
+    const workerUserIds =
+      await this.prisma.worker.findMany({
+        where: {
+          requirementAssignments: {
+            some: {
+              requirementId,
+              status: RequirementAssignmentStatus.CANCELLED,
             },
           },
         },
+        select: {userId: true},
       });
 
-    await this.prisma.$transaction([
-      this.prisma.requirement.update({
-        where: {id: requirementId},
-        data: {
-          status:
-            RequirementStatus.CANCELLED,
-          cancelledAt: new Date(),
-          cancellationReason:
-            dto.reason?.trim(),
-        },
-      }),
-      this.prisma.requirementAssignment.updateMany({
-        where: {
-          requirementId,
-          status:
-            RequirementAssignmentStatus.OFFERED,
-        },
-        data: {
-          status:
-            RequirementAssignmentStatus.CANCELLED,
-          respondedAt: new Date(),
-          responseReason:
-            dto.reason?.trim(),
-        },
-      }),
-    ]);
-
-    this.realtime.notifyUsers(
-      offeredAssignments.map(item => item.worker.userId),
+    this.realtime.notifyWorkers(
+      workerUserIds.map(worker => worker.userId),
       REALTIME_EVENTS.REQUIREMENT_CANCELLED,
-      {
-        requirementId,
-        status: RequirementStatus.CANCELLED,
-      },
+      {requirementId},
     );
 
-    return this.getClientRequirement(
-      client.id,
-      requirementId,
-    );
+    return this.toClientRequirementResponse(result);
   }
 
-  private async matchWorkers(
-    requirementId: string,
-  ) {
+  private async matchWorkers(requirementId: string) {
     const requirement =
       await this.prisma.requirement.findUnique({
         where: {id: requirementId},
+        select: {
+          id: true,
+          clientId: true,
+          categoryId: true,
+          categoryName: true,
+          skillId: true,
+          skillName: true,
+          title: true,
+          description: true,
+          budget: true,
+          scheduledStart: true,
+          scheduledEnd: true,
+          address: true,
+          latitude: true,
+          longitude: true,
+          status: true,
+        },
       });
 
     if (!requirement) {
-      throw new NotFoundException(
-        'Requirement not found',
-      );
+      throw new NotFoundException('Requirement not found');
     }
 
-    if (
-      requirement.status !== RequirementStatus.MATCHING &&
-      requirement.status !== RequirementStatus.OPEN
-    ) {
-      throw new BadRequestException('Requirement is not eligible for matching');
+    const candidates = await this.prisma.worker.findMany({
+      where: {
+        status: WorkerStatus.VERIFIED,
+        isAvailable: true,
+        user: {status: 'ACTIVE'},
+        categories: {
+          some: {categoryId: requirement.categoryId},
+        },
+        ...(requirement.skillId
+          ? {
+              skills: {
+                some: {skillId: requirement.skillId},
+              },
+            }
+          : {}),
+        ...(requirement.latitude !== null &&
+        requirement.longitude !== null
+          ? {
+              user: {
+                is: {
+                  location: {
+                    is: {},
+                  },
+                },
+              },
+            }
+          : {}),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            location: {
+              select: {
+                latitude: true,
+                longitude: true,
+              },
+            },
+          },
+        },
+        bookingsAsWorker: {
+          where: {
+            status: {
+              in: ACTIVE_BOOKING_STATUSES as any,
+            },
+            scheduledStart: {
+              lt: requirement.scheduledEnd,
+            },
+            scheduledEnd: {
+              gt: requirement.scheduledStart,
+            },
+          },
+          select: {id: true},
+        },
+        skills: {
+          select: {
+            skillId: true,
+          },
+        },
+      },
+      take: 500,
+    });
+
+    const ranked = candidates
+      .map(worker => {
+        let distanceKm: number | null = null;
+
+        if (
+          requirement.latitude !== null &&
+          requirement.longitude !== null &&
+          worker.user.location
+        ) {
+          distanceKm = this.calculateDistanceKm(
+            Number(requirement.latitude),
+            Number(requirement.longitude),
+            Number(worker.user.location.latitude),
+            Number(worker.user.location.longitude),
+          );
+
+          if (distanceKm > MATCH_RADIUS_KM) {
+            return null;
+          }
+        }
+
+        const skillMatch =
+          requirement.skillId === null
+            ? 0
+            : worker.skills.some(
+                skill => skill.skillId === requirement.skillId,
+              )
+              ? 1
+              : 0;
+
+        const experienceScore =
+          Math.min(worker.experienceYears ?? 0, 20) / 20;
+
+        const distanceScore =
+          distanceKm === null
+            ? 0.5
+            : Math.max(
+                0,
+                1 - distanceKm / MATCH_RADIUS_KM,
+              );
+
+        const matchScore =
+          Math.round(
+            (experienceScore * 0.4 +
+              skillMatch * 0.4 +
+              distanceScore * 0.2) *
+              100,
+          ) / 100;
+
+        return {
+          worker,
+          distanceKm,
+          matchScore,
+        };
+      })
+      .filter(
+        (
+          item,
+        ): item is {
+          worker: (typeof candidates)[number];
+          distanceKm: number | null;
+          matchScore: number;
+        } => item !== null,
+      )
+      .sort((a, b) => {
+        if (b.matchScore !== a.matchScore) {
+          return b.matchScore - a.matchScore;
+        }
+
+        const distanceA = a.distanceKm ?? Number.MAX_SAFE_INTEGER;
+        const distanceB = b.distanceKm ?? Number.MAX_SAFE_INTEGER;
+
+        if (distanceA !== distanceB) {
+          return distanceA - distanceB;
+        }
+
+        return a.worker.id.localeCompare(b.worker.id);
+      })
+      .slice(0, MAX_WORKER_OFFERS);
+
+    if (ranked.length === 0) {
+      await this.prisma.requirement.update({
+        where: {id: requirementId},
+        data: {status: RequirementStatus.OPEN},
+      });
+
+      return {
+        status: RequirementStatus.OPEN,
+        offers: [],
+      };
     }
 
-    if (requirement.status === RequirementStatus.OPEN) {
+    const createdOffers = await this.prisma.$transaction(
+      ranked.map(item =>
+        this.prisma.requirementAssignment.upsert({
+          where: {
+            requirementId_workerId: {
+              requirementId,
+              workerId: item.worker.id,
+            },
+          },
+          create: {
+            requirementId,
+            workerId: item.worker.id,
+            status: RequirementAssignmentStatus.OFFERED,
+            matchScore: item.matchScore,
+            distanceKm: item.distanceKm,
+          },
+          update: {
+            status: RequirementAssignmentStatus.OFFERED,
+            matchScore: item.matchScore,
+            distanceKm: item.distanceKm,
+            respondedAt: null,
+            responseReason: null,
+          },
+        }),
+      ),
+    );
+
+    if (createdOffers.length > 0) {
       await this.prisma.requirement.update({
         where: {id: requirementId},
         data: {status: RequirementStatus.MATCHING},
       });
     }
 
-    const existingAssignments =
-      await this.prisma.requirementAssignment.findMany({
-        where: {requirementId},
-        select: {workerId: true, status: true},
-      });
-
-    const excludedWorkerIds = new Set(
-      existingAssignments
-        .filter(assignment =>
-          (
-            [
-              RequirementAssignmentStatus.ACCEPTED,
-              RequirementAssignmentStatus.REJECTED,
-              RequirementAssignmentStatus.EXPIRED,
-              RequirementAssignmentStatus.CANCELLED,
-            ] as RequirementAssignmentStatus[]
-          ).includes(assignment.status),
-        )
-        .map(assignment => assignment.workerId),
-    );
-
-    const workers =
-      await this.prisma.worker.findMany({
-        where: {
-          id: {notIn: [...excludedWorkerIds]},
-          status: WorkerStatus.VERIFIED,
-          isAvailable: true,
-          user: {
-            status: 'ACTIVE',
-          },
-          categories: {
-            some: {
-              categoryId:
-                requirement.categoryId,
-            },
-          },
-          ...(requirement.skillId
-            ? {
-                skills: {
-                  some: {
-                    skillId:
-                      requirement.skillId,
-                  },
-                },
-              }
-            : {}),
-        },
-        select: {
-          id: true,
-          experienceYears: true,
-          user: {
-            select: {
-              location: {
-                select: {
-                  latitude: true,
-                  longitude: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: {createdAt: 'asc'},
-        take: 500,
-      });
-
-    const workerIds =
-      workers.map(worker => worker.id);
-
-    const conflicts =
-      workerIds.length > 0
-        ? await this.prisma.booking.findMany({
-            where: {
-              workerId: {
-                in: workerIds,
-              },
-              status: {
-                in: ACTIVE_BOOKING_STATUSES as any,
-              },
-              scheduledStart: {
-                lt: requirement.scheduledEnd,
-              },
-              scheduledEnd: {
-                gt: requirement.scheduledStart,
-              },
-            },
-            select: {
-              workerId: true,
-            },
-          })
-        : [];
-
-    const conflictedWorkerIds =
-      new Set(
-        conflicts
-          .map(item => item.workerId)
-          .filter(
-            (id): id is string =>
-              Boolean(id),
-          ),
-      );
-
-    const candidates = workers
-      .filter(
-        worker =>
-          !conflictedWorkerIds.has(
-            worker.id,
-          ),
-      )
-      .map(worker => {
-        let distanceKm:
-          | number
-          | null = null;
-
-        if (
-          requirement.latitude !== null &&
-          requirement.longitude !== null
-        ) {
-          const location =
-            worker.user.location;
-
-          if (!location) {
-            return null;
-          }
-
-          distanceKm =
-            this.distanceInKm(
-              Number(
-                requirement.latitude,
-              ),
-              Number(
-                requirement.longitude,
-              ),
-              Number(
-                location.latitude,
-              ),
-              Number(
-                location.longitude,
-              ),
-            );
-
-          if (
-            distanceKm >
-            MATCH_RADIUS_KM
-          ) {
-            return null;
-          }
-        }
-
-        const experienceScore =
-          Math.min(
-            worker.experienceYears ?? 0,
-            10,
-          ) * 5;
-
-        const distanceScore =
-          distanceKm === null
-            ? 20
-            : Math.max(
-                0,
-                30 - distanceKm,
-              );
-
-        const skillScore =
-          requirement.skillId ? 25 : 15;
-
-        const score = Number(
-          (
-            experienceScore +
-            distanceScore +
-            skillScore
-          ).toFixed(2),
-        );
-
-        return {
-          workerId: worker.id,
-          distanceKm,
-          score,
-        };
-      })
-      .filter(
-        (
-          candidate,
-        ): candidate is {
-          workerId: string;
-          distanceKm: number | null;
-          score: number;
-        } => Boolean(candidate),
-      )
-      .sort(
-        (a, b) =>
-          b.score - a.score,
-      )
-      .slice(0, MAX_WORKER_OFFERS);
-
-    if (!candidates.length) {
-      await this.prisma.requirement.update({
-        where: {id: requirementId},
-        data: {
-          status:
-            RequirementStatus.OPEN,
-        },
-      });
-
-      return {
-        matchedWorkers: 0,
-        offers: [],
-        status: RequirementStatus.OPEN,
-      };
-    }
-
-    const assignments =
-      await this.prisma.$transaction(
-        candidates.map(
-          candidate =>
-            this.prisma.requirementAssignment.create({
-              data: {
-                requirementId,
-                workerId:
-                  candidate.workerId,
-                status:
-                  RequirementAssignmentStatus.OFFERED,
-                matchScore:
-                  candidate.score,
-                distanceKm:
-                  candidate.distanceKm,
-              },
-              select: {
-                id: true,
-                workerId: true,
-                matchScore: true,
-                distanceKm: true,
-                worker: {
-                  select: {
-                    userId: true,
-                  },
-                },
-              },
-            }),
-        ),
-      );
-
     return {
-      matchedWorkers:
-        assignments.length,
-      offers: assignments.map(
-        assignment => ({
-          assignmentId:
-            assignment.id,
-          workerUserId:
-            assignment.worker.userId,
-          matchScore:
-            Number(
-              assignment.matchScore ??
-                0,
-            ),
-          distanceKm:
-            assignment.distanceKm === null
-              ? null
-              : Number(
-                  assignment.distanceKm,
-                ),
-        }),
-      ),
       status: RequirementStatus.MATCHING,
+      offers: ranked.map((item, index) => ({
+        assignmentId: createdOffers[index].id,
+        workerUserId: item.worker.user.id,
+        distanceKm: item.distanceKm,
+        matchScore: item.matchScore,
+      })),
     };
   }
 
-  private async getClientRequirement(
-    clientId: string,
-    requirementId: string,
-  ) {
-    const requirement =
-      await this.prisma.requirement.findFirst({
-        where: {
-          id: requirementId,
-          clientId,
-        },
-        include: {
-          assignments: {
-            select: {
-              id: true,
-              workerId: true,
-              status: true,
-              matchScore: true,
-              distanceKm: true,
-              createdAt: true,
-            },
-          },
-          booking: {
-            select: {
-              id: true,
-              status: true,
-              worker: {
-                select: {
-                  user: {
-                    select: {
-                      firstName: true,
-                      lastName: true,
-                    },
-                  },
-                  profilePhotoKey: true,
-                },
-              },
-            },
-          },
-        },
-      });
+  private calculateDistanceKm(
+    latitude1: number,
+    longitude1: number,
+    latitude2: number,
+    longitude2: number,
+  ): number {
+    const earthRadiusKm = 6371;
 
-    return requirement
-      ? this.toClientRequirementResponse(requirement)
-      : null;
+    const lat1 = (latitude1 * Math.PI) / 180;
+    const lat2 = (latitude2 * Math.PI) / 180;
+    const deltaLatitude =
+      ((latitude2 - latitude1) * Math.PI) / 180;
+    const deltaLongitude =
+      ((longitude2 - longitude1) * Math.PI) / 180;
+
+    const a =
+      Math.sin(deltaLatitude / 2) ** 2 +
+      Math.cos(lat1) *
+        Math.cos(lat2) *
+        Math.sin(deltaLongitude / 2) ** 2;
+
+    const c =
+      2 *
+      Math.atan2(
+        Math.sqrt(a),
+        Math.sqrt(1 - a),
+      );
+
+    return earthRadiusKm * c;
   }
 
   private toClientRequirementResponse(
-    requirement: {
-      id: string;
-      categoryId: string;
-      categoryName: string;
-      skillId: string | null;
-      skillName: string | null;
-      title: string;
-      description: string | null;
-      budget: unknown;
-      scheduledStart: Date;
-      scheduledEnd: Date;
-      address: string;
-      latitude: unknown;
-      longitude: unknown;
-      status: string;
-      cancelledAt: Date | null;
-      cancellationReason: string | null;
-      completedAt: Date | null;
-      createdAt: Date;
-      updatedAt: Date;
-      booking: {
-        id: string;
-        status: string;
-        worker: {
-          user: {
-            firstName: string | null;
-            lastName: string | null;
-          };
-          profilePhotoKey: string | null;
-        } | null;
-      } | null;
-    },
+    requirement: any,
   ): ClientRequirementResponseDto {
     return {
       id: requirement.id,
+      status: requirement.status,
+      title: requirement.title,
+      description: requirement.description,
       categoryId: requirement.categoryId,
       categoryName: requirement.categoryName,
       skillId: requirement.skillId,
       skillName: requirement.skillName,
-      title: requirement.title,
-      description: requirement.description,
-      budget:
-        requirement.budget === null
-          ? null
-          : String(requirement.budget),
+      budget: requirement.budget,
       scheduledStart: requirement.scheduledStart,
       scheduledEnd: requirement.scheduledEnd,
       address: requirement.address,
-      latitude:
-        requirement.latitude === null
-          ? null
-          : String(requirement.latitude),
-      longitude:
-        requirement.longitude === null
-          ? null
-          : String(requirement.longitude),
-      status: requirement.status,
-      cancelledAt: requirement.cancelledAt,
-      cancellationReason: requirement.cancellationReason,
-      completedAt: requirement.completedAt,
+      latitude: requirement.latitude,
+      longitude: requirement.longitude,
       createdAt: requirement.createdAt,
       updatedAt: requirement.updatedAt,
       booking: requirement.booking
@@ -1256,7 +1077,8 @@ export class RequirementsService {
                     requirement.booking.worker.user.lastName,
                   hasProfilePhoto:
                     Boolean(
-                      requirement.booking.worker.profilePhotoKey,
+                      requirement.booking.worker
+                        .profilePhotoKey,
                     ),
                 }
               : null,
@@ -1266,127 +1088,76 @@ export class RequirementsService {
   }
 
   private toWorkerRequirementResponse(
-    requirement: {
-      id: string;
-      categoryId: string;
-      categoryName: string;
-      skillId: string | null;
-      skillName: string | null;
-      title: string;
-      description: string | null;
-      budget: unknown;
-      scheduledStart: Date;
-      scheduledEnd: Date;
-      address: string;
-      latitude: unknown;
-      longitude: unknown;
-      status: string;
-      cancelledAt: Date | null;
-      cancellationReason: string | null;
-      completedAt: Date | null;
-      createdAt: Date;
-      updatedAt: Date;
-      assignments: Array<{
-        id: string;
-        workerId: string;
-        status: string;
-        matchScore: unknown;
-        distanceKm: unknown;
-        respondedAt?: Date | null;
-      }>;
-    },
+    requirement: any,
     workerId: string,
   ): WorkerRequirementResponseDto {
-    const assignment =
-      requirement.assignments.find(
-        item => item.workerId === workerId,
-      );
+    const assignment = requirement.assignments.find(
+      item => item.workerId === workerId,
+    );
 
     return {
       id: requirement.id,
+      status: requirement.status,
+      title: requirement.title,
+      description: requirement.description,
       categoryId: requirement.categoryId,
       categoryName: requirement.categoryName,
       skillId: requirement.skillId,
       skillName: requirement.skillName,
-      title: requirement.title,
-      description: requirement.description,
-      budget:
-        requirement.budget === null
-          ? null
-          : String(requirement.budget),
+      budget: requirement.budget,
       scheduledStart: requirement.scheduledStart,
       scheduledEnd: requirement.scheduledEnd,
       address: requirement.address,
-      latitude:
-        requirement.latitude === null
-          ? null
-          : String(requirement.latitude),
-      longitude:
-        requirement.longitude === null
-          ? null
-          : String(requirement.longitude),
-      status: requirement.status,
-      cancelledAt: requirement.cancelledAt,
-      cancellationReason: requirement.cancellationReason,
-      completedAt: requirement.completedAt,
+      latitude: requirement.latitude,
+      longitude: requirement.longitude,
       createdAt: requirement.createdAt,
       updatedAt: requirement.updatedAt,
       assignment: assignment
         ? {
             id: assignment.id,
             status: assignment.status,
-            matchScore:
-              assignment.matchScore === null
-                ? null
-                : String(assignment.matchScore),
-            distanceKm:
-              assignment.distanceKm === null
-                ? null
-                : String(assignment.distanceKm),
-            respondedAt:
-              assignment.respondedAt ?? null,
+            matchScore: assignment.matchScore,
+            distanceKm: assignment.distanceKm,
+            respondedAt: assignment.respondedAt,
           }
         : null,
     };
   }
 
-  private distanceInKm(
-    latitude1: number,
-    longitude1: number,
-    latitude2: number,
-    longitude2: number,
+  private async getClientRequirement(
+    clientId: string,
+    requirementId: string,
   ) {
-    const earthRadiusKm = 6371;
-    const dLat = this.toRadians(
-      latitude2 - latitude1,
-    );
-    const dLon = this.toRadians(
-      longitude2 - longitude1,
-    );
+    const requirement = await this.prisma.requirement.findFirst({
+      where: {
+        id: requirementId,
+        clientId,
+      },
+      include: {
+        booking: {
+          select: {
+            id: true,
+            status: true,
+            worker: {
+              select: {
+                user: {
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
+                profilePhotoKey: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(
-        this.toRadians(latitude1),
-      ) *
-        Math.cos(
-          this.toRadians(latitude2),
-        ) *
-        Math.sin(dLon / 2) ** 2;
+    if (!requirement) {
+      throw new NotFoundException('Requirement not found');
+    }
 
-    return (
-      2 *
-      earthRadiusKm *
-      Math.atan2(
-        Math.sqrt(a),
-        Math.sqrt(1 - a),
-      )
-    );
-  }
-
-  private toRadians(value: number) {
-    return (
-      (value * Math.PI) / 180
-    );
+    return this.toClientRequirementResponse(requirement);
   }
 }
