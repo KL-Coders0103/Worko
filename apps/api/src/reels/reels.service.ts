@@ -5,6 +5,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 
+import { Reel, Prisma } from '@prisma/client';
+
 import { PrismaService } from '../common/prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 
@@ -87,8 +89,12 @@ export class ReelsService {
   }
 
   async getReelById(reelId: string) {
-    const reel = await this.prisma.reel.findUnique({
-      where: { id: reelId },
+    const reel = await this.prisma.reel.findFirst({
+      where: {
+        id: reelId,
+        status: 'PUBLISHED',
+        publishedAt: { not: null },
+      },
       select: {
         id: true,
         status: true,
@@ -208,13 +214,6 @@ export class ReelsService {
         ? {
             description:
               data.description.trim() || null,
-          }
-        : {}),
-
-      ...(data.thumbnailKey !== undefined
-        ? {
-            thumbnailKey:
-              data.thumbnailKey.trim() || null,
           }
         : {}),
 
@@ -653,7 +652,7 @@ createReelVideoStream(
     end,
   );
 }
-  private toWorkerReelResponse(reel: any) {
+  private toWorkerReelResponse(reel: Reel) {
     return {
       id: reel.id,
       status: reel.status,
