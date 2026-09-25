@@ -18,10 +18,6 @@ export class UpdateReelDto {
   @MaxLength(5000)
   description?: string;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(1000)
-  thumbnailKey?: string;
 
   @IsOptional()
   @IsInt()
