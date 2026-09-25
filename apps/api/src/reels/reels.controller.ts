@@ -238,17 +238,6 @@ export class ReelsController {
     );
   }
 
-  @Get('worker/:workerId')
-  @Version('1')
-  @Roles('CLIENT', 'WORKER')
-  async getWorkerReels(
-    @Param('workerId') workerId: string,
-  ) {
-    return this.reelsService.getWorkerReels(
-      workerId,
-    );
-  }
-
   @Post('upload')
   @Version('1')
   @Roles('WORKER')
