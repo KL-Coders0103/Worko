@@ -166,7 +166,7 @@ export class WorkersService {
 
     return {
       message: 'Worker profile updated successfully',
-      worker: updatedWorker,
+      worker: this.toSafeWorkerResponse(updatedWorker),
     };
   }
 
@@ -493,7 +493,7 @@ export class WorkersService {
 
     return {
       message: 'Worker profile submitted for KYC successfully',
-      worker: updatedWorker,
+      worker: this.toSafeWorkerResponse(updatedWorker),
     };
   }
 
@@ -741,7 +741,6 @@ async uploadAadhaarDocument(
 
   return {
     message: 'Aadhaar document uploaded successfully',
-    documentKey: result.key,
   };
 }
 
@@ -856,28 +855,5 @@ async uploadProfilePhoto(
     profilePhotoAvailable: true,
   };
 }
-  async downloadKycDocument(workerId: string, documentType: 'aadhaar' | 'policeVerification') {
-    const worker = await this.prisma.worker.findUnique({
-      where: {id: workerId},
-      select: {aadhaarDocumentKey: true, policeVerificationDocumentKey: true},
-    });
-    if (!worker) throw new NotFoundException('Worker profile not found');
-
-    const key = documentType === 'aadhaar'
-      ? worker.aadhaarDocumentKey
-      : worker.policeVerificationDocumentKey;
-
-    if (!key) throw new NotFoundException('KYC document not found');
-
-    const expected = documentType === 'aadhaar'
-      ? 'kyc/' + workerId + '/aadhaar/'
-      : 'kyc/' + workerId + '/police-verification/';
-
-    if (!key.includes(expected)) {
-      throw new BadRequestException('KYC document storage scope is invalid');
-    }
-
-    return this.storageService.downloadPrivateObject(key);
-  }
 
 }
