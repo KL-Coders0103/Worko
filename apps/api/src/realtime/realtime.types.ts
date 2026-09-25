@@ -7,4 +7,13 @@ export const REALTIME_EVENTS = {
     'client:requirement_offer_rejected',
   REQUIREMENT_CANCELLED:
     'worker:requirement_cancelled',
+
+  BOOKING_STATUS_CHANGED:
+    'booking:status_changed',
+
+  ATTENDANCE_UPDATED:
+    'attendance:updated',
+
+  PAYMENT_STATUS_CHANGED:
+    'payment:status_changed',
 } as const;
