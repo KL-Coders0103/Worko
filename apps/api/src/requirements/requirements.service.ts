@@ -384,7 +384,7 @@ export class RequirementsService {
     }
 
     let result: {
-      booking: Awaited<ReturnType<typeof this.prisma.booking.create>>;
+      booking: any;
     } | null = null;
 
     for (let attempt = 1; attempt <= 3; attempt += 1) {
@@ -809,12 +809,14 @@ export class RequirementsService {
     const excludedWorkerIds = new Set(
       existingAssignments
         .filter(assignment =>
-          [
-            RequirementAssignmentStatus.ACCEPTED,
-            RequirementAssignmentStatus.REJECTED,
-            RequirementAssignmentStatus.EXPIRED,
-            RequirementAssignmentStatus.CANCELLED,
-          ].includes(assignment.status),
+          (
+            [
+              RequirementAssignmentStatus.ACCEPTED,
+              RequirementAssignmentStatus.REJECTED,
+              RequirementAssignmentStatus.EXPIRED,
+              RequirementAssignmentStatus.CANCELLED,
+            ] as RequirementAssignmentStatus[]
+          ).includes(assignment.status),
         )
         .map(assignment => assignment.workerId),
     );
