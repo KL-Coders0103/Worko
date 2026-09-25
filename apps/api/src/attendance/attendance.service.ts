@@ -1156,7 +1156,6 @@ async checkOut(
           },
         });
 
-        /*
         assertBookingTransition(
           BookingStatus.IN_PROGRESS,
           BookingStatus.CHECKED_OUT,
@@ -1168,7 +1167,7 @@ async checkOut(
               id: booking.id,
             },
             data: {
-              status: 'CHECKED_OUT',
+              status: BookingStatus.CHECKED_OUT,
             },
             include: {
               attendance: true,
@@ -1176,8 +1175,20 @@ async checkOut(
             },
           });
 
+        await tx.attendance.update({
+          where: {
+            id: attendance.id,
+          },
+          data: {
+            status: 'COMPLETED',
+          },
+        });
+
         return {
-          attendance,
+          attendance: {
+            ...attendance,
+            status: 'COMPLETED',
+          },
           booking: checkedOutBooking,
           paymentReleased: false,
           location,
