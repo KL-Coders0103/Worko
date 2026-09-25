@@ -20,6 +20,7 @@ export class BookingsService {
   async createBooking(
     userId: string,
     dto: CreateBookingDto,
+    requirementId?: string,
   ) {
     const client =
       await this.prisma.client.findUnique({
@@ -243,6 +244,7 @@ export class BookingsService {
         data: {
           clientId: client.id,
           workerId: worker.id,
+          requirementId,
 
           status:
             BookingStatus.PENDING,
