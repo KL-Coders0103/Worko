@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ParseFilePipeBuilder,
   Controller,
   Get,
   Param,
@@ -137,11 +138,26 @@ export class AttendanceController {
   @Post(':bookingId/evidence/upload')
   @Version('1')
   @Roles('WORKER')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+      },
+    }),
+  )
   async uploadEvidence(
     @Req() req: AuthenticatedRequest,
     @Param('bookingId') bookingId: string,
-    @UploadedFile()
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /^(jpeg|png|webp)$/i,
+        })
+        .addMaxSizeValidator({
+          maxSize: 10 * 1024 * 1024,
+        })
+        .build(),
+    )
     file?: {
       buffer: Buffer;
       mimetype: string;
