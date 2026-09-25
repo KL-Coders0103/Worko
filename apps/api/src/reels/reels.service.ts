@@ -206,11 +206,11 @@ export class ReelsService {
     return this.toWorkerReelResponse(updatedReel);
   }
 
-  async publishReel(
-  userId: string,
-  reelId: string,
-) {
-  const worker = await this.prisma.worker.findUnique({
+    async publishReel(
+    userId: string,
+    reelId: string,
+  ) {
+    const worker = await this.prisma.worker.findUnique({
     where: {
       userId,
     },
