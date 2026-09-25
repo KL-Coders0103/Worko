@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BookingStatus } from '@prisma/client';
+import { BookingStatus, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../common/prisma/prisma.service';
 import { BookingActionDto } from './dto/booking-action.dto';
@@ -110,16 +110,16 @@ export class BookingsService {
     clientUserId: string,
     bookingId: string,
   ) {
-    const booking = await this.getOwnedBooking(
-      clientUserId,
-      'CLIENT',
-      bookingId,
-    );
+    await this.getOwnedBooking(clientUserId, 'CLIENT', bookingId);
 
-    const updated = await this.transitionBooking(
-      booking.id,
-      BookingStatus.CONFIRMED,
-    );
+    const updated = await this.prisma.$transaction(async tx => {
+      return this.transitionBookingInTransaction(
+        tx,
+        bookingId,
+        BookingStatus.CONFIRMED,
+      );
+    });
+
     return this.toBookingResponse(updated, 'CLIENT');
   }
 
@@ -127,16 +127,16 @@ export class BookingsService {
     workerUserId: string,
     bookingId: string,
   ) {
-    const booking = await this.getOwnedBooking(
-      workerUserId,
-      'WORKER',
-      bookingId,
-    );
+    await this.getOwnedBooking(workerUserId, 'WORKER', bookingId);
 
-    const updated = await this.transitionBooking(
-      booking.id,
-      BookingStatus.WORKER_EN_ROUTE,
-    );
+    const updated = await this.prisma.$transaction(async tx => {
+      return this.transitionBookingInTransaction(
+        tx,
+        bookingId,
+        BookingStatus.WORKER_EN_ROUTE,
+      );
+    });
+
     return this.toBookingResponse(updated, 'WORKER');
   }
 
@@ -144,16 +144,16 @@ export class BookingsService {
     workerUserId: string,
     bookingId: string,
   ) {
-    const booking = await this.getOwnedBooking(
-      workerUserId,
-      'WORKER',
-      bookingId,
-    );
+    await this.getOwnedBooking(workerUserId, 'WORKER', bookingId);
 
-    const updated = await this.transitionBooking(
-      booking.id,
-      BookingStatus.ARRIVED,
-    );
+    const updated = await this.prisma.$transaction(async tx => {
+      return this.transitionBookingInTransaction(
+        tx,
+        bookingId,
+        BookingStatus.ARRIVED,
+      );
+    });
+
     return this.toBookingResponse(updated, 'WORKER');
   }
 
@@ -161,16 +161,16 @@ export class BookingsService {
     workerUserId: string,
     bookingId: string,
   ) {
-    const booking = await this.getOwnedBooking(
-      workerUserId,
-      'WORKER',
-      bookingId,
-    );
+    await this.getOwnedBooking(workerUserId, 'WORKER', bookingId);
 
-    const updated = await this.transitionBooking(
-      booking.id,
-      BookingStatus.IN_PROGRESS,
-    );
+    const updated = await this.prisma.$transaction(async tx => {
+      return this.transitionBookingInTransaction(
+        tx,
+        bookingId,
+        BookingStatus.IN_PROGRESS,
+      );
+    });
+
     return this.toBookingResponse(updated, 'WORKER');
   }
 
@@ -178,36 +178,42 @@ export class BookingsService {
     workerUserId: string,
     bookingId: string,
   ) {
-    const booking = await this.getOwnedBooking(
-      workerUserId,
-      'WORKER',
-      bookingId,
-    );
+    await this.getOwnedBooking(workerUserId, 'WORKER', bookingId);
 
-    const completed = await this.prisma.$transaction(
-      async tx => {
-        assertBookingTransition(
-          booking.status,
-          BookingStatus.COMPLETED,
+    const completed = await this.prisma.$transaction(async tx => {
+      const booking = await tx.booking.findUnique({
+        where: { id: bookingId },
+        include: { attendance: true },
+      });
+
+      if (!booking) {
+        throw new NotFoundException('Booking not found');
+      }
+
+      if (booking.workerId === null) {
+        throw new BadRequestException('Booking has no assigned worker');
+      }
+
+      if (!booking.attendance || booking.attendance.status !== 'CHECKED_OUT') {
+        throw new BadRequestException(
+          'Booking can be completed only after worker check-out',
         );
+      }
 
-        const updated = await tx.booking.update({
-          where: { id: booking.id },
-          data: {
-            status: BookingStatus.COMPLETED,
-            completedAt: new Date(),
-          },
-          include: this.bookingInclude(),
-        });
+      const updated = await this.transitionBookingInTransaction(
+        tx,
+        bookingId,
+        BookingStatus.COMPLETED,
+        { completedAt: new Date() },
+      );
 
-        await tx.attendance.updateMany({
-          where: { bookingId: booking.id },
-          data: { status: 'COMPLETED' },
-        });
+      await tx.attendance.update({
+        where: { id: booking.attendance.id },
+        data: { status: 'COMPLETED' },
+      });
 
-        return updated;
-      },
-    );
+      return updated;
+    });
 
     return this.toBookingResponse(completed, 'WORKER');
   }
@@ -218,62 +224,55 @@ export class BookingsService {
     bookingId: string,
     dto: BookingActionDto,
   ) {
-    const booking = await this.getOwnedBooking(
-      userId,
-      role,
-      bookingId,
-    );
+    await this.getOwnedBooking(userId, role, bookingId);
 
     const updated = await this.prisma.$transaction(async tx => {
-      assertBookingTransition(
-        booking.status,
+      return this.transitionBookingInTransaction(
+        tx,
+        bookingId,
         BookingStatus.CANCELLED,
-      );
-
-      return tx.booking.update({
-        where: { id: booking.id },
-        data: {
-          status: BookingStatus.CANCELLED,
+        {
           cancelledAt: new Date(),
           cancelledBy: userId,
           cancellationReason: dto.reason?.trim() || null,
         },
-        include: this.bookingInclude(),
-      });
+      );
     });
 
     return this.toBookingResponse(updated, role);
   }
 
-  async transitionBooking(
+  getAllowedTransitions(status: BookingStatus) {
+    return getAllowedBookingTransitions(status);
+  }
+
+  private async transitionBookingInTransaction(
+    tx: Prisma.TransactionClient,
     bookingId: string,
     nextStatus: BookingStatus,
+    data: Prisma.BookingUpdateInput = {},
   ) {
-    const booking = await this.prisma.booking.findUnique({
+    const booking = await tx.booking.findUnique({
       where: { id: bookingId },
-      include: this.bookingInclude(),
     });
 
     if (!booking) {
       throw new NotFoundException('Booking not found');
     }
 
-    assertBookingTransition(
-      booking.status,
-      nextStatus,
-    );
+    assertBookingTransition(booking.status, nextStatus);
 
-    const updated = await this.prisma.booking.update({
-      where: { id: booking.id },
-      data: { status: nextStatus },
+    return tx.booking.update({
+      where: {
+        id: booking.id,
+        status: booking.status,
+      },
+      data: {
+        ...data,
+        status: nextStatus,
+      },
       include: this.bookingInclude(),
     });
-
-    return updated;
-  }
-
-  getAllowedTransitions(status: BookingStatus) {
-    return getAllowedBookingTransitions(status);
   }
 
   private async getOwnedBooking(
