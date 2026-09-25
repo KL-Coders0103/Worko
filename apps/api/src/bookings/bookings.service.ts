@@ -284,6 +284,11 @@ export class BookingsService {
       );
     });
 
+    await this.notifyBookingStatusChanged(
+      updated.id,
+      updated.status,
+    );
+
     return this.toBookingResponse(updated, role);
   }
 
