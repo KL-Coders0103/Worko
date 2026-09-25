@@ -722,7 +722,7 @@ async uploadAadhaarDocument(
   }
 
   const result =
-    await this.storageService.uploadPrivateObject(
+    await this.storageService.uploadKycDocument(
       file.buffer,
       file.mimetype,
       `kyc/${worker.id}/aadhaar`,
@@ -834,7 +834,7 @@ async uploadProfilePhoto(
   }
 
   const result =
-    await this.storageService.uploadPrivateObject(
+    await this.storageService.uploadProfileImage(
       file.buffer,
       file.mimetype,
       `workers/${worker.id}/profile`,
@@ -852,7 +852,7 @@ async uploadProfilePhoto(
 
   return {
     message: 'Profile photo uploaded successfully',
-    profilePhotoKey: result.key,
+    profilePhotoAvailable: true,
   };
 }
 }
