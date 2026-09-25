@@ -2,8 +2,8 @@ export class RequirementBookingResponseDto {
   id!: string;
   status!: string;
   worker?: {
-    firstName: string;
-    lastName: string;
+    firstName: string | null;
+    lastName: string | null;
     hasProfilePhoto: boolean;
   } | null;
 }
