@@ -199,73 +199,36 @@ export class PaymentsService {
     };
   }
 
-  async cancelPayment(
-    userId: string,
-    paymentId: string,
-    dto: PaymentActionDto,
-  ) {
-    const payment =
-      await this.prisma.payment.findUnique({
-        where: {
-          id: paymentId,
-        },
-        include: {
-          booking: {
-            select: {
-              clientId: true,
-              workerId: true,
-            },
-          },
-        },
-      });
-
-    if (!payment) {
-      throw new NotFoundException(
-        'Payment not found',
-      );
-    }
+  async cancelPayment(userId: string, paymentId: string, dto: PaymentActionDto) {
+    const payment = await this.prisma.payment.findUnique({
+      where: {id: paymentId},
+      include: {booking: {select: {clientId: true, workerId: true}}},
+    });
+    if (!payment) throw new NotFoundException('Payment not found');
 
     await this.assertPaymentAccess(
       userId,
       payment.booking.clientId,
-      payment.booking.workerId!,
+      payment.booking.workerId,
     );
+    assertPaymentTransition(payment.status, PaymentStatus.CANCELLED);
 
-    if (
-      payment.status === PaymentStatus.SUCCESS
-    ) {
-      throw new BadRequestException(
-        'Successful payments cannot be cancelled',
-      );
+    const changed = await this.prisma.payment.updateMany({
+      where: {id: payment.id, status: payment.status},
+      data: {
+        status: PaymentStatus.CANCELLED,
+        failureMessage: dto.reason?.trim() || undefined,
+      },
+    });
+    if (changed.count !== 1) {
+      throw new BadRequestException('Payment changed before it could be cancelled');
     }
 
-    if (
-      payment.status === PaymentStatus.CANCELLED
-    ) {
-      throw new BadRequestException(
-        'Payment is already cancelled',
-      );
-    }
-
-    const reason =
-      dto.reason?.trim() || undefined;
-
-    const updated =
-      await this.prisma.payment.update({
-        where: {
-          id: payment.id,
-        },
-        data: {
-          status: PaymentStatus.CANCELLED,
-          failureMessage: reason,
-        },
-      });
-
+    const updated = await this.prisma.payment.findUniqueOrThrow({
+      where: {id: payment.id},
+    });
     await this.notifyPaymentStatusChanged(updated.id, updated.status);
-
-    return {
-      payment: updated,
-    };
+    return {payment: updated};
   }
 
   private async notifyPaymentStatusChanged(
