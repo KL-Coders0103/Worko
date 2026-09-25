@@ -5,7 +5,6 @@ import { ConfigModule } from '@nestjs/config';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
 import { WorkersModule } from './workers/workers.module';
 import { ClientsModule } from './clients/clients.module';
 import { CategoriesModule } from './categories/categories.module';
@@ -28,7 +27,6 @@ import { RealtimeModule } from './realtime/realtime.module';
     }),
     HealthModule,
     AuthModule,
-    UsersModule,
     WorkersModule,
     ClientsModule,
     CategoriesModule,
