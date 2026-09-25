@@ -1,5 +1,8 @@
 import { jest } from '@jest/globals';
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { WorkerStatus } from '@prisma/client';
 
 import { WorkersService } from './workers.service';
@@ -8,17 +11,10 @@ describe('WorkersService KYC security boundaries', () => {
   const prisma = {
     worker: {
       findUnique: jest.fn(),
-      update: jest.fn(),
       findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
     },
-    user: { findUnique: jest.fn() },
-    userLocation: { findUnique: jest.fn() },
-    workerCategory: { deleteMany: jest.fn(), createMany: jest.fn() },
-    workerSkill: { deleteMany: jest.fn(), createMany: jest.fn() },
-    category: { findMany: jest.fn() },
-    skill: { findMany: jest.fn() },
-    workerKycReview: { create: jest.fn() },
-    $transaction: jest.fn(),
   };
 
   const storage = {
@@ -32,7 +28,10 @@ describe('WorkersService KYC security boundaries', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new WorkersService(prisma as never, storage as never);
+    service = new WorkersService(
+      prisma as never,
+      storage as never,
+    );
   });
 
   it('rejects KYC submission without required documents', async () => {
@@ -50,7 +49,7 @@ describe('WorkersService KYC security boundaries', () => {
     expect(prisma.worker.update).not.toHaveBeenCalled();
   });
 
-  it('does not allow KYC document retrieval through the worker service without a stored document', async () => {
+  it('rejects KYC document retrieval when the document is missing', async () => {
     prisma.worker.findUnique.mockResolvedValue({
       aadhaarDocumentKey: null,
       policeVerificationDocumentKey: null,
@@ -58,7 +57,7 @@ describe('WorkersService KYC security boundaries', () => {
 
     await expect(
       service.getKycDocument('worker-1', 'aadhaar'),
-    ).rejects.toThrow();
+    ).rejects.toThrow(NotFoundException);
 
     expect(storage.downloadPrivateObject).not.toHaveBeenCalled();
   });
