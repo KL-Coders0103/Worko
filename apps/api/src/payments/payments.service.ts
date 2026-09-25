@@ -32,128 +32,90 @@ export class PaymentsService {
     private readonly paymentProvider: PaymentProvider,
   ) {}
 
-  async createPayment(
-    userId: string,
-    dto: CreatePaymentDto,
-  ) {
-    const client =
-      await this.prisma.client.findUnique({
-        where: {
-          userId,
-        },
-        select: {
-          id: true,
-        },
-      });
+  async createPayment(userId: string, dto: CreatePaymentDto) {
+    const client = await this.prisma.client.findUnique({
+      where: {userId},
+      select: {id: true},
+    });
+    if (!client) throw new BadRequestException('Client profile not found');
 
-    if (!client) {
-      throw new BadRequestException(
-        'Client profile not found',
-      );
-    }
-
-    const booking =
-      await this.prisma.booking.findUnique({
-        where: {
-          id: dto.bookingId,
-        },
-        include: {
-          worker: {
-            select: {
-              id: true,
-            },
-          },
-          payment: true,
-        },
-      });
-
-    if (!booking) {
-      throw new NotFoundException(
-        'Booking not found',
-      );
-    }
-
+    const booking = await this.prisma.booking.findUnique({
+      where: {id: dto.bookingId},
+      include: {worker: {select: {id: true}}, payment: true},
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
     if (booking.clientId !== client.id) {
-      throw new ForbiddenException(
-        'You do not have access to this booking',
-      );
+      throw new ForbiddenException('You do not have access to this booking');
     }
-
-    if (
-      booking.status === BookingStatus.REJECTED ||
-      booking.status === BookingStatus.CANCELLED
-    ) {
-      throw new BadRequestException(
-        'Payment is not allowed for this booking',
-      );
+    if (booking.status === BookingStatus.REJECTED || booking.status === BookingStatus.CANCELLED) {
+      throw new BadRequestException('Payment is not allowed for this booking');
     }
 
     if (booking.payment) {
-      if (
-        booking.payment.status ===
-        PaymentStatus.SUCCESS
-      ) {
-        throw new BadRequestException(
-          'Booking has already been paid',
-        );
+      if (booking.payment.status === PaymentStatus.SUCCESS) {
+        throw new BadRequestException('Booking has already been paid');
       }
-
       if (
-        booking.payment.status ===
-          PaymentStatus.PENDING ||
-        booking.payment.status ===
-          PaymentStatus.PROCESSING
+        booking.payment.status === PaymentStatus.PENDING ||
+        booking.payment.status === PaymentStatus.PROCESSING
       ) {
-        throw new BadRequestException(
-          'A payment is already in progress for this booking',
-        );
+        if (booking.payment.idempotencyKey === dto.idempotencyKey) {
+          return {payment: booking.payment};
+        }
+        throw new BadRequestException('A payment is already in progress for this booking');
       }
+      throw new BadRequestException('This booking already has a terminal payment record');
     }
 
-    const existingByKey =
-      await this.prisma.payment.findUnique({
-        where: {
-          idempotencyKey:
-            dto.idempotencyKey,
-        },
-      });
-
-    if (existingByKey) {
-      if (
-        existingByKey.bookingId !==
-        booking.id
-      ) {
-        throw new BadRequestException(
-          'Idempotency key has already been used',
-        );
-      }
-
-      return {
-        payment: existingByKey,
-      };
-    }
-
-    const amount =
-      this.calculateBookingAmount(booking);
-
-    const payment =
-      await this.prisma.payment.create({
+    const amount = this.calculateBookingAmount(booking);
+    let payment;
+    try {
+      payment = await this.prisma.payment.create({
         data: {
           bookingId: booking.id,
           status: PaymentStatus.PENDING,
           method: 'ONLINE',
           amount,
           currency: 'INR',
-          idempotencyKey:
-            dto.idempotencyKey,
+          idempotencyKey: dto.idempotencyKey,
         },
       });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const existing = await this.prisma.payment.findUnique({
+          where: {idempotencyKey: dto.idempotencyKey},
+        });
+        if (existing) {
+          if (existing.bookingId !== booking.id) {
+            throw new BadRequestException('Idempotency key has already been used');
+          }
+          return {payment: existing};
+        }
+      }
+      throw error;
+    }
+
+    try {
+      const order = await this.paymentProvider.createOrder({
+        paymentId: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        idempotencyKey: payment.idempotencyKey,
+      });
+      payment = await this.prisma.payment.update({
+        where: {id: payment.id},
+        data: {gatewayOrderId: order.gatewayOrderId},
+      });
+    } catch {
+      payment = await this.transitionPayment(payment.id, PaymentStatus.FAILED, {
+        failureCode: 'PAYMENT_PROVIDER_ERROR',
+        failureMessage: 'Unable to create payment order',
+      });
+      return {payment};
+    }
 
     await this.notifyPaymentStatusChanged(payment.id, payment.status);
-
-    return {
-      payment,
-    };
+    return {payment};
   }
 
   async getPayment(
