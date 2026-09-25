@@ -76,6 +76,7 @@ enum KycReviewDecision {
 }
 
 enum BookingStatus {
+  SEARCHING
   PENDING
   ACCEPTED
   CONFIRMED
@@ -463,13 +464,13 @@ model Booking {
   id String @id @default(uuid()) @db.Uuid
 
   clientId String @db.Uuid
-  workerId String @db.Uuid
+  workerId String? @db.Uuid
 
   client Client @relation("BookingClient", fields: [clientId], references: [id], onDelete: Restrict)
 
-  worker Worker @relation("BookingWorker", fields: [workerId], references: [id], onDelete: Restrict)
+  worker Worker? @relation("BookingWorker", fields: [workerId], references: [id], onDelete: Restrict)
 
-  status       BookingStatus @default(PENDING)
+  status       BookingStatus @default(SEARCHING)
   categoryId   String?       @db.Uuid
   categoryName String?
 

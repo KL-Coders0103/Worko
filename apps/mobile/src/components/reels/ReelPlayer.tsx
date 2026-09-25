@@ -1,12 +1,10 @@
-import React from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, Image } from 'react-native';
-import { Typography } from '../common/Typography';
-import { Button } from '../buttons/Button';
-import { getMediaUrl } from '../../utils/media';
-import { colors, spacing, radius } from '../../theme';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator } from 'react-native';
+import Video, { ResizeMode } from 'react-native-video';
 import { Reel } from '../../features/reels/reel.api';
+import { colors } from '../../theme';
 
-const { height: WINDOW_HEIGHT, width: WINDOW_WIDTH } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface ReelPlayerProps {
   reel: Reel;
@@ -15,66 +13,46 @@ interface ReelPlayerProps {
   onPostRequirementPress: () => void;
 }
 
-export function ReelPlayer({ reel, onLikePress, onPostRequirementPress }: ReelPlayerProps) {
-  const thumbnailUrl = getMediaUrl(reel.thumbnailKey);
+export function ReelPlayer({ reel, isActive, onLikePress, onPostRequirementPress }: ReelPlayerProps) {
+  const [isBuffering, setIsBuffering] = useState(true);
 
   return (
     <View style={styles.container}>
-      {/* 
-        TODO: Replace this Image/View with react-native-video 
-        <Video source={{ uri: getMediaUrl(reel.videoKey) }} paused={!isActive} ... /> 
-      */}
-      {thumbnailUrl ? (
-        <Image source={{ uri: thumbnailUrl }} style={styles.videoPlaceholder} resizeMode="cover" />
-      ) : (
-        <View style={[styles.videoPlaceholder, { backgroundColor: colors.background.dark }]} />
+      <Video
+        source={{ uri: reel.videoKey }}
+        style={styles.video}
+        resizeMode={ResizeMode.COVER}
+        repeat={true}
+        paused={!isActive}
+        onBuffer={(bufferState) => setIsBuffering(bufferState.isBuffering)}
+        onReadyForDisplay={() => setIsBuffering(false)}
+        ignoreSilentSwitch="ignore"
+      />
+
+      {isBuffering && (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
       )}
 
-      {/* Dark gradient overlay for text readability */}
-      <View style={styles.overlay} />
+      <View style={styles.overlay}>
+        <View style={styles.bottomContent}>
+          <Text style={styles.title}>{reel.title}</Text>
+          <Text style={styles.description} numberOfLines={2}>
+            {reel.description}
+          </Text>
 
-      {/* Right Side Actions */}
-      <View style={styles.rightActions}>
-        <TouchableOpacity style={styles.actionButton} onPress={onLikePress}>
-          <View style={[styles.iconPlaceholder, reel.liked && styles.iconLiked]} />
-          <Typography variant="caption" color="white" weight="medium">
-            {reel.likes}
-          </Typography>
-        </TouchableOpacity>
-      </View>
-
-      {/* Bottom Metadata */}
-      <View style={styles.bottomMetadata}>
-        <View style={styles.workerInfo}>
-          {/* We only expose First Name to protect privacy */}
-          <Typography variant="h3" color="white" weight="bold">
-            {reel.worker.user.firstName || 'Worko Professional'}
-          </Typography>
-          {reel.worker.expectedHourlyRate && (
-            <Typography variant="caption" color={colors.primaryLight} weight="semibold" style={styles.rate}>
-              ₹{reel.worker.expectedHourlyRate}/hr
-            </Typography>
-          )}
+          <TouchableOpacity style={styles.ctaButton} onPress={onPostRequirementPress}>
+            <Text style={styles.ctaText}>Post a Requirement</Text>
+          </TouchableOpacity>
         </View>
 
-        {reel.title && (
-          <Typography variant="body" color="white" weight="semibold" style={styles.title}>
-            {reel.title}
-          </Typography>
-        )}
-        
-        {reel.description && (
-          <Typography variant="caption" color="white" style={styles.description} numberOfLines={2}>
-            {reel.description}
-          </Typography>
-        )}
-
-        <Button 
-          title="Post a Requirement" 
-          onPress={onPostRequirementPress} 
-          variant="primary" 
-          style={styles.ctaButton}
-        />
+        <View style={styles.rightActions}>
+          <TouchableOpacity style={styles.actionIcon} onPress={onLikePress}>
+            <Text style={styles.iconText}>{reel.liked ? '❤️' : '🤍'}</Text>
+            <Text style={styles.actionText}>{reel.likes}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -82,65 +60,69 @@ export function ReelPlayer({ reel, onLikePress, onPostRequirementPress }: ReelPl
 
 const styles = StyleSheet.create({
   container: {
-    width: WINDOW_WIDTH,
-    height: WINDOW_HEIGHT, // Assumes full screen without headers
+    width,
+    height: height - 80, 
     backgroundColor: '#000',
-    justifyContent: 'center',
   },
-  videoPlaceholder: {
+  video: {
     ...StyleSheet.absoluteFill,
-    width: '100%',
-    height: '100%',
+  },
+  loaderContainer: {
+    ...StyleSheet.absoluteFill,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   overlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-  },
-  rightActions: {
-    position: 'absolute',
-    right: spacing.md,
-    bottom: 250,
-    alignItems: 'center',
-  },
-  actionButton: {
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  iconPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    marginBottom: spacing.xs,
-  },
-  iconLiked: {
-    backgroundColor: colors.status.error,
-  },
-  bottomMetadata: {
-    position: 'absolute',
-    bottom: 100, // Leave room for bottom tab bar
-    left: spacing.md,
-    right: spacing.md,
-  },
-  workerInfo: {
+    justifyContent: 'flex-end',
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
+    padding: 20,
+    backgroundColor: 'rgba(0,0,0,0.3)', // Slight tint for contrast
   },
-  rate: {
-    marginLeft: spacing.sm,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
-    borderRadius: radius.sm,
+  bottomContent: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingBottom: 20,
   },
   title: {
-    marginBottom: spacing.xs,
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 8,
   },
   description: {
-    marginBottom: spacing.md,
+    color: '#ddd',
+    fontSize: 14,
+    marginBottom: 20,
   },
   ctaButton: {
-    marginTop: spacing.sm,
-  }
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  ctaText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  rightActions: {
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 20,
+    marginLeft: 15,
+  },
+  actionIcon: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  iconText: {
+    fontSize: 30,
+    marginBottom: 5,
+  },
+  actionText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
 });

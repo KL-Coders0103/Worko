@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { WorkerTabParamList } from './types';
 import { PlaceholderScreen } from '../../components/common/PlaceholderScreen';
 import { colors } from '../../theme';
+import { WorkerHomeScreen } from '../../features/worker/screens/WorkerHomeScreen';
 
 const Tab = createBottomTabNavigator<WorkerTabParamList>();
 
@@ -15,9 +16,7 @@ export function WorkerNavigator() {
         tabBarInactiveTintColor: colors.text.secondaryLight,
       }}
     >
-      <Tab.Screen name="WorkerHome" options={{ title: 'Home' }}>
-        {() => <PlaceholderScreen routeName="Worker Home (Active Jobs)" />}
-      </Tab.Screen>
+      <Tab.Screen component={WorkerHomeScreen} name="WorkerHome" options={{ title: 'Home' }} />
       <Tab.Screen name="WorkerRequests" options={{ title: 'Requests' }}>
         {() => <PlaceholderScreen routeName="Incoming Requests" />}
       </Tab.Screen>

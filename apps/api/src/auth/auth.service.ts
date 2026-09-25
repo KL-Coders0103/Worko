@@ -22,59 +22,58 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-  const email = dto.email.toLowerCase().trim();
-  const phoneNumber = dto.phoneNumber.trim();
+    const email = dto.email.toLowerCase().trim();
+    const phoneNumber = dto.phoneNumber.trim();
 
-  const existingUser = await this.prisma.user.findFirst({
-    where: {
-      OR: [{ email }, { phoneNumber }],
-    },
-  });
-
-  if (existingUser) {
-    throw new BadRequestException('User already exists');
-  }
-
-  const user = await this.prisma.$transaction(async (tx) => {
-    const createdUser = await tx.user.create({
-      data: {
-        firstName: dto.firstName.trim(),
-        lastName: dto.lastName?.trim(),
-        email,
-        phoneNumber,
-        role: dto.role,
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        phoneNumber: true,
-        role: true,
-        status: true,
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [{ email }, { phoneNumber }],
       },
     });
 
-    if (dto.role === 'WORKER') {
-      await tx.worker.create({
-        data: {
-          userId: createdUser.id,
-          status: 'DRAFT',
-          isAvailable: true,
-        },
-      });
+    if (existingUser) {
+      throw new BadRequestException('User already exists');
     }
 
-    return createdUser;
-  });
+    // 1. Create the user
+    const user = await this.prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          firstName: dto.firstName.trim(),
+          lastName: dto.lastName?.trim(),
+          email,
+          phoneNumber,
+          role: dto.role,
+        },
+        select: {
+          id: true, firstName: true, lastName: true, email: true, phoneNumber: true, role: true, status: true,
+        },
+      });
 
-  await this.createOtp(user.id, 'REGISTRATION', 'EMAIL');
+      if (dto.role === 'WORKER') {
+        await tx.worker.create({
+          data: {
+            userId: createdUser.id,
+            status: 'DRAFT',
+            isAvailable: true,
+          },
+        });
+      }
 
-  return {
-    message: 'Registration successful. OTP sent.',
-    user,
-  };
-}
+      return createdUser;
+    });
+    try {
+      await this.createOtp(user.id, 'REGISTRATION', 'EMAIL');
+    } catch (error) {
+      await this.prisma.user.delete({ where: { id: user.id } });
+      throw new BadRequestException('Failed to send OTP. Please try again.');
+    }
+
+    return {
+      message: 'Registration successful. OTP sent.',
+      user,
+    };
+  }
 
   async sendOtp(dto: SendOtpDto) {
   const purpose = dto.purpose ?? 'LOGIN';

@@ -6,7 +6,7 @@ import { Screen } from '../../../components/common/Screen';
 import { Typography } from '../../../components/common/Typography';
 import { Input } from '../../../components/inputs/Input';
 import { Button } from '../../../components/buttons/Button';
-import { registerUser, OtpChannel } from '../../../services/authService';
+import { registerUser} from '../../../services/authService';
 import { spacing } from '../../../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
@@ -34,16 +34,16 @@ export function RegisterScreen({ navigation }: Props) {
       await registerUser({
         firstName,
         lastName,
-        email,
+        email: email.trim(),
         phoneNumber,
         role,
       });
       
-      // Backend should trigger OTP on registration, proceed to verify
-      const channel: OtpChannel = 'SMS'; // Defaulting to SMS for phone registration
+      // FIX: Your backend explicitly sends the registration OTP to EMAIL.
+      // So we must pass the email as the identifier to the VerifyOTP screen.
       navigation.navigate('VerifyOTP', { 
-        identifier: phoneNumber, 
-        channel, 
+        identifier: email.trim(), 
+        channel: 'EMAIL', 
         purpose: 'REGISTRATION' 
       });
     } catch (err: any) {
@@ -63,7 +63,7 @@ export function RegisterScreen({ navigation }: Props) {
           <Typography variant="h1" style={styles.title}>Create Account</Typography>
           
           <Input label="First Name" value={firstName} onChangeText={setFirstName} />
-          <Input label="Last Name (Optional)" value={lastName} onChangeText={setLastName} />
+          <Input label="Last Name " value={lastName} onChangeText={setLastName} />
           <Input label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
           <Input label="Phone Number" value={phoneNumber} onChangeText={setPhoneNumber} keyboardType="phone-pad" />
 

@@ -13,23 +13,50 @@ export function ClientHomeScreen() {
 
   const [reels, setReels] = useState<Reel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  
+  // Pagination states
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
 
-  const fetchReels = async () => {
+  const fetchReels = async (isLoadMore = false) => {
+    // Prevent fetching if already loading or no more items
+    if (isLoadMore && (!hasMore || isFetchingMore)) return;
+
     try {
-      setError(null);
-      const data = await getReelsFeed(10);
-      setReels(data.items.filter(r => r.status === 'PUBLISHED'));
+      if (isLoadMore) {
+        setIsFetchingMore(true);
+      } else {
+        setIsLoading(true);
+        setError(null);
+      }
+
+      const data = await getReelsFeed(10, isLoadMore && nextCursor ? nextCursor : undefined);
+      const newReels = data.items.filter(r => r.status === 'PUBLISHED');
+
+      if (isLoadMore) {
+        setReels(prev => [...prev, ...newReels]);
+      } else {
+        setReels(newReels);
+      }
+
+      setNextCursor(data.nextCursor);
+      setHasMore(data.hasMore);
     } catch {
-      setError('Failed to load reels. Please try again.',);
+      if (!isLoadMore) {
+        setError('Failed to load reels. Please try again.');
+      }
     } finally {
       setIsLoading(false);
+      setIsFetchingMore(false);
     }
   };
 
   useEffect(() => {
     fetchReels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handlePostRequirement = () => {
@@ -40,7 +67,6 @@ export function ClientHomeScreen() {
     const reel = reels[index];
     const newLikedState = !reel.liked;
     
-    // Optimistic UI update
     const updatedReels = [...reels];
     updatedReels[index] = { 
       ...reel, 
@@ -56,14 +82,12 @@ export function ClientHomeScreen() {
         await unlikeReel(reel.id);
       }
     } catch {
-      // Revert if backend fails
       const revertedReels = [...reels];
       revertedReels[index] = reel;
       setReels(revertedReels);
     }
   };
 
-  // Fixed: Removed inline ViewToken destructuring to clear the parser error
   const onViewableItemsChanged = useCallback((info: any) => {
     if (info.viewableItems && info.viewableItems.length > 0) {
       const firstVisible = info.viewableItems[0];
@@ -84,7 +108,7 @@ export function ClientHomeScreen() {
   }
 
   if (error) {
-    return <ErrorState message={error} onRetry={fetchReels} />;
+    return <ErrorState message={error} onRetry={() => fetchReels()} />;
   }
 
   if (reels.length === 0) {
@@ -117,6 +141,16 @@ export function ClientHomeScreen() {
         decelerationRate="fast"
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
+        // Pagination Props
+        onEndReached={() => fetchReels(true)}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          isFetchingMore ? (
+            <View style={styles.footerLoader}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : undefined
+        }
       />
     </View>
   );
@@ -133,4 +167,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  footerLoader: {
+    padding: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  }
 });

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { View, StyleSheet, KeyboardAvoidingView, Platform} from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../../app/navigation/types';
 import { Screen } from '../../../components/common/Screen';
@@ -16,24 +16,29 @@ export function LoginScreen({ navigation }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
-  const handleSendOtp = async () => {
-    Keyboard.dismiss();
-    setError(undefined);
-
-    if (!identifier.trim()) {
-      setError('Please enter a valid phone number or email.');
+  const handleLogin = async () => {
+    if (!identifier) {
+      setError('Please enter your email or phone number.');
       return;
     }
 
-    const channel: OtpChannel = identifier.includes('@') ? 'EMAIL' : 'SMS';
-
     try {
       setIsLoading(true);
-      await sendLoginOtp(identifier.trim(), channel);
-      navigation.navigate('VerifyOTP', { identifier: identifier.trim(), channel, purpose:'LOGIN' });
+      const trimmedId = identifier.trim();
+      
+      // Smart detection: matches your backend logic
+      const isEmail = trimmedId.includes('@');
+      const channel: OtpChannel = isEmail ? 'EMAIL' : 'SMS';
+
+      await sendLoginOtp(trimmedId, channel);
+
+      navigation.navigate('VerifyOTP', {
+        identifier: trimmedId,
+        channel: channel,
+        purpose: 'LOGIN'
+      });
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Failed to send OTP. Please try again.';
-      setError(message);
+      setError(err.response?.data?.message || 'Login failed.');
     } finally {
       setIsLoading(false);
     }
@@ -68,7 +73,7 @@ export function LoginScreen({ navigation }: Props) {
           
           <Button 
             title="Continue" 
-            onPress={handleSendOtp} 
+            onPress={handleLogin} 
             isLoading={isLoading} 
             style={styles.button}
           />
