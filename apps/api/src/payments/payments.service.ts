@@ -15,7 +15,6 @@ import {
 import {PrismaService} from '../common/prisma/prisma.service';
 import {CreatePaymentDto} from './dto/create-payment.dto';
 import {PaymentActionDto} from './dto/payment-action.dto';
-import { WalletService } from '../wallet/wallet.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { REALTIME_EVENTS } from '../realtime/realtime.types';
 import {assertPaymentTransition} from './payment-state-machine';
