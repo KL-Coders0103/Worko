@@ -564,6 +564,7 @@ export class AttendanceService {
       select: {
         id: true,
         workerId: true,
+        status: true,
         attendance: {
           select: {
             id: true,
@@ -594,18 +595,10 @@ export class AttendanceService {
 
   if (
     dto.type === AttendanceEvidenceType.BEFORE_PHOTO &&
-    booking.attendance.id &&
     ![
       BookingStatus.ARRIVED,
       BookingStatus.CHECKED_IN,
-    ].includes(
-      (
-        await this.prisma.booking.findUnique({
-          where: { id: bookingId },
-          select: { status: true },
-        })
-      )?.status ?? BookingStatus.SEARCHING,
-    )
+    ].includes(booking.status)
   ) {
     throw new BadRequestException(
       'Before-work evidence can only be captured after the worker arrives',
@@ -613,24 +606,15 @@ export class AttendanceService {
   }
 
   if (
-    dto.type === AttendanceEvidenceType.AFTER_PHOTO
+    dto.type === AttendanceEvidenceType.AFTER_PHOTO &&
+    ![
+      BookingStatus.CHECKED_IN,
+      BookingStatus.IN_PROGRESS,
+    ].includes(booking.status)
   ) {
-    const currentBooking = await this.prisma.booking.findUnique({
-      where: { id: bookingId },
-      select: { status: true },
-    });
-
-    if (
-      !currentBooking ||
-      ![
-        BookingStatus.CHECKED_IN,
-        BookingStatus.IN_PROGRESS,
-      ].includes(currentBooking.status)
-    ) {
-      throw new BadRequestException(
-        'After-work evidence can only be captured while work is in progress',
-      );
-    }
+    throw new BadRequestException(
+      'After-work evidence can only be captured while work is in progress',
+    );
   }
 
   /*
@@ -741,6 +725,7 @@ async uploadAttendanceEvidence(
       select: {
         id: true,
         workerId: true,
+        status: true,
       },
     });
 
@@ -764,14 +749,7 @@ async uploadAttendanceEvidence(
     BookingStatus.IN_PROGRESS,
   ];
 
-  if (!activeEvidenceStatuses.includes(
-    (
-      await this.prisma.booking.findUnique({
-        where: { id: bookingId },
-        select: { status: true },
-      })
-    )?.status ?? BookingStatus.SEARCHING,
-  )) {
+  if (!activeEvidenceStatuses.includes(booking.status)) {
     throw new BadRequestException(
       'Attendance evidence cannot be uploaded in the current booking state',
     );
