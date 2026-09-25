@@ -70,11 +70,12 @@ export class AttendanceController {
   /**
    * Worker scans customer QR.
    *
-   * This endpoint only validates + consumes
-   * the QR token.
+   * This endpoint validates the booking-specific
+   * QR without consuming it.
    *
-   * Actual check-in/check-out state changes
-   * will be implemented in Block E.
+   * The state-changing check-in/check-out
+   * endpoints consume the token atomically
+   * with the attendance transition.
    */
   @Post(':bookingId/qr/validate')
   @Version('1')
@@ -84,7 +85,7 @@ export class AttendanceController {
     @Param('bookingId') bookingId: string,
     @Body() dto: ValidateAttendanceQrDto,
   ) {
-    return this.attendanceService.validateAndConsumeQrToken(
+    return this.attendanceService.validateQrToken(
       req.user.sub,
       bookingId,
       dto.token,
