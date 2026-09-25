@@ -2,6 +2,7 @@ import {BadRequestException, Injectable, UnauthorizedException} from '@nestjs/co
 import {createHmac, timingSafeEqual} from 'node:crypto';
 import {PaymentStatus} from '@prisma/client';
 import {PrismaService} from '../common/prisma/prisma.service';
+import {ConfigService} from '@nestjs/config';
 import {WalletService} from '../wallet/wallet.service';
 import {RealtimeGateway} from '../realtime/realtime.gateway';
 import {REALTIME_EVENTS} from '../realtime/realtime.types';
@@ -13,11 +14,12 @@ export class PaymentWebhookService {
     private readonly prisma: PrismaService,
     private readonly walletService: WalletService,
     private readonly realtime: RealtimeGateway,
+    private readonly config: ConfigService,
   ) {}
 
   private verifySignature(rawBody: string, signature: string | undefined) {
     if (!signature) throw new UnauthorizedException('Missing webhook signature');
-    const secret = process.env.PAYMENT_WEBHOOK_SECRET;
+    const secret = this.config.get<string>('payments.webhookSecret');
     if (!secret) throw new UnauthorizedException('Webhook signing is not configured');
 
     const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
@@ -73,7 +75,7 @@ export class PaymentWebhookService {
 
         await this.walletService.creditWalletInTransaction(
           tx,
-          payment.booking.workerId,
+          (await tx.worker.findUniqueOrThrow({where: {id: payment.booking.workerId}, select: {userId: true}})).userId,
           payment.amount,
           'PAYMENT',
           payment.id,
@@ -91,11 +93,33 @@ export class PaymentWebhookService {
 
       return {processed: true, duplicate: false, payment: updated};
     }).then(async result => {
-      this.realtime.notifyUsers([], REALTIME_EVENTS.PAYMENT_STATUS_CHANGED, {
-        paymentId: dto.paymentId,
-        status: result.payment?.status,
-        changedAt: new Date(),
-      });
+      if (result.payment) {
+        const payment = await this.prisma.payment.findUnique({
+          where: {id: dto.paymentId},
+          select: {
+            booking: {
+              select: {
+                client: {select: {userId: true}},
+                worker: {select: {userId: true}},
+              },
+            },
+          },
+        });
+        if (payment) {
+          this.realtime.notifyUsers(
+            [
+              payment.booking.client.userId,
+              ...(payment.booking.worker?.userId ? [payment.booking.worker.userId] : []),
+            ],
+            REALTIME_EVENTS.PAYMENT_STATUS_CHANGED,
+            {
+              paymentId: dto.paymentId,
+              status: result.payment.status,
+              changedAt: new Date(),
+            },
+          );
+        }
+      }
       return result;
     });
   }
