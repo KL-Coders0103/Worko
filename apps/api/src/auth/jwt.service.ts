@@ -17,6 +17,15 @@ export class AuthJwtService {
     private readonly prisma: PrismaService,
   ) {}
 
+  async verifyAccessToken(token: string) {
+    return this.jwtService.verifyAsync<AccessTokenPayload>(
+      token,
+      {
+        secret: process.env.JWT_ACCESS_SECRET,
+      },
+    );
+  }
+
   async issueTokens(user: {
     id: string;
     role: string;
