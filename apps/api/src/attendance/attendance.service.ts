@@ -18,6 +18,7 @@ import {
 
 import { PrismaService } from '../common/prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { assertBookingTransition } from '../bookings/booking-state-machine';
 
 export const ATTENDANCE_GEOFENCE_RADIUS_METERS = 100;
 
@@ -848,17 +849,9 @@ async checkIn(
     );
   }
 
-  /*
-   * Preserve Phase 9 compatibility:
-   * the existing worker flow reaches ACCEPTED
-   * before attendance starts.
-   */
-  if (
-    booking.status !== 'ACCEPTED' &&
-    booking.status !== 'ARRIVED'
-  ) {
+  if (booking.status !== 'ARRIVED') {
     throw new BadRequestException(
-      'Booking is not ready for check-in',
+      'Worker must arrive before check-in',
     );
   }
 
@@ -976,12 +969,17 @@ async checkIn(
               id: booking.id,
             },
             data: {
-              status: 'IN_PROGRESS',
+              status: 'CHECKED_IN',
             },
             include: {
               attendance: true,
             },
           });
+
+        assertBookingTransition(
+          'ARRIVED',
+          'CHECKED_IN',
+        );
 
         return {
           attendance,
@@ -1046,12 +1044,9 @@ async checkOut(
     );
   }
 
-  if (
-    booking.status !== 'IN_PROGRESS' &&
-    booking.status !== 'CHECKED_IN'
-  ) {
+  if (booking.status !== 'IN_PROGRESS') {
     throw new BadRequestException(
-      'Booking is not ready for check-out',
+      'Booking must be in progress before check-out',
     );
   }
 
@@ -1161,16 +1156,18 @@ async checkOut(
         });
 
         /*
-         * Booking reaches COMPLETED first.
-         */
-        const completedBooking =
+        assertBookingTransition(
+          'IN_PROGRESS',
+          'CHECKED_OUT',
+        );
+
+        const checkedOutBooking =
           await tx.booking.update({
             where: {
               id: booking.id,
             },
             data: {
-              status: 'COMPLETED',
-              completedAt: now,
+              status: 'CHECKED_OUT',
             },
             include: {
               attendance: true,
@@ -1178,76 +1175,9 @@ async checkOut(
             },
           });
 
-        /*
-         * 12.21
-         *
-         * Current demo payment already credits the
-         * worker wallet when payment becomes SUCCESS.
-         *
-         * Therefore DO NOT credit the wallet here.
-         *
-         * We only move the booking to PAYMENT_RELEASED
-         * when a successful payment already exists.
-         */
-        if (
-          booking.payment?.status ===
-          'SUCCESS'
-        ) {
-          const releasedBooking =
-            await tx.booking.update({
-              where: {
-                id: booking.id,
-              },
-              data: {
-                status:
-                  'PAYMENT_RELEASED',
-              },
-              include: {
-                attendance: true,
-                payment: true,
-              },
-            });
-
-          await tx.attendance.update({
-            where: {
-              id: attendance.id,
-            },
-            data: {
-              status: 'COMPLETED',
-            },
-          });
-
-          return {
-            attendance: {
-              ...attendance,
-              status: 'COMPLETED',
-            },
-            booking: releasedBooking,
-            paymentReleased: true,
-            location,
-          };
-        }
-
-        /*
-         * No successful payment yet.
-         * Attendance is completed but payment
-         * release remains pending.
-         */
-        await tx.attendance.update({
-          where: {
-            id: attendance.id,
-          },
-          data: {
-            status: 'COMPLETED',
-          },
-        });
-
         return {
-          attendance: {
-            ...attendance,
-            status: 'COMPLETED',
-          },
-          booking: completedBooking,
+          attendance,
+          booking: checkedOutBooking,
           paymentReleased: false,
           location,
         };
