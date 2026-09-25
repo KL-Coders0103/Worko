@@ -3,7 +3,6 @@ import {createHmac, timingSafeEqual} from 'node:crypto';
 import {PaymentStatus, Prisma} from '@prisma/client';
 import {PrismaService} from '../common/prisma/prisma.service';
 import {ConfigService} from '@nestjs/config';
-import {WalletService} from '../wallet/wallet.service';
 import {RealtimeGateway} from '../realtime/realtime.gateway';
 import {REALTIME_EVENTS} from '../realtime/realtime.types';
 import {PaymentWebhookDto, PaymentWebhookEventType} from './dto/payment-webhook.dto';
@@ -13,7 +12,6 @@ import {assertPaymentTransition} from './payment-state-machine';
 export class PaymentWebhookService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly walletService: WalletService,
     private readonly realtime: RealtimeGateway,
     private readonly config: ConfigService,
   ) {}
@@ -71,21 +69,6 @@ export class PaymentWebhookService {
           failureMessage: dto.failureMessage ?? null,
         },
       });
-
-      if (target === PaymentStatus.SUCCESS) {
-        if (!payment.booking.workerId) {
-          throw new BadRequestException('Booking worker not found');
-        }
-
-        await this.walletService.creditWalletInTransaction(
-          tx,
-          (await tx.worker.findUniqueOrThrow({where: {id: payment.booking.workerId}, select: {userId: true}})).userId,
-          payment.amount,
-          'PAYMENT',
-          payment.id,
-          `Payment received for ${payment.booking.serviceTitle}`,
-        );
-      }
 
       await tx.paymentWebhookEvent.create({
         data: {
