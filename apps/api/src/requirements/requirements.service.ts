@@ -13,6 +13,8 @@ import {
 
 import {PrismaService} from '../common/prisma/prisma.service';
 import {CreateRequirementDto} from './dto/create-requirement.dto';
+import {RealtimeGateway} from '../realtime/realtime.gateway';
+import {REALTIME_EVENTS} from '../realtime/realtime.types';
 import {RequirementActionDto} from './dto/requirement-action.dto';
 
 const MATCH_RADIUS_KM = 25;
@@ -32,6 +34,7 @@ const ACTIVE_BOOKING_STATUSES = [
 export class RequirementsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly realtime: RealtimeGateway,
   ) {}
 
   async create(userId: string, dto: CreateRequirementDto) {
@@ -146,6 +149,36 @@ export class RequirementsService {
     const matching = await this.matchWorkers(
       requirement.id,
     );
+
+    if (matching.offers.length) {
+      this.realtime.notifyWorkers(
+        matching.offers.map(
+          offer => offer.workerUserId,
+        ),
+        REALTIME_EVENTS.REQUIREMENT_OFFERED,
+        {
+          requirementId: requirement.id,
+          title: requirement.title,
+          categoryId: requirement.categoryId,
+          categoryName: requirement.categoryName,
+          skillId: requirement.skillId,
+          skillName: requirement.skillName,
+          budget: requirement.budget,
+          scheduledStart: requirement.scheduledStart,
+          scheduledEnd: requirement.scheduledEnd,
+          address: requirement.address,
+          latitude: requirement.latitude,
+          longitude: requirement.longitude,
+          offers: matching.offers.map(
+            offer => ({
+              assignmentId: offer.assignmentId,
+              distanceKm: offer.distanceKm,
+              matchScore: offer.matchScore,
+            }),
+          ),
+        },
+      );
+    }
 
     return {
       requirement: await this.getClientRequirement(
@@ -830,29 +863,80 @@ export class RequirementsService {
 
       return {
         matchedWorkers: 0,
+        offers: [],
       };
     }
 
-    await this.prisma.requirementAssignment.createMany({
-      data: candidates.map(
-        candidate => ({
-          requirementId,
-          workerId:
-            candidate.workerId,
-          status:
-            RequirementAssignmentStatus.OFFERED,
-          matchScore:
-            candidate.score,
-          distanceKm:
-            candidate.distanceKm,
-        }),
-      ),
-      skipDuplicates: true,
-    });
+    const assignments =
+      await this.prisma.$transaction(
+        candidates.map(
+          candidate =>
+            this.prisma.requirementAssignment.upsert({
+              where: {
+                requirementId_workerId: {
+                  requirementId,
+                  workerId:
+                    candidate.workerId,
+                },
+              },
+              create: {
+                requirementId,
+                workerId:
+                  candidate.workerId,
+                status:
+                  RequirementAssignmentStatus.OFFERED,
+                matchScore:
+                  candidate.score,
+                distanceKm:
+                  candidate.distanceKm,
+              },
+              update: {
+                status:
+                  RequirementAssignmentStatus.OFFERED,
+                matchScore:
+                  candidate.score,
+                distanceKm:
+                  candidate.distanceKm,
+                respondedAt: null,
+                responseReason: null,
+              },
+              select: {
+                id: true,
+                workerId: true,
+                matchScore: true,
+                distanceKm: true,
+                worker: {
+                  select: {
+                    userId: true,
+                  },
+                },
+              },
+            }),
+        ),
+      );
 
     return {
       matchedWorkers:
-        candidates.length,
+        assignments.length,
+      offers: assignments.map(
+        assignment => ({
+          assignmentId:
+            assignment.id,
+          workerUserId:
+            assignment.worker.userId,
+          matchScore:
+            Number(
+              assignment.matchScore ??
+                0,
+            ),
+          distanceKm:
+            assignment.distanceKm === null
+              ? null
+              : Number(
+                  assignment.distanceKm,
+                ),
+        }),
+      ),
     };
   }
 
