@@ -9,6 +9,8 @@ import { BookingStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { BookingActionDto } from './dto/booking-action.dto';
 import { BookingResponseDto } from './dto/booking-response.dto';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { REALTIME_EVENTS } from '../realtime/realtime.types';
 
 interface BookingResponse extends BookingResponseDto {
   id: string;
@@ -46,6 +48,7 @@ type BookingRole = 'CLIENT' | 'WORKER';
 export class BookingsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly realtime: RealtimeGateway,
   ) {}
 
   async getMyBookings(
@@ -120,6 +123,8 @@ export class BookingsService {
       );
     });
 
+    await this.notifyBookingStatusChanged(updated.id, updated.status);
+
     return this.toBookingResponse(updated, 'CLIENT');
   }
 
@@ -136,6 +141,8 @@ export class BookingsService {
         BookingStatus.WORKER_EN_ROUTE,
       );
     });
+
+    await this.notifyBookingStatusChanged(updated.id, updated.status);
 
     return this.toBookingResponse(updated, 'WORKER');
   }
@@ -154,6 +161,8 @@ export class BookingsService {
       );
     });
 
+    await this.notifyBookingStatusChanged(updated.id, updated.status);
+
     return this.toBookingResponse(updated, 'WORKER');
   }
 
@@ -170,6 +179,8 @@ export class BookingsService {
         BookingStatus.IN_PROGRESS,
       );
     });
+
+    await this.notifyBookingStatusChanged(updated.id, updated.status);
 
     return this.toBookingResponse(updated, 'WORKER');
   }
@@ -247,6 +258,8 @@ export class BookingsService {
       );
     });
 
+    await this.notifyBookingStatusChanged(updated.id, updated.status);
+
     return this.toBookingResponse(updated, 'CLIENT');
   }
 
@@ -272,6 +285,38 @@ export class BookingsService {
     });
 
     return this.toBookingResponse(updated, role);
+  }
+
+  private async notifyBookingStatusChanged(
+    bookingId: string,
+    status: BookingStatus,
+  ) {
+    const booking = await this.prisma.booking.findUnique({
+      where: {id: bookingId},
+      select: {
+        client: {select: {userId: true}},
+        worker: {select: {userId: true}},
+      },
+    });
+
+    if (!booking) {
+      return;
+    }
+
+    const payload = {
+      bookingId,
+      status,
+      changedAt: new Date(),
+    };
+
+    this.realtime.notifyUsers(
+      [
+        booking.client.userId,
+        ...(booking.worker?.userId ? [booking.worker.userId] : []),
+      ],
+      REALTIME_EVENTS.BOOKING_STATUS_CHANGED,
+      payload,
+    );
   }
 
   getAllowedTransitions(status: BookingStatus) {
