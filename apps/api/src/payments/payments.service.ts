@@ -477,14 +477,26 @@ export class PaymentsService {
         );
       }
 
-      await tx.payment.update({
+      assertPaymentTransition(
+        payment.status,
+        PaymentStatus.PROCESSING,
+      );
+
+      const processing = await tx.payment.updateMany({
         where: {
           id: payment.id,
+          status: payment.status,
         },
         data: {
           status: PaymentStatus.PROCESSING,
         },
       });
+
+      if (processing.count !== 1) {
+        throw new BadRequestException(
+          'Payment changed before processing started',
+        );
+      }
 
       /*
        * DEMO FAILURE
