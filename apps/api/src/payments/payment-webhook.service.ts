@@ -1,6 +1,6 @@
 import {BadRequestException, Injectable, UnauthorizedException} from '@nestjs/common';
 import {createHmac, timingSafeEqual} from 'node:crypto';
-import {PaymentStatus} from '@prisma/client';
+import {PaymentStatus, Prisma} from '@prisma/client';
 import {PrismaService} from '../common/prisma/prisma.service';
 import {ConfigService} from '@nestjs/config';
 import {WalletService} from '../wallet/wallet.service';
@@ -34,6 +34,7 @@ export class PaymentWebhookService {
   async handle(rawBody: string, signature: string | undefined, dto: PaymentWebhookDto) {
     this.verifySignature(rawBody, signature);
 
+    try {
     return this.prisma.$transaction(async tx => {
       const existing = await tx.paymentWebhookEvent.findUnique({
         where: {eventId: dto.eventId},
@@ -121,6 +122,15 @@ export class PaymentWebhookService {
         }
       }
       return result;
-    });
+    })
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const existing = await this.prisma.paymentWebhookEvent.findUnique({
+          where: {eventId: dto.eventId},
+        });
+        if (existing) return {processed: true, duplicate: true};
+      }
+      throw error;
+    };
   }
 }
