@@ -5,7 +5,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { AuthJwtService, AccessTokenPayload } from '../jwt.service';
+import { AuthJwtService } from '../jwt.service';
+import type { AccessTokenPayload } from '../jwt.service';
 
 type AuthenticatedRequest = Request & {
   user: AccessTokenPayload;
