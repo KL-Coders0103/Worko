@@ -18,6 +18,7 @@ import { ReelsModule } from './reels/reels.module';
 import { AdminModule } from './admin/admin.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { StorageModule } from './storage/storage.module';
+import { RequirementsModule } from './requirements/requirements.module';
 import { RadarGateway } from './bookings/radar.gateway';
 
 @Module({
@@ -40,7 +41,8 @@ import { RadarGateway } from './bookings/radar.gateway';
     ReelsModule,
     AdminModule,
     PrismaModule,
-    StorageModule
+    StorageModule,
+    RequirementsModule
   ],
   controllers: [AppController],
   providers: [AppService, RadarGateway],
