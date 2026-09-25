@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -14,135 +15,106 @@ import {
 import {PrismaService} from '../common/prisma/prisma.service';
 import {CreatePaymentDto} from './dto/create-payment.dto';
 import {PaymentActionDto} from './dto/payment-action.dto';
-import { WalletService } from '../wallet/wallet.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { REALTIME_EVENTS } from '../realtime/realtime.types';
+import {assertPaymentTransition} from './payment-state-machine';
+import type {PaymentProvider} from './payment-provider.interface';
+import {PAYMENT_PROVIDER} from './payment-provider.token';
+import {toPaymentResponse} from './dto/payment-response.dto';
 
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly walletService: WalletService,
+    private readonly realtime: RealtimeGateway,
+    @Inject(PAYMENT_PROVIDER)
+    private readonly paymentProvider: PaymentProvider,
   ) {}
 
-  async createPayment(
-    userId: string,
-    dto: CreatePaymentDto,
-  ) {
-    const client =
-      await this.prisma.client.findUnique({
-        where: {
-          userId,
-        },
-        select: {
-          id: true,
-        },
-      });
+  async createPayment(userId: string, dto: CreatePaymentDto) {
+    const client = await this.prisma.client.findUnique({
+      where: {userId},
+      select: {id: true},
+    });
+    if (!client) throw new BadRequestException('Client profile not found');
 
-    if (!client) {
-      throw new BadRequestException(
-        'Client profile not found',
-      );
-    }
-
-    const booking =
-      await this.prisma.booking.findUnique({
-        where: {
-          id: dto.bookingId,
-        },
-        include: {
-          worker: {
-            select: {
-              id: true,
-            },
-          },
-          payment: true,
-        },
-      });
-
-    if (!booking) {
-      throw new NotFoundException(
-        'Booking not found',
-      );
-    }
-
+    const booking = await this.prisma.booking.findUnique({
+      where: {id: dto.bookingId},
+      include: {worker: {select: {id: true}}, payment: true},
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
     if (booking.clientId !== client.id) {
-      throw new ForbiddenException(
-        'You do not have access to this booking',
-      );
+      throw new ForbiddenException('You do not have access to this booking');
     }
-
-    if (
-      booking.status === BookingStatus.REJECTED ||
-      booking.status === BookingStatus.CANCELLED
-    ) {
-      throw new BadRequestException(
-        'Payment is not allowed for this booking',
-      );
+    if (booking.status === BookingStatus.REJECTED || booking.status === BookingStatus.CANCELLED) {
+      throw new BadRequestException('Payment is not allowed for this booking');
     }
 
     if (booking.payment) {
-      if (
-        booking.payment.status ===
-        PaymentStatus.SUCCESS
-      ) {
-        throw new BadRequestException(
-          'Booking has already been paid',
-        );
+      if (booking.payment.status === PaymentStatus.SUCCESS) {
+        throw new BadRequestException('Booking has already been paid');
       }
-
       if (
-        booking.payment.status ===
-          PaymentStatus.PENDING ||
-        booking.payment.status ===
-          PaymentStatus.PROCESSING
+        booking.payment.status === PaymentStatus.PENDING ||
+        booking.payment.status === PaymentStatus.PROCESSING
       ) {
-        throw new BadRequestException(
-          'A payment is already in progress for this booking',
-        );
+        if (booking.payment.idempotencyKey === dto.idempotencyKey) {
+          return {payment: toPaymentResponse(booking.payment)};
+        }
+        throw new BadRequestException('A payment is already in progress for this booking');
       }
+      throw new BadRequestException('This booking already has a terminal payment record');
     }
 
-    const existingByKey =
-      await this.prisma.payment.findUnique({
-        where: {
-          idempotencyKey:
-            dto.idempotencyKey,
-        },
-      });
-
-    if (existingByKey) {
-      if (
-        existingByKey.bookingId !==
-        booking.id
-      ) {
-        throw new BadRequestException(
-          'Idempotency key has already been used',
-        );
-      }
-
-      return {
-        payment: existingByKey,
-      };
-    }
-
-    const amount =
-      this.calculateBookingAmount(booking);
-
-    const payment =
-      await this.prisma.payment.create({
+    const amount = this.calculateBookingAmount(booking);
+    let payment;
+    try {
+      payment = await this.prisma.payment.create({
         data: {
           bookingId: booking.id,
           status: PaymentStatus.PENDING,
           method: 'ONLINE',
           amount,
           currency: 'INR',
-          idempotencyKey:
-            dto.idempotencyKey,
+          idempotencyKey: dto.idempotencyKey,
         },
       });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const existing = await this.prisma.payment.findUnique({
+          where: {idempotencyKey: dto.idempotencyKey},
+        });
+        if (existing) {
+          if (existing.bookingId !== booking.id) {
+            throw new BadRequestException('Idempotency key has already been used');
+          }
+          return {payment: toPaymentResponse(existing)};
+        }
+      }
+      throw error;
+    }
 
-    return {
-      payment,
-    };
+    try {
+      const order = await this.paymentProvider.createOrder({
+        paymentId: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        idempotencyKey: payment.idempotencyKey,
+      });
+      payment = await this.prisma.payment.update({
+        where: {id: payment.id},
+        data: {gatewayOrderId: order.gatewayOrderId},
+      });
+    } catch {
+      payment = await this.transitionPayment(payment.id, PaymentStatus.FAILED, {
+        failureCode: 'PAYMENT_PROVIDER_ERROR',
+        failureMessage: 'Unable to create payment order',
+      });
+      return {payment: toPaymentResponse(payment)};
+    }
+
+    await this.notifyPaymentStatusChanged(payment.id, payment.status);
+    return {payment: toPaymentResponse(payment)};
   }
 
   async getPayment(
@@ -178,12 +150,10 @@ export class PaymentsService {
     await this.assertPaymentAccess(
       userId,
       payment.booking.clientId,
-      payment.booking.workerId!,
+      payment.booking.workerId,
     );
 
-    return {
-      payment,
-    };
+    return {payment: toPaymentResponse(payment)};
   }
 
   async getBookingPayment(
@@ -211,7 +181,7 @@ export class PaymentsService {
     await this.assertPaymentAccess(
       userId,
       booking.clientId,
-      booking.workerId!,
+      booking.workerId,
     );
 
     const payment =
@@ -221,76 +191,102 @@ export class PaymentsService {
         },
       });
 
-    return {
-      payment,
-    };
+    return {payment: payment ? toPaymentResponse(payment) : null};
   }
 
-  async cancelPayment(
-    userId: string,
-    paymentId: string,
-    dto: PaymentActionDto,
-  ) {
-    const payment =
-      await this.prisma.payment.findUnique({
-        where: {
-          id: paymentId,
-        },
-        include: {
-          booking: {
-            select: {
-              clientId: true,
-              workerId: true,
-            },
-          },
-        },
-      });
-
-    if (!payment) {
-      throw new NotFoundException(
-        'Payment not found',
-      );
-    }
+  async cancelPayment(userId: string, paymentId: string, dto: PaymentActionDto) {
+    const payment = await this.prisma.payment.findUnique({
+      where: {id: paymentId},
+      include: {booking: {select: {clientId: true, workerId: true}}},
+    });
+    if (!payment) throw new NotFoundException('Payment not found');
 
     await this.assertPaymentAccess(
       userId,
       payment.booking.clientId,
-      payment.booking.workerId!,
+      payment.booking.workerId,
     );
+    assertPaymentTransition(payment.status, PaymentStatus.CANCELLED);
 
-    if (
-      payment.status === PaymentStatus.SUCCESS
-    ) {
-      throw new BadRequestException(
-        'Successful payments cannot be cancelled',
-      );
+    const changed = await this.prisma.payment.updateMany({
+      where: {id: payment.id, status: payment.status},
+      data: {
+        status: PaymentStatus.CANCELLED,
+        failureMessage: dto.reason?.trim() || undefined,
+      },
+    });
+    if (changed.count !== 1) {
+      throw new BadRequestException('Payment changed before it could be cancelled');
     }
 
-    if (
-      payment.status === PaymentStatus.CANCELLED
-    ) {
-      throw new BadRequestException(
-        'Payment is already cancelled',
-      );
+    const updated = await this.prisma.payment.findUniqueOrThrow({
+      where: {id: payment.id},
+    });
+    await this.notifyPaymentStatusChanged(updated.id, updated.status);
+    return {payment: toPaymentResponse(updated)};
+  }
+
+  private async transitionPayment(
+    paymentId: string,
+    targetStatus: PaymentStatus,
+    data: Prisma.PaymentUpdateInput = {},
+  ) {
+    const current = await this.prisma.payment.findUnique({
+      where: {id: paymentId},
+    });
+    if (!current) throw new NotFoundException('Payment not found');
+
+    assertPaymentTransition(current.status, targetStatus);
+
+    const changed = await this.prisma.payment.updateMany({
+      where: {id: paymentId, status: current.status},
+      data: {status: targetStatus, ...data},
+    });
+    if (changed.count !== 1) {
+      throw new BadRequestException('Payment changed before the transition completed');
     }
 
-    const reason =
-      dto.reason?.trim() || undefined;
+    const updated = await this.prisma.payment.findUniqueOrThrow({
+      where: {id: paymentId},
+    });
+    await this.notifyPaymentStatusChanged(updated.id, updated.status);
+    return updated;
+  }
 
-    const updated =
-      await this.prisma.payment.update({
-        where: {
-          id: payment.id,
+  private async notifyPaymentStatusChanged(
+    paymentId: string,
+    status: PaymentStatus,
+  ) {
+    const payment = await this.prisma.payment.findUnique({
+      where: {id: paymentId},
+      select: {
+        booking: {
+          select: {
+            client: {select: {userId: true}},
+            worker: {select: {userId: true}},
+          },
         },
-        data: {
-          status: PaymentStatus.CANCELLED,
-          failureMessage: reason,
-        },
-      });
+      },
+    });
 
-    return {
-      payment: updated,
-    };
+    if (!payment) {
+      return;
+    }
+
+    this.realtime.notifyUsers(
+      [
+        payment.booking.client.userId,
+        ...(payment.booking.worker?.userId
+          ? [payment.booking.worker.userId]
+          : []),
+      ],
+      REALTIME_EVENTS.PAYMENT_STATUS_CHANGED,
+      {
+        paymentId,
+        status,
+        changedAt: new Date(),
+      },
+    );
   }
 
   private calculateBookingAmount(
@@ -356,7 +352,7 @@ export class PaymentsService {
   private async assertPaymentAccess(
     userId: string,
     clientId: string,
-    workerId: string,
+    workerId: string | null,
   ) {
     const user =
       await this.prisma.user.findUnique({
@@ -393,6 +389,7 @@ export class PaymentsService {
 
     if (
       user.role === 'WORKER' &&
+      workerId !== null &&
       user.worker?.id === workerId
     ) {
       return;
@@ -408,7 +405,7 @@ export class PaymentsService {
   paymentId: string,
   success: boolean,
 ) {
-  return this.prisma.$transaction(
+  const result  = await this.prisma.$transaction(
     async (tx) => {
       const payment =
         await tx.payment.findUnique({
@@ -478,14 +475,26 @@ export class PaymentsService {
         );
       }
 
-      await tx.payment.update({
+      assertPaymentTransition(
+        payment.status,
+        PaymentStatus.PROCESSING,
+      );
+
+      const processing = await tx.payment.updateMany({
         where: {
           id: payment.id,
+          status: payment.status,
         },
         data: {
           status: PaymentStatus.PROCESSING,
         },
       });
+
+      if (processing.count !== 1) {
+        throw new BadRequestException(
+          'Payment changed before processing started',
+        );
+      }
 
       /*
        * DEMO FAILURE
@@ -494,6 +503,11 @@ export class PaymentsService {
        * No wallet movement occurs.
        */
       if (!success) {
+        assertPaymentTransition(
+          PaymentStatus.PROCESSING,
+          PaymentStatus.FAILED,
+        );
+
         const failedPayment =
           await tx.payment.update({
             where: {
@@ -522,6 +536,11 @@ export class PaymentsService {
        * happen inside the same DB transaction.
        */
 
+      assertPaymentTransition(
+        PaymentStatus.PROCESSING,
+        PaymentStatus.SUCCESS,
+      );
+
       const updatedPayment =
         await tx.payment.update({
           where: {
@@ -541,41 +560,17 @@ export class PaymentsService {
           },
         });
 
-      /*
-       * Find the worker's user ID.
-       */
-      const worker =
-        await tx.worker.findUnique({
-          where: {
-            id: payment.booking.workerId!,
-          },
-          select: {
-            userId: true,
-          },
-        });
-
-      if (!worker) {
-        throw new NotFoundException(
-          'Booking worker not found',
-        );
-      }
-
-      /*
-       * Credit worker wallet.
-       */
-      await this.walletService.creditWalletInTransaction(
-        tx,
-        worker.userId,
-        payment.amount,
-        'PAYMENT',
-        payment.id,
-        `Payment received for ${payment.booking.serviceTitle}`,
-      );
-
       return {
         payment: updatedPayment,
       };
     },
   );
+
+  await this.notifyPaymentStatusChanged(
+    result.payment.id,
+    result.payment.status,
+  );
+
+  return {payment: toPaymentResponse(result.payment)};
 }
 }

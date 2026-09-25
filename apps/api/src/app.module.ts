@@ -2,14 +2,13 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
 import { WorkersModule } from './workers/workers.module';
 import { ClientsModule } from './clients/clients.module';
 import { CategoriesModule } from './categories/categories.module';
-import { DiscoveryModule } from './discovery/discovery.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { PaymentsModule } from './payments/payments.module';
@@ -18,21 +17,31 @@ import { ReelsModule } from './reels/reels.module';
 import { AdminModule } from './admin/admin.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { StorageModule } from './storage/storage.module';
-import { RadarGateway } from './bookings/radar.gateway';
+import { RequirementsModule } from './requirements/requirements.module';
+import { RealtimeModule } from './realtime/realtime.module';
+import configuration from './config/configuration';
+import { validateEnv } from './config/env.validation';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
+      load: [configuration],
+      validate: validateEnv,
     }),
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60_000,
+        limit: 60,
+      },
+    ]),
     HealthModule,
     AuthModule,
-    UsersModule,
     WorkersModule,
     ClientsModule,
     CategoriesModule,
-    DiscoveryModule,
     BookingsModule,
     AttendanceModule,
     PaymentsModule,
@@ -40,10 +49,12 @@ import { RadarGateway } from './bookings/radar.gateway';
     ReelsModule,
     AdminModule,
     PrismaModule,
-    StorageModule
+    StorageModule,
+    RequirementsModule,
+    RealtimeModule,
   ],
   controllers: [AppController],
-  providers: [AppService, RadarGateway],
+  providers: [AppService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

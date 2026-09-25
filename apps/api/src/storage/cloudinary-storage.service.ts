@@ -6,6 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { Readable } from 'stream';
+import { randomBytes } from 'node:crypto';
 import { ReadableStream as NodeReadableStream } from 'stream/web';
 
 type CloudinaryResourceType = 'image' | 'video' | 'raw';
@@ -23,13 +24,19 @@ export class CloudinaryStorageService {
 
   constructor(private readonly configService: ConfigService) {
     const cloudName =
-      this.configService.get<string>('CLOUDINARY_CLOUD_NAME');
+      this.configService.get<string>(
+        'storage.cloudinaryCloudName',
+      );
 
     const apiKey =
-      this.configService.get<string>('CLOUDINARY_API_KEY');
+      this.configService.get<string>(
+        'storage.cloudinaryApiKey',
+      );
 
     const apiSecret =
-      this.configService.get<string>('CLOUDINARY_API_SECRET');
+      this.configService.get<string>(
+        'storage.cloudinaryApiSecret',
+      );
 
     this.configured = Boolean(
       cloudName && apiKey && apiSecret,
@@ -142,9 +149,7 @@ export class CloudinaryStorageService {
       await new Promise<UploadApiResponse>(
         (resolve, reject) => {
           const uploadOptions = {
-            // FIX: Force Cloudinary to auto-detect the file type from binary bytes
-            // This prevents the "Image file format mp4 not allowed" bug completely.
-            resource_type: 'auto' as const, 
+            resource_type: 'auto' as const,
             type: 'authenticated' as const,
             public_id: publicId,
             overwrite: false,
@@ -156,7 +161,6 @@ export class CloudinaryStorageService {
               : undefined,
           };
 
-          // We can use the same stream handler for both now since resource_type is auto
           const uploadStream = cloudinary.uploader.upload_stream(
             uploadOptions,
             (error, result) => {
@@ -180,8 +184,10 @@ export class CloudinaryStorageService {
     const key = this.encodeKey({
       folder,
       publicId: uploadResponse.public_id,
-      // We still store the originally detected or final returned resource type for DB
-      resourceType: uploadResponse.resource_type === 'video' ? 'video' : resourceType, 
+      resourceType:
+        uploadResponse.resource_type === 'video'
+          ? 'video'
+          : resourceType,
       format: uploadResponse.format,
     });
 
@@ -239,6 +245,13 @@ export class CloudinaryStorageService {
     return {
       buffer: Buffer.from(arrayBuffer),
       key,
+      contentType: metadata.resourceType === 'image'
+        ? `image/${metadata.format ?? 'jpeg'}`
+        : metadata.resourceType === 'video'
+          ? `video/${metadata.format ?? 'mp4'}`
+          : metadata.format
+            ? `application/${metadata.format}`
+            : 'application/octet-stream',
     };
   }
 
@@ -341,13 +354,11 @@ export class CloudinaryStorageService {
     }
 
     return Readable.fromWeb(
-        response.body as unknown as NodeReadableStream,
+      response.body as unknown as NodeReadableStream,
     );
   }
 }
 
 function cryptoRandomId(): string {
-  return `${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2, 12)}`;
+  return randomBytes(24).toString('base64url');
 }

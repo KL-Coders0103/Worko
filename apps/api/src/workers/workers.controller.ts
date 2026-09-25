@@ -8,19 +8,21 @@ import {
   Req,
   UploadedFile,
   UseGuards,
+  Param,
+  Res,
   UseInterceptors,
   Version,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles, RolesGuard } from '../auth/guards/role.guards';
 import type { AccessTokenPayload } from '../auth/jwt.service';
 
 import {
   CreateWorkerProfileDto,
   UpdateWorkerCategoriesDto,
-  UpdateWorkerKycDocumentsDto,
   UpdateWorkerLocationDto,
   UpdateWorkerProfileDto,
   UpdateWorkerSkillsDto,
@@ -33,7 +35,7 @@ type AuthenticatedRequest = Request & {
 };
 
 @Controller('workers')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class WorkersController {
   constructor(
     private readonly workersService: WorkersService,
@@ -123,11 +125,9 @@ export class WorkersController {
   @Version('1')
   submitKycDocuments(
     @Req() request: AuthenticatedRequest,
-    @Body() dto: UpdateWorkerKycDocumentsDto,
   ) {
     return this.workersService.submitKycDocuments(
       request.user.sub,
-      dto,
     );
   }
 
@@ -287,4 +287,59 @@ uploadProfilePhoto(
       file,
     );
   }
+  @Get(':workerId/kyc/:documentType')
+  @Version('1')
+  @Roles('ADMIN', 'OPERATIONS', 'SUPER_ADMIN')
+  async getKycDocument(
+    @Param('workerId') workerId: string,
+    @Param('documentType') documentType: string,
+    @Res() response: Response,
+  ) {
+    if (documentType !== 'aadhaar' && documentType !== 'policeVerification') {
+      throw new BadRequestException('Invalid KYC document type');
+    }
+
+    const file = await this.workersService.getKycDocument(
+      workerId,
+      documentType,
+    );
+
+    response.setHeader('Content-Type', file.contentType);
+    response.setHeader('Content-Disposition', 'inline');
+    return response.send(file.buffer);
+  }
+
+  @Get('kyc/pending')
+  @Version('1')
+  @Roles('ADMIN', 'OPERATIONS', 'SUPER_ADMIN')
+  getPendingKyc() {
+    return this.workersService.getPendingKyc();
+  }
+
+  @Post(':workerId/kyc/approve')
+  @Version('1')
+  @Roles('ADMIN', 'OPERATIONS', 'SUPER_ADMIN')
+  approveKyc(
+    @Req() request: AuthenticatedRequest,
+    @Param('workerId') workerId: string,
+  ) {
+    return this.workersService.reviewKyc(request.user.sub, workerId, 'APPROVED');
+  }
+
+  @Post(':workerId/kyc/reject')
+  @Version('1')
+  @Roles('ADMIN', 'OPERATIONS', 'SUPER_ADMIN')
+  rejectKyc(
+    @Req() request: AuthenticatedRequest,
+    @Param('workerId') workerId: string,
+    @Body() body: {reason?: string},
+  ) {
+    return this.workersService.reviewKyc(
+      request.user.sub,
+      workerId,
+      'REJECTED',
+      body.reason,
+    );
+  }
+
 }

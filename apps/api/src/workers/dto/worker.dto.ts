@@ -39,11 +39,6 @@ export class CreateWorkerProfileDto {
   @IsBoolean()
   isAvailable?: boolean;
 
-  @IsOptional()
-  @IsString()
-  @MinLength(1)
-  @MaxLength(500)
-  profilePhotoKey?: string;
 }
 
 export class UpdateWorkerProfileDto extends CreateWorkerProfileDto {}
@@ -77,15 +72,3 @@ export class UpdateWorkerCategoriesDto {
   categoryIds!: string[];
 }
 
-export class UpdateWorkerKycDocumentsDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(500)
-  aadhaarDocumentKey!: string;
-
-  @IsOptional()
-  @IsString()
-  @MinLength(1)
-  @MaxLength(500)
-  policeVerificationDocumentKey?: string;
-}

@@ -5,6 +5,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 
+import type { Reel } from '@prisma/client';
+
 import { PrismaService } from '../common/prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 
@@ -73,7 +75,6 @@ export class ReelsService {
       return {
         id: reel.id,
         status: reel.status,
-        videoKey: reel.videoKey,
         mimeType: reel.mimeType,
         fileSizeBytes: reel.fileSizeBytes?.toString(),
         createdAt: reel.createdAt,
@@ -88,202 +89,128 @@ export class ReelsService {
   }
 
   async getReelById(reelId: string) {
-    const reel = await this.prisma.reel.findUnique({
+    const reel = await this.prisma.reel.findFirst({
       where: {
         id: reelId,
+        status: 'PUBLISHED',
+        publishedAt: { not: null },
       },
-      include: {
-        worker: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-              },
-            },
-          },
-        },
+      select: {
+        id: true,
+        status: true,
+        title: true,
+        description: true,
+        mimeType: true,
+        durationSeconds: true,
+        publishedAt: true,
+        createdAt: true,
       },
     });
 
     if (!reel) {
-      throw new NotFoundException(
-        'Reel not found.',
-      );
+      throw new NotFoundException('Reel not found.');
     }
 
     return reel;
   }
 
-  async getWorkerReels(workerId: string) {
-  const reels = await this.prisma.reel.findMany({
-    where: {
-      workerId,
-      status: 'PUBLISHED',
-    },
-    orderBy: [
-      {
-        publishedAt: 'desc',
-      },
-      {
-        createdAt: 'desc',
-      },
-    ],
-    include: {
-      worker: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  return reels.map(reel => ({
-    ...reel,
-    fileSizeBytes:
-      reel.fileSizeBytes?.toString() ?? null,
-  }));
-}
-
-
   async updateReel(
-  userId: string,
-  reelId: string,
-  data: {
-    title?: string;
-    description?: string;
-    thumbnailKey?: string;
-    durationSeconds?: number;
-  },
-) {
-  const worker = await this.prisma.worker.findUnique({
-    where: {
-      userId,
-    },
-    select: {
-      id: true,
-      status: true,
-    },
-  });
-
-  if (!worker) {
-    throw new NotFoundException(
-      'Worker profile not found.',
-    );
-  }
-
-  if (worker.status !== 'VERIFIED') {
-    throw new UnauthorizedException(
-      'Only verified workers can manage reels.',
-    );
-  }
-
-  const reel = await this.prisma.reel.findUnique({
-    where: {
-      id: reelId,
-    },
-  });
-
-  if (!reel) {
-    throw new NotFoundException(
-      'Reel not found.',
-    );
-  }
-
-  if (reel.workerId !== worker.id) {
-    throw new UnauthorizedException(
-      'You are not authorized to modify this reel.',
-    );
-  }
-
-  if (reel.status !== 'DRAFT') {
-    throw new BadRequestException(
-      'Only draft reels can be edited.',
-    );
-  }
-
-  if (
-    data.title !== undefined &&
-    data.title.trim().length === 0
-  ) {
-    throw new BadRequestException(
-      'Title cannot be empty.',
-    );
-  }
-
-  if (
-    data.title !== undefined &&
-    data.title.length > 150
-  ) {
-    throw new BadRequestException(
-      'Title cannot exceed 150 characters.',
-    );
-  }
-
-  if (
-    data.durationSeconds !== undefined &&
-    (!Number.isInteger(data.durationSeconds) ||
-      data.durationSeconds <= 0 ||
-      data.durationSeconds > 300)
-  ) {
-    throw new BadRequestException(
-      'Reel duration must be between 1 and 300 seconds.',
-    );
-  }
-
-  const updatedReel =
-  await this.prisma.reel.update({
-    where: {
-      id: reelId,
-    },
-
+    userId: string,
+    reelId: string,
     data: {
-      ...(data.title !== undefined
-        ? {title: data.title.trim()}
-        : {}),
-
-      ...(data.description !== undefined
-        ? {
-            description:
-              data.description.trim() || null,
-          }
-        : {}),
-
-      ...(data.thumbnailKey !== undefined
-        ? {
-            thumbnailKey:
-              data.thumbnailKey.trim() || null,
-          }
-        : {}),
-
-      ...(data.durationSeconds !== undefined
-        ? {
-            durationSeconds:
-              data.durationSeconds,
-          }
-        : {}),
+      title?: string;
+      description?: string;
+      durationSeconds?: number;
     },
-  });
+  ) {
+    const worker = await this.prisma.worker.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
 
-return {
-  ...updatedReel,
-  fileSizeBytes:
-    updatedReel.fileSizeBytes?.toString() ?? null,
-};
-}
+    if (!worker) {
+      throw new NotFoundException('Worker profile not found.');
+    }
 
-async publishReel(
-  userId: string,
-  reelId: string,
-) {
-  const worker = await this.prisma.worker.findUnique({
+    if (worker.status !== 'VERIFIED') {
+      throw new UnauthorizedException(
+        'Only verified workers can manage reels.',
+      );
+    }
+
+    const reel = await this.prisma.reel.findUnique({
+      where: { id: reelId },
+    });
+
+    if (!reel) {
+      throw new NotFoundException('Reel not found.');
+    }
+
+    if (reel.workerId !== worker.id) {
+      throw new UnauthorizedException(
+        'You are not authorized to modify this reel.',
+      );
+    }
+
+    if (reel.status !== 'DRAFT') {
+      throw new BadRequestException(
+        'Only draft reels can be edited.',
+      );
+    }
+
+    if (
+      data.title !== undefined &&
+      data.title.trim().length === 0
+    ) {
+      throw new BadRequestException('Title cannot be empty.');
+    }
+
+    if (
+      data.title !== undefined &&
+      data.title.length > 150
+    ) {
+      throw new BadRequestException(
+        'Title cannot exceed 150 characters.',
+      );
+    }
+
+    if (
+      data.durationSeconds !== undefined &&
+      (!Number.isInteger(data.durationSeconds) ||
+        data.durationSeconds <= 0 ||
+        data.durationSeconds > 300)
+    ) {
+      throw new BadRequestException(
+        'Reel duration must be between 1 and 300 seconds.',
+      );
+    }
+
+    const updatedReel = await this.prisma.reel.update({
+      where: { id: reelId },
+      data: {
+        ...(data.title !== undefined
+          ? { title: data.title.trim() }
+          : {}),
+        ...(data.description !== undefined
+          ? { description: data.description.trim() || null }
+          : {}),
+        ...(data.durationSeconds !== undefined
+          ? { durationSeconds: data.durationSeconds }
+          : {}),
+      },
+    });
+
+    return this.toWorkerReelResponse(updatedReel);
+  }
+
+    async publishReel(
+    userId: string,
+    reelId: string,
+  ) {
+    const worker = await this.prisma.worker.findUnique({
     where: {
       userId,
     },
@@ -360,13 +287,10 @@ async publishReel(
     },
   });
 
-  return {
-    ...updateReel,
-    fileSizeBytes: updateReel.fileSizeBytes?.toString() ?? null
-  }
+  return this.toWorkerReelResponse(updateReel);
 }
 
-async deleteReel(
+  async deleteReel(
   userId: string,
   reelId: string,
 ) {
@@ -411,12 +335,8 @@ async deleteReel(
   }
 
   if (reel.status === 'DELETED') {
-  return {
-    ...reel,
-    fileSizeBytes:
-      reel.fileSizeBytes?.toString() ?? null,
-  };
-}
+    return this.toWorkerReelResponse(reel);
+  }
 
   const updated = await this.prisma.reel.update({
     where: {
@@ -428,35 +348,26 @@ async deleteReel(
     },
   });
 
-  return {
-    ...updated,
-    fileSizeBytes: updated.fileSizeBytes?.toString() ?? null
-  };
+  return this.toWorkerReelResponse(updated);
 }
 
-async getFeed(
-  limit = 10,
-  cursor?: string,
-  userId?: string,
-) {
-  const safeLimit = Math.min(
-    Math.max(limit, 1),
-    20,
-  );
+  async getFeed(
+    limit = 10,
+    cursor?: string,
+    userId?: string,
+  ) {
+    const safeLimit = Math.min(Math.max(limit, 1), 20);
 
-  let cursorReel:
-    | {
-        id: string;
-        publishedAt: Date | null;
-        createdAt: Date;
-      }
-    | null = null;
+    let cursorReel:
+      | { id: string; publishedAt: Date; createdAt: Date }
+      | null = null;
 
-  if (cursor) {
-    cursorReel =
-      await this.prisma.reel.findUnique({
+    if (cursor) {
+      const candidate = await this.prisma.reel.findFirst({
         where: {
           id: cursor,
+          status: 'PUBLISHED',
+          publishedAt: { not: null },
         },
         select: {
           id: true,
@@ -465,136 +376,83 @@ async getFeed(
         },
       });
 
-    if (!cursorReel) {
-      throw new BadRequestException(
-        'Invalid feed cursor.',
-      );
-    }
-  }
+      if (!candidate || !candidate.publishedAt) {
+        throw new BadRequestException('Invalid feed cursor.');
+      }
 
-  const reels =
-    await this.prisma.reel.findMany({
+      cursorReel = {
+        id: candidate.id,
+        publishedAt: candidate.publishedAt,
+        createdAt: candidate.createdAt,
+      };
+    }
+
+    const reels = await this.prisma.reel.findMany({
       where: {
         status: 'PUBLISHED',
-        publishedAt: {
-          not: null,
-        },
-
+        publishedAt: { not: null },
         ...(cursorReel
           ? {
               OR: [
+                { publishedAt: { lt: cursorReel.publishedAt } },
                 {
-                  publishedAt: {
-                    lt: cursorReel.publishedAt!,
-                  },
+                  publishedAt: cursorReel.publishedAt,
+                  createdAt: { lt: cursorReel.createdAt },
                 },
                 {
-                  publishedAt:
-                    cursorReel.publishedAt,
-                  createdAt: {
-                    lt: cursorReel.createdAt,
-                  },
-                },
-                {
-                  publishedAt:
-                    cursorReel.publishedAt,
-                  createdAt:
-                    cursorReel.createdAt,
-                  id: {
-                    lt: cursorReel.id,
-                  },
+                  publishedAt: cursorReel.publishedAt,
+                  createdAt: cursorReel.createdAt,
+                  id: { lt: cursorReel.id },
                 },
               ],
             }
           : {}),
       },
-
       orderBy: [
-        {
-          publishedAt: 'desc',
-        },
-        {
-          createdAt: 'desc',
-        },
-        {
-          id: 'desc',
-        },
+        { publishedAt: 'desc' },
+        { createdAt: 'desc' },
+        { id: 'desc' },
       ],
-
       take: safeLimit + 1,
-
       include: {
-        worker: {
-          select: {
-            id: true,
-            profilePhotoKey: true,
-            bio: true,
-            expectedHourlyRate: true,
-            expectedDailyRate: true,
-
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-              },
-            },
-          },
-        },
-
         likes: {
-          where: {
-            status: 'ACTIVE',
-          },
-          select: {
-            userId: true,
-          },
+          where: { status: 'ACTIVE' },
+          select: { userId: true },
         },
       },
     });
 
-  const hasMore =
-    reels.length > safeLimit;
+    const hasMore = reels.length > safeLimit;
+    const items = hasMore
+      ? reels.slice(0, safeLimit)
+      : reels;
 
-  const items = hasMore
-    ? reels.slice(0, safeLimit)
-    : reels;
+    const nextCursor =
+      hasMore && items.length > 0
+        ? items[items.length - 1].id
+        : null;
 
-  const nextCursor =
-    hasMore && items.length > 0
-      ? items[items.length - 1].id
-      : null;
+    return {
+      items: items.map((reel) => ({
+        id: reel.id,
+        status: reel.status,
+        title: reel.title,
+        description: reel.description,
+        durationSeconds: reel.durationSeconds,
+        publishedAt: reel.publishedAt,
+        createdAt: reel.createdAt,
+        likes: reel.likes.length,
+        liked: userId
+          ? reel.likes.some((like) => like.userId === userId)
+          : false,
+        videoPath: `/api/v1/reels/${reel.id}/video`,
+      })),
+      nextCursor,
+      hasMore,
+    };
+  }
 
-  const mappedItems = items.map((reel) => ({
-    id: reel.id,
-    status: reel.status,
-    title: reel.title,
-    description: reel.description,
-    videoKey: reel.videoKey,
-    thumbnailKey: reel.thumbnailKey,
-    durationSeconds: reel.durationSeconds,
-    publishedAt: reel.publishedAt,
-    createdAt: reel.createdAt,
-
-    worker: reel.worker,
-
-    likes: reel.likes.length,
-
-    liked: userId
-      ? reel.likes.some(
-          (like) => like.userId === userId,
-        )
-      : false,
-  }));
-
-  return {
-    items: mappedItems,
-    nextCursor,
-    hasMore,
-  };
-}
-
-async likeReel(
+  async likeReel(
   userId: string,
   reelId: string,
 ) {
@@ -644,7 +502,7 @@ async likeReel(
   };
 }
 
-async unlikeReel(
+  async unlikeReel(
   userId: string,
   reelId: string,
 ) {
@@ -687,24 +545,24 @@ async unlikeReel(
   };
 }
 
-async getReelEngagement(
-  reelId: string,
-  userId?: string,
-) {
-  const reel = await this.prisma.reel.findUnique({
-    where: {
-      id: reelId,
-    },
-    select: {
-      id: true,
-    },
-  });
+  async getReelEngagement(
+    reelId: string,
+    userId?: string,
+  ) {
+    const reel = await this.prisma.reel.findFirst({
+      where: {
+        id: reelId,
+        status: 'PUBLISHED',
+        publishedAt: { not: null },
+      },
+      select: {
+        id: true,
+      },
+    });
 
-  if (!reel) {
-    throw new NotFoundException(
-      'Reel not found.',
-    );
-  }
+    if (!reel) {
+      throw new NotFoundException('Reel not found.');
+    }
 
   const likes =
     await this.prisma.reelLike.count({
@@ -740,7 +598,7 @@ async getReelEngagement(
   };
 }
 
-async getReelVideo(reelId: string) {
+  async getReelVideo(reelId: string) {
   const reel = await this.prisma.reel.findUnique({
     where: {
       id: reelId,
@@ -777,7 +635,7 @@ async getReelVideo(reelId: string) {
   };
 }
 
-createReelVideoStream(
+  createReelVideoStream(
   key: string,
   start: number,
   end: number,
@@ -788,4 +646,22 @@ createReelVideoStream(
     end,
   );
 }
+  private toWorkerReelResponse(reel: Reel) {
+    return {
+      id: reel.id,
+      status: reel.status,
+      title: reel.title,
+      description: reel.description,
+      mimeType: reel.mimeType,
+      durationSeconds: reel.durationSeconds,
+      publishedAt: reel.publishedAt,
+      createdAt: reel.createdAt,
+      updatedAt: reel.updatedAt,
+      fileSizeBytes:
+        reel.fileSizeBytes?.toString() ?? null,
+      videoPath: `/api/v1/reels/${reel.id}/video`,
+    };
+  }
+
+
 }

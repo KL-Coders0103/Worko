@@ -4,10 +4,9 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-
-import { JwtService } from '@nestjs/jwt';
-import type { AccessTokenPayload } from '../jwt.service';
 import type { Request } from 'express';
+import { AuthJwtService } from '../jwt.service';
+import type { AccessTokenPayload } from '../jwt.service';
 
 type AuthenticatedRequest = Request & {
   user: AccessTokenPayload;
@@ -16,13 +15,14 @@ type AuthenticatedRequest = Request & {
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
-    private readonly jwtService: JwtService,
+    private readonly authJwtService: AuthJwtService,
   ) {}
 
   async canActivate(
     context: ExecutionContext,
   ): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const request =
+      context.switchToHttp().getRequest<AuthenticatedRequest>();
 
     const authorization =
       request.headers.authorization;
@@ -42,18 +42,15 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
-      const payload =
-        await this.jwtService.verifyAsync<AccessTokenPayload>(
-          token,
-          {
-            secret: process.env.JWT_ACCESS_SECRET,
-          },
-        );
-
-      request.user = payload;
+      request.user =
+        await this.authJwtService.verifyAccessToken(token);
 
       return true;
-    } catch {
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+
       throw new UnauthorizedException(
         'Invalid or expired access token',
       );

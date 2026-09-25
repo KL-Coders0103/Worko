@@ -1,5 +1,20 @@
-import { Body, Controller, Get, Post, Req, UseGuards, Version } from '@nestjs/common';
-import {LoginDto, LogoutDto, RefreshTokenDto, RegisterDto, SendOtpDto, VerifyOtpDto,
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  UseGuards,
+  Version,
+} from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import {
+  LoginDto,
+  LogoutDto,
+  RefreshTokenDto,
+  RegisterDto,
+  SendOtpDto,
+  VerifyOtpDto,
 } from './dto/auth.dto';
 import { AuthService } from './auth.service';
 import { AuthJwtService } from './jwt.service';
@@ -23,36 +38,78 @@ export class AuthController {
 
   @Post('register')
   @Version('1')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({
+    default: {
+      limit: 5,
+      ttl: 60_000,
+    },
+  })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
   @Post('send-otp')
   @Version('1')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({
+    default: {
+      limit: 3,
+      ttl: 60_000,
+    },
+  })
   sendOtp(@Body() dto: SendOtpDto) {
     return this.authService.sendOtp(dto);
   }
 
   @Post('verify-otp')
   @Version('1')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({
+    default: {
+      limit: 10,
+      ttl: 60_000,
+    },
+  })
   verifyOtp(@Body() dto: VerifyOtpDto) {
     return this.authService.verifyOtp(dto);
   }
 
   @Post('login')
   @Version('1')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({
+    default: {
+      limit: 5,
+      ttl: 60_000,
+    },
+  })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
 
   @Post('refresh')
   @Version('1')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({
+    default: {
+      limit: 20,
+      ttl: 60_000,
+    },
+  })
   refresh(@Body() dto: RefreshTokenDto) {
     return this.authJwtService.rotateRefreshToken(dto.refreshToken);
   }
 
   @Post('logout')
   @Version('1')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({
+    default: {
+      limit: 20,
+      ttl: 60_000,
+    },
+  })
   async logout(@Body() dto: LogoutDto) {
     await this.authJwtService.revokeRefreshToken(dto.refreshToken);
 
@@ -61,8 +118,22 @@ export class AuthController {
     };
   }
 
+  @Post('logout-all')
+  @Version('1')
+  @UseGuards(JwtAuthGuard)
+  async logoutAll(@Req() request: AuthenticatedRequest) {
+    return this.authService.logoutAll(request.user.sub);
+  }
+
   @Post('google')
   @Version('1')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({
+    default: {
+      limit: 10,
+      ttl: 60_000,
+    },
+  })
   async googleAuth(@Body() dto: GoogleAuthDto) {
     return this.googleAuthService.authenticate(dto.idToken);
   }
@@ -71,9 +142,6 @@ export class AuthController {
   @Version('1')
   @UseGuards(JwtAuthGuard)
   async me(@Req() request: AuthenticatedRequest) {
-    return this.authService.getCurrentUser(
-      request.user.sub,
-    );
+    return this.authService.getCurrentUser(request.user.sub);
   }
 }
-

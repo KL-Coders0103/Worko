@@ -16,21 +16,15 @@ export class GoogleAuthService {
     private readonly prisma: PrismaService,
     private readonly authJwtService: AuthJwtService,
   ) {
-    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
-
-    if (!clientId) {
-      throw new Error('GOOGLE_CLIENT_ID is not configured');
-    }
+    const clientId =
+      this.getGoogleClientId();
 
     this.googleClient = new OAuth2Client(clientId);
   }
 
   async authenticate(idToken: string) {
-    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
-
-    if (!clientId) {
-      throw new Error('GOOGLE_CLIENT_ID is not configured');
-    }
+    const clientId =
+      this.getGoogleClientId();
 
     let payload;
 
@@ -45,9 +39,9 @@ export class GoogleAuthService {
       throw new UnauthorizedException('Invalid Google ID token');
     }
 
-    if (!payload?.sub || !payload.email) {
+    if (!payload?.sub || !payload.email || payload.email_verified !== true) {
       throw new UnauthorizedException(
-        'Google account information is incomplete',
+        'Google account information is incomplete or unverified',
       );
     }
 
@@ -109,5 +103,20 @@ export class GoogleAuthService {
       },
       tokens,
     };
+  }
+
+  private getGoogleClientId(): string {
+    const clientId =
+      this.configService.get<string>(
+        'auth.googleClientId',
+      );
+
+    if (!clientId) {
+      throw new Error(
+        'GOOGLE_CLIENT_ID is not configured',
+      );
+    }
+
+    return clientId;
   }
 }

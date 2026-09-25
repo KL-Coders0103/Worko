@@ -9,12 +9,12 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import {
   CreateWorkerProfileDto,
   UpdateWorkerCategoriesDto,
-  UpdateWorkerKycDocumentsDto,
   UpdateWorkerLocationDto,
   UpdateWorkerProfileDto,
   UpdateWorkerSkillsDto,
 } from './dto/worker.dto';
 import { StorageService } from '../storage/storage.service';
+import { KycReviewDecision, WorkerStatus } from '@prisma/client';
 @Injectable()
 export class WorkersService {
   constructor(
@@ -62,7 +62,12 @@ export class WorkersService {
     }
 
     return {
-      worker,
+      worker: {
+        ...this.toSafeWorkerResponse(worker),
+        user: worker.user,
+        categories: worker.categories,
+        skills: worker.skills,
+      },
     };
   }
 
@@ -117,13 +122,12 @@ export class WorkersService {
         expectedHourlyRate: dto.expectedHourlyRate,
         expectedDailyRate: dto.expectedDailyRate,
         isAvailable: dto.isAvailable ?? true,
-        profilePhotoKey: dto.profilePhotoKey,
       },
     });
 
     return {
       message: 'Worker profile created successfully',
-      worker,
+      worker: this.toSafeWorkerResponse(worker),
     };
   }
 
@@ -157,13 +161,12 @@ export class WorkersService {
         expectedHourlyRate: dto.expectedHourlyRate,
         expectedDailyRate: dto.expectedDailyRate,
         isAvailable: dto.isAvailable,
-        profilePhotoKey: dto.profilePhotoKey,
-      },
+        },
     });
 
     return {
       message: 'Worker profile updated successfully',
-      worker: updatedWorker,
+      worker: this.toSafeWorkerResponse(updatedWorker),
     };
   }
 
@@ -490,52 +493,212 @@ export class WorkersService {
 
     return {
       message: 'Worker profile submitted for KYC successfully',
-      worker: updatedWorker,
+      worker: this.toSafeWorkerResponse(updatedWorker),
     };
   }
 
-  async submitKycDocuments(
-  userId: string,
-  dto: UpdateWorkerKycDocumentsDto,
-) {
-  const worker = await this.prisma.worker.findUnique({
-    where: {
-      userId,
-    },
-    select: {
-      id: true,
-      status: true,
-    },
-  });
+  async submitKycDocuments(userId: string) {
+    const worker = await this.prisma.worker.findUnique({
+      where: {userId},
+      select: {
+        id: true,
+        status: true,
+        aadhaarDocumentKey: true,
+        policeVerificationDocumentKey: true,
+      },
+    });
 
-  if (!worker) {
-    throw new NotFoundException('Worker profile not found');
+    if (!worker) throw new NotFoundException('Worker profile not found');
+
+    if (worker.status !== WorkerStatus.PENDING_KYC && worker.status !== WorkerStatus.REJECTED) {
+      throw new BadRequestException(
+        'Worker must be in KYC submission state before submitting documents',
+      );
+    }
+
+    if (!worker.aadhaarDocumentKey || !worker.policeVerificationDocumentKey) {
+      throw new BadRequestException({
+        message: 'Required KYC documents are incomplete',
+        missingDocuments: [
+          ...(!worker.aadhaarDocumentKey ? ['aadhaar'] : []),
+          ...(!worker.policeVerificationDocumentKey ? ['policeVerification'] : []),
+        ],
+      });
+    }
+
+    const updatedWorker = await this.prisma.worker.update({
+      where: {id: worker.id},
+      data: {
+        status: WorkerStatus.KYC_SUBMITTED,
+        kycSubmittedAt: new Date(),
+        rejectedAt: null,
+      },
+    });
+
+    return {
+      message: 'KYC documents submitted successfully',
+      worker: this.toSafeWorkerResponse(updatedWorker),
+    };
   }
 
-  if (worker.status !== 'PENDING_KYC') {
-    throw new BadRequestException(
-      'Worker must complete profile submission before submitting KYC documents',
-    );
+  async getPendingKyc() {
+    const workers = await this.prisma.worker.findMany({
+      where: {
+        status: WorkerStatus.KYC_SUBMITTED,
+      },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        bio: true,
+        experienceYears: true,
+        expectedHourlyRate: true,
+        expectedDailyRate: true,
+        kycSubmittedAt: true,
+        aadhaarDocumentKey: true,
+        policeVerificationDocumentKey: true,
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+            phoneNumber: true,
+          },
+        },
+      },
+      orderBy: {kycSubmittedAt: 'asc'},
+    });
+
+    return {
+      workers: workers.map(worker => ({
+        id: worker.id,
+        userId: worker.userId,
+        status: worker.status,
+        bio: worker.bio,
+        experienceYears: worker.experienceYears,
+        expectedHourlyRate: worker.expectedHourlyRate,
+        expectedDailyRate: worker.expectedDailyRate,
+        kycSubmittedAt: worker.kycSubmittedAt,
+        hasAadhaarDocument: Boolean(worker.aadhaarDocumentKey),
+        hasPoliceVerificationDocument: Boolean(worker.policeVerificationDocumentKey),
+        user: worker.user,
+      })),
+    };
   }
 
-  const updatedWorker = await this.prisma.worker.update({
-    where: {
-      userId,
-    },
-    data: {
-      aadhaarDocumentKey: dto.aadhaarDocumentKey,
-      policeVerificationDocumentKey:
-        dto.policeVerificationDocumentKey,
-      status: 'KYC_SUBMITTED',
-      kycSubmittedAt: new Date(),
-    },
-  });
+  async reviewKyc(
+    reviewerId: string,
+    workerId: string,
+    decision: KycReviewDecision,
+    rejectionReason?: string,
+  ) {
+    const worker = await this.prisma.worker.findUnique({
+      where: {id: workerId},
+      select: {
+        id: true,
+        status: true,
+        aadhaarDocumentKey: true,
+        policeVerificationDocumentKey: true,
+      },
+    });
 
-  return {
-    message: 'KYC documents submitted successfully',
-    worker: updatedWorker,
-  };
-}
+    if (!worker) throw new NotFoundException('Worker profile not found');
+
+    if (worker.status !== WorkerStatus.KYC_SUBMITTED) {
+      throw new BadRequestException('Worker is not awaiting KYC review');
+    }
+
+    if (decision === KycReviewDecision.REJECTED && !rejectionReason?.trim()) {
+      throw new BadRequestException('Rejection reason is required');
+    }
+
+    const result = await this.prisma.$transaction(async tx => {
+      await tx.workerKycReview.create({
+        data: {
+          workerId,
+          reviewerId,
+          decision,
+          rejectionReason:
+            decision === KycReviewDecision.REJECTED
+              ? rejectionReason!.trim()
+              : null,
+          completedAt: new Date(),
+        },
+      });
+
+      const updated = await tx.worker.updateMany({
+        where: {
+          id: workerId,
+          status: WorkerStatus.KYC_SUBMITTED,
+        },
+        data:
+          decision === KycReviewDecision.APPROVED
+            ? {
+                status: WorkerStatus.VERIFIED,
+                verifiedAt: new Date(),
+                rejectedAt: null,
+              }
+            : {
+                status: WorkerStatus.REJECTED,
+                rejectedAt: new Date(),
+                verifiedAt: null,
+                isAvailable: false,
+              },
+      });
+
+      if (updated.count !== 1) {
+        throw new BadRequestException('KYC review state changed; refresh and try again');
+      }
+
+      return tx.worker.findUniqueOrThrow({
+        where: {id: workerId},
+      });
+    });
+
+    return {
+      message:
+        decision === KycReviewDecision.APPROVED
+          ? 'Worker KYC approved successfully'
+          : 'Worker KYC rejected successfully',
+      worker: this.toSafeWorkerResponse(result),
+    };
+  }
+
+  private toSafeWorkerResponse(worker: {
+    id: string;
+    userId: string;
+    status: WorkerStatus;
+    profilePhotoKey?: string | null;
+    aadhaarDocumentKey?: string | null;
+    policeVerificationDocumentKey?: string | null;
+    bio?: string | null;
+    experienceYears?: number | null;
+    expectedHourlyRate?: unknown;
+    expectedDailyRate?: unknown;
+    isAvailable?: boolean;
+    kycSubmittedAt?: Date | null;
+    verifiedAt?: Date | null;
+    rejectedAt?: Date | null;
+    createdAt?: Date;
+    updatedAt?: Date;
+  }) {
+    return {
+      id: worker.id,
+      userId: worker.userId,
+      status: worker.status,
+      profilePhotoAvailable: Boolean(worker.profilePhotoKey),
+      bio: worker.bio,
+      experienceYears: worker.experienceYears,
+      expectedHourlyRate: worker.expectedHourlyRate,
+      expectedDailyRate: worker.expectedDailyRate,
+      isAvailable: worker.isAvailable,
+      kycSubmittedAt: worker.kycSubmittedAt,
+      verifiedAt: worker.verifiedAt,
+      rejectedAt: worker.rejectedAt,
+      createdAt: worker.createdAt,
+      updatedAt: worker.updatedAt,
+    };
+  }
 
 async uploadAadhaarDocument(
   userId: string,
@@ -553,6 +716,7 @@ async uploadAadhaarDocument(
     select: {
       id: true,
       status: true,
+      aadhaarDocumentKey: true,
     },
   });
 
@@ -570,7 +734,7 @@ async uploadAadhaarDocument(
   }
 
   const result =
-    await this.storageService.uploadPrivateObject(
+    await this.storageService.uploadKycDocument(
       file.buffer,
       file.mimetype,
       `kyc/${worker.id}/aadhaar`,
@@ -588,7 +752,6 @@ async uploadAadhaarDocument(
 
   return {
     message: 'Aadhaar document uploaded successfully',
-    documentKey: result.key,
   };
 }
 
@@ -608,6 +771,7 @@ async uploadPoliceVerificationDocument(
     select: {
       id: true,
       status: true,
+      policeVerificationDocumentKey: true,
     },
   });
 
@@ -625,7 +789,7 @@ async uploadPoliceVerificationDocument(
   }
 
   const result =
-    await this.storageService.uploadPrivateObject(
+    await this.storageService.uploadKycDocument(
       file.buffer,
       file.mimetype,
       `kyc/${worker.id}/police-verification`,
@@ -644,7 +808,6 @@ async uploadPoliceVerificationDocument(
   return {
     message:
       'Police verification document uploaded successfully',
-    documentKey: result.key,
   };
 }
 
@@ -664,6 +827,7 @@ async uploadProfilePhoto(
     select: {
       id: true,
       status: true,
+      profilePhotoKey: true,
     },
   });
 
@@ -682,7 +846,7 @@ async uploadProfilePhoto(
   }
 
   const result =
-    await this.storageService.uploadPrivateObject(
+    await this.storageService.uploadProfileImage(
       file.buffer,
       file.mimetype,
       `workers/${worker.id}/profile`,
@@ -700,7 +864,40 @@ async uploadProfilePhoto(
 
   return {
     message: 'Profile photo uploaded successfully',
-    profilePhotoKey: result.key,
+    profilePhotoAvailable: true,
   };
 }
+
+  async getKycDocument(workerId: string, documentType: 'aadhaar' | 'policeVerification') {
+    const worker = await this.prisma.worker.findUnique({
+      where: { id: workerId },
+      select: {
+        aadhaarDocumentKey: true,
+        policeVerificationDocumentKey: true,
+      },
+    });
+
+    if (!worker) {
+      throw new NotFoundException('Worker profile not found');
+    }
+
+    const key = documentType === 'aadhaar'
+      ? worker.aadhaarDocumentKey
+      : worker.policeVerificationDocumentKey;
+
+    if (!key) {
+      throw new NotFoundException('KYC document not found');
+    }
+
+    const expectedFolder = documentType === 'aadhaar'
+      ? `kyc/${workerId}/aadhaar`
+      : `kyc/${workerId}/police-verification`;
+
+    if (!key.includes(expectedFolder)) {
+      throw new BadRequestException('KYC document storage scope is invalid');
+    }
+
+    return this.storageService.downloadPrivateObject(key);
+  }
+
 }

@@ -264,73 +264,59 @@ export class WalletService {
     userId: string,
     amount: Prisma.Decimal | number | string,
     source:
-        | 'PAYMENT'
-        | 'REFUND'
-        | 'BONUS'
-        | 'ADJUSTMENT'
-        | 'DEMO',
+      | 'PAYMENT'
+      | 'REFUND'
+      | 'BONUS'
+      | 'ADJUSTMENT'
+      | 'DEMO',
     referenceId?: string,
     description?: string,
-    ) {
-    const creditAmount =
-        new Prisma.Decimal(amount);
+  ) {
+    const creditAmount = new Prisma.Decimal(amount);
 
     if (creditAmount.lte(0)) {
-        throw new BadRequestException(
+      throw new BadRequestException(
         'Credit amount must be greater than zero',
-        );
+      );
     }
 
     const wallet = await tx.wallet.upsert({
-        where: {
+      where: {userId},
+      create: {
         userId,
-        },
-        create: {
-        userId,
-        balance: new Prisma.Decimal(0),
+        balance: creditAmount,
         currency: 'INR',
+      },
+      update: {
+        balance: {
+          increment: creditAmount,
         },
-        update: {},
+      },
     });
 
-    const balanceBefore =
-        new Prisma.Decimal(wallet.balance);
+    const balanceAfter = new Prisma.Decimal(wallet.balance);
+    const balanceBefore = balanceAfter.sub(creditAmount);
 
-    const balanceAfter =
-        balanceBefore.add(creditAmount);
-
-    const updatedWallet =
-        await tx.wallet.update({
-        where: {
-            id: wallet.id,
-        },
-        data: {
-            balance: balanceAfter,
-        },
-        });
-
-    const transaction =
-        await tx.walletTransaction.create({
-        data: {
-            walletId: wallet.id,
-            type: WalletTransactionType.CREDIT,
-            status:
-            WalletTransactionStatus.COMPLETED,
-            source,
-            amount: creditAmount,
-            currency: wallet.currency,
-            referenceId,
-            description,
-            balanceBefore,
-            balanceAfter,
-        },
-        });
+    const transaction = await tx.walletTransaction.create({
+      data: {
+        walletId: wallet.id,
+        type: WalletTransactionType.CREDIT,
+        status: WalletTransactionStatus.COMPLETED,
+        source,
+        amount: creditAmount,
+        currency: wallet.currency,
+        referenceId,
+        description,
+        balanceBefore,
+        balanceAfter,
+      },
+    });
 
     return {
-        wallet: updatedWallet,
-        transaction,
+      wallet,
+      transaction,
     };
-    }
+  }
 
   /**
    * Get a transaction only if it belongs

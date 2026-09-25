@@ -10,7 +10,6 @@ export type OtpChannel = 'EMAIL' | 'SMS';
 @Injectable()
 export class OtpDeliveryService {
   private readonly gmail;
-
   private readonly senderEmail: string;
 
   constructor(
@@ -18,22 +17,22 @@ export class OtpDeliveryService {
   ) {
     const clientId =
       this.configService.get<string>(
-        'GOOGLE_CLIENT_ID',
+        'auth.googleClientId',
       );
 
     const clientSecret =
       this.configService.get<string>(
-        'GOOGLE_CLIENT_SECRET',
+        'auth.googleClientSecret',
       );
 
     const refreshToken =
       this.configService.get<string>(
-        'GOOGLE_REFRESH_TOKEN',
+        'auth.googleRefreshToken',
       );
 
     this.senderEmail =
       this.configService.get<string>(
-        'GOOGLE_EMAIL',
+        'auth.googleEmail',
       ) || '';
 
     if (
@@ -47,11 +46,22 @@ export class OtpDeliveryService {
       );
     }
 
+    const redirectUri =
+      this.configService.get<string>(
+        'auth.googleOAuthRedirectUri',
+      );
+
+    if (!redirectUri) {
+      throw new Error(
+        'GOOGLE_OAUTH_REDIRECT_URI is not configured',
+      );
+    }
+
     const oauth2Client =
       new google.auth.OAuth2(
         clientId,
         clientSecret,
-        'http://localhost:3000/oauth2callback',
+        redirectUri,
       );
 
     oauth2Client.setCredentials({
@@ -153,10 +163,10 @@ If you did not request this code, you can safely ignore this email.
       );
       console.log('========================================');
       console.log('');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(
         '[GMAIL API ERROR]',
-        error?.response?.data || error,
+        error instanceof Error ? error.message : error,
       );
 
       throw new InternalServerErrorException(
@@ -171,7 +181,7 @@ If you did not request this code, you can safely ignore this email.
     purpose: string;
   }): Promise<void> {
     const nodeEnv =
-      this.configService.get<string>('NODE_ENV');
+      this.configService.get<string>('app.nodeEnv');
 
     if (nodeEnv === 'production') {
       throw new InternalServerErrorException(

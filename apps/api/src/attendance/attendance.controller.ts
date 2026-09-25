@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ParseFilePipeBuilder,
   Controller,
   Get,
   Param,
@@ -69,11 +70,12 @@ export class AttendanceController {
   /**
    * Worker scans customer QR.
    *
-   * This endpoint only validates + consumes
-   * the QR token.
+   * This endpoint validates the booking-specific
+   * QR without consuming it.
    *
-   * Actual check-in/check-out state changes
-   * will be implemented in Block E.
+   * The state-changing check-in/check-out
+   * endpoints consume the token atomically
+   * with the attendance transition.
    */
   @Post(':bookingId/qr/validate')
   @Version('1')
@@ -83,7 +85,7 @@ export class AttendanceController {
     @Param('bookingId') bookingId: string,
     @Body() dto: ValidateAttendanceQrDto,
   ) {
-    return this.attendanceService.validateAndConsumeQrToken(
+    return this.attendanceService.validateQrToken(
       req.user.sub,
       bookingId,
       dto.token,
@@ -137,11 +139,26 @@ export class AttendanceController {
   @Post(':bookingId/evidence/upload')
   @Version('1')
   @Roles('WORKER')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+      },
+    }),
+  )
   async uploadEvidence(
     @Req() req: AuthenticatedRequest,
     @Param('bookingId') bookingId: string,
-    @UploadedFile()
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /^(jpeg|png|webp)$/i,
+        })
+        .addMaxSizeValidator({
+          maxSize: 10 * 1024 * 1024,
+        })
+        .build(),
+    )
     file?: {
       buffer: Buffer;
       mimetype: string;

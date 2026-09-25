@@ -1,4 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomUUID } from 'crypto';
 import { PrismaService } from '../common/prisma/prisma.service';
@@ -15,7 +16,42 @@ export class AuthJwtService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
   ) {}
+
+  async verifyAccessToken(token: string): Promise<AccessTokenPayload> {
+    let payload: AccessTokenPayload;
+
+    try {
+      payload = await this.jwtService.verifyAsync<AccessTokenPayload>(
+        token,
+        {
+          secret: this.getAccessSecret(),
+        },
+      );
+    } catch {
+      throw new UnauthorizedException('Invalid or expired access token');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: {
+        id: true,
+        role: true,
+        status: true,
+      },
+    });
+
+    if (
+      !user ||
+      user.status !== 'ACTIVE' ||
+      user.role !== payload.role
+    ) {
+      throw new UnauthorizedException('User account is not active');
+    }
+
+    return payload;
+  }
 
   async issueTokens(user: {
     id: string;
@@ -35,18 +71,15 @@ export class AuthJwtService {
         jti,
       },
       {
-        secret: process.env.JWT_ACCESS_SECRET,
+        secret: this.getAccessSecret(),
         expiresIn: AUTH_CONSTANTS.accessTokenExpiresIn,
       },
     );
 
-    const refreshToken = randomUUID() + randomUUID();
+    const refreshToken = this.generateRefreshToken();
     const refreshTokenHash = this.hashToken(refreshToken);
 
-    const expiresAt = new Date(
-      Date.now() +
-        AUTH_CONSTANTS.refreshTokenExpiresInDays * 24 * 60 * 60 * 1000,
-    );
+    const expiresAt = this.getRefreshTokenExpiry();
 
     await this.prisma.refreshToken.create({
       data: {
@@ -59,7 +92,7 @@ export class AuthJwtService {
     return {
       accessToken,
       refreshToken,
-      expiresIn: 15 * 60,
+      expiresIn: AUTH_CONSTANTS.accessTokenExpiresInSeconds,
     };
   }
 
@@ -75,26 +108,33 @@ export class AuthJwtService {
       },
     });
 
-    if (
-      !storedToken ||
-      storedToken.revokedAt ||
-      storedToken.expiresAt <= new Date()
-    ) {
+    if (!storedToken) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
+    if (storedToken.revokedAt) {
+      await this.revokeAllRefreshTokens(storedToken.userId);
+
+      throw new UnauthorizedException(
+        'Refresh token reuse detected. Please sign in again.',
+      );
+    }
+
+    if (storedToken.expiresAt <= new Date()) {
+      await this.revokeAllRefreshTokens(storedToken.userId);
+
+      throw new UnauthorizedException('Refresh token has expired');
+    }
+
     if (storedToken.user.status !== 'ACTIVE') {
+      await this.revokeAllRefreshTokens(storedToken.userId);
+
       throw new UnauthorizedException('User account is not active');
     }
 
-    const newRefreshToken = randomUUID() + randomUUID();
+    const newRefreshToken = this.generateRefreshToken();
     const newRefreshTokenHash = this.hashToken(newRefreshToken);
-
-    const newExpiresAt = new Date(
-      Date.now() +
-        AUTH_CONSTANTS.refreshTokenExpiresInDays * 24 * 60 * 60 * 1000,
-    );
-
+    const newExpiresAt = this.getRefreshTokenExpiry();
     const accessJti = randomUUID();
 
     const accessToken = await this.jwtService.signAsync(
@@ -104,33 +144,52 @@ export class AuthJwtService {
         jti: accessJti,
       },
       {
-        secret: process.env.JWT_ACCESS_SECRET,
+        secret: this.getAccessSecret(),
         expiresIn: AUTH_CONSTANTS.accessTokenExpiresIn,
       },
     );
 
-    await this.prisma.$transaction([
-      this.prisma.refreshToken.update({
-        where: {
-          id: storedToken.id,
-        },
-        data: {
-          revokedAt: new Date(),
-        },
-      }),
-      this.prisma.refreshToken.create({
-        data: {
-          userId: storedToken.user.id,
-          tokenHash: newRefreshTokenHash,
-          expiresAt: newExpiresAt,
-        },
-      }),
-    ]);
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const revoked = await tx.refreshToken.updateMany({
+          where: {
+            id: storedToken.id,
+            revokedAt: null,
+            expiresAt: {
+              gt: new Date(),
+            },
+          },
+          data: {
+            revokedAt: new Date(),
+          },
+        });
+
+        if (revoked.count !== 1) {
+          throw new UnauthorizedException(
+            'Refresh token reuse detected. Please sign in again.',
+          );
+        }
+
+        await tx.refreshToken.create({
+          data: {
+            userId: storedToken.user.id,
+            tokenHash: newRefreshTokenHash,
+            expiresAt: newExpiresAt,
+          },
+        });
+      });
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        await this.revokeAllRefreshTokens(storedToken.userId);
+      }
+
+      throw error;
+    }
 
     return {
       accessToken,
       refreshToken: newRefreshToken,
-      expiresIn: 15 * 60,
+      expiresIn: AUTH_CONSTANTS.accessTokenExpiresInSeconds,
     };
   }
 
@@ -146,6 +205,42 @@ export class AuthJwtService {
         revokedAt: new Date(),
       },
     });
+  }
+
+  async revokeAllRefreshTokens(userId: string) {
+    await this.prisma.refreshToken.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: new Date(),
+      },
+    });
+  }
+
+  private getAccessSecret(): string {
+    const secret =
+      this.configService.get<string>('auth.jwtAccessSecret');
+
+    if (!secret) {
+      throw new Error(
+        'JWT_ACCESS_SECRET is not configured',
+      );
+    }
+
+    return secret;
+  }
+
+  private generateRefreshToken(): string {
+    return randomUUID() + randomUUID();
+  }
+
+  private getRefreshTokenExpiry(): Date {
+    return new Date(
+      Date.now() +
+        AUTH_CONSTANTS.refreshTokenExpiresInDays * 24 * 60 * 60 * 1000,
+    );
   }
 
   private hashToken(token: string): string {
