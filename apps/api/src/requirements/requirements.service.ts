@@ -17,6 +17,10 @@ import {CreateRequirementDto} from './dto/create-requirement.dto';
 import {RealtimeGateway} from '../realtime/realtime.gateway';
 import {REALTIME_EVENTS} from '../realtime/realtime.types';
 import {RequirementActionDto} from './dto/requirement-action.dto';
+import {
+  ClientRequirementResponseDto,
+  WorkerRequirementResponseDto,
+} from './dto/requirement-response.dto';
 
 const MATCH_RADIUS_KM = 25;
 const MAX_WORKER_OFFERS = 20;
@@ -151,11 +155,9 @@ export class RequirementsService {
       requirement.id,
     );
 
-    if (matching.offers.length) {
-      this.realtime.notifyWorkers(
-        matching.offers.map(
-          offer => offer.workerUserId,
-        ),
+    for (const offer of matching.offers) {
+      this.realtime.notifyUser(
+        offer.workerUserId,
         REALTIME_EVENTS.REQUIREMENT_OFFERED,
         {
           requirementId: requirement.id,
@@ -170,13 +172,9 @@ export class RequirementsService {
           address: requirement.address,
           latitude: requirement.latitude,
           longitude: requirement.longitude,
-          offers: matching.offers.map(
-            offer => ({
-              assignmentId: offer.assignmentId,
-              distanceKm: offer.distanceKm,
-              matchScore: offer.matchScore,
-            }),
-          ),
+          assignmentId: offer.assignmentId,
+          distanceKm: offer.distanceKm,
+          matchScore: offer.matchScore,
         },
       );
     }
@@ -186,7 +184,10 @@ export class RequirementsService {
         client.id,
         requirement.id,
       ),
-      matching,
+      matching: {
+        status: matching.status,
+        offersCreated: matching.offers.length,
+      },
     };
   }
 
@@ -207,7 +208,7 @@ export class RequirementsService {
         );
       }
 
-      return this.prisma.requirement.findMany({
+      const requirements = await this.prisma.requirement.findMany({
         where: {
           clientId: client.id,
         },
@@ -215,17 +216,28 @@ export class RequirementsService {
           assignments: {
             select: {
               id: true,
-              status: true,
               workerId: true,
+              status: true,
               matchScore: true,
               distanceKm: true,
+              createdAt: true,
             },
           },
           booking: {
             select: {
               id: true,
-              workerId: true,
               status: true,
+              worker: {
+                select: {
+                  user: {
+                    select: {
+                      firstName: true,
+                      lastName: true,
+                    },
+                  },
+                  profilePhotoKey: true,
+                },
+              },
             },
           },
         },
@@ -233,6 +245,10 @@ export class RequirementsService {
           createdAt: 'desc',
         },
       });
+
+      return requirements.map(requirement =>
+        this.toClientRequirementResponse(requirement),
+      );
     }
 
     const worker =
@@ -298,8 +314,18 @@ export class RequirementsService {
           booking: {
             select: {
               id: true,
-              workerId: true,
               status: true,
+              worker: {
+                select: {
+                  user: {
+                    select: {
+                      firstName: true,
+                      lastName: true,
+                    },
+                  },
+                  profilePhotoKey: true,
+                },
+              },
             },
           },
         },
@@ -327,7 +353,7 @@ export class RequirementsService {
         );
       }
 
-      return requirement;
+      return this.toClientRequirementResponse(requirement);
     }
 
     const worker =
@@ -348,7 +374,10 @@ export class RequirementsService {
       );
     }
 
-    return requirement;
+    return this.toWorkerRequirementResponse(
+      requirement,
+      worker.id,
+    );
   }
 
   async accept(
@@ -674,17 +703,15 @@ export class RequirementsService {
         assignment.requirement.status === RequirementStatus.OPEN)
     ) {
       matching = await this.matchWorkers(requirementId);
-      if (matching.offers.length) {
-        this.realtime.notifyWorkers(
-          matching.offers.map(offer => offer.workerUserId),
+      for (const offer of matching.offers) {
+        this.realtime.notifyUser(
+          offer.workerUserId,
           REALTIME_EVENTS.REQUIREMENT_OFFERED,
           {
             requirementId,
-            offers: matching.offers.map(offer => ({
-              assignmentId: offer.assignmentId,
-              distanceKm: offer.distanceKm,
-              matchScore: offer.matchScore,
-            })),
+            assignmentId: offer.assignmentId,
+            distanceKm: offer.distanceKm,
+            matchScore: offer.matchScore,
           },
         );
       }
@@ -697,7 +724,12 @@ export class RequirementsService {
         respondedAt: new Date(),
         responseReason: dto.reason?.trim() || null,
       },
-      matching,
+      matching: matching
+        ? {
+            status: matching.status,
+            offersCreated: matching.offers.length,
+          }
+        : null,
     };
   }
 
@@ -1071,31 +1103,211 @@ export class RequirementsService {
     clientId: string,
     requirementId: string,
   ) {
-    return this.prisma.requirement.findFirst({
-      where: {
-        id: requirementId,
-        clientId,
-      },
-      include: {
-        assignments: {
-          select: {
-            id: true,
-            workerId: true,
-            status: true,
-            matchScore: true,
-            distanceKm: true,
-            createdAt: true,
+    const requirement =
+      await this.prisma.requirement.findFirst({
+        where: {
+          id: requirementId,
+          clientId,
+        },
+        include: {
+          assignments: {
+            select: {
+              id: true,
+              workerId: true,
+              status: true,
+              matchScore: true,
+              distanceKm: true,
+              createdAt: true,
+            },
+          },
+          booking: {
+            select: {
+              id: true,
+              status: true,
+              worker: {
+                select: {
+                  user: {
+                    select: {
+                      firstName: true,
+                      lastName: true,
+                    },
+                  },
+                  profilePhotoKey: true,
+                },
+              },
+            },
           },
         },
-        booking: {
-          select: {
-            id: true,
-            workerId: true,
-            status: true,
-          },
-        },
-      },
-    });
+      });
+
+    return requirement
+      ? this.toClientRequirementResponse(requirement)
+      : null;
+  }
+
+  private toClientRequirementResponse(
+    requirement: {
+      id: string;
+      categoryId: string;
+      categoryName: string;
+      skillId: string | null;
+      skillName: string | null;
+      title: string;
+      description: string | null;
+      budget: unknown;
+      scheduledStart: Date;
+      scheduledEnd: Date;
+      address: string;
+      latitude: unknown;
+      longitude: unknown;
+      status: string;
+      cancelledAt: Date | null;
+      cancellationReason: string | null;
+      completedAt: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+      booking: {
+        id: string;
+        status: string;
+        worker: {
+          user: {
+            firstName: string;
+            lastName: string;
+          };
+          profilePhotoKey: string | null;
+        };
+      } | null;
+    },
+  ): ClientRequirementResponseDto {
+    return {
+      id: requirement.id,
+      categoryId: requirement.categoryId,
+      categoryName: requirement.categoryName,
+      skillId: requirement.skillId,
+      skillName: requirement.skillName,
+      title: requirement.title,
+      description: requirement.description,
+      budget:
+        requirement.budget === null
+          ? null
+          : String(requirement.budget),
+      scheduledStart: requirement.scheduledStart,
+      scheduledEnd: requirement.scheduledEnd,
+      address: requirement.address,
+      latitude:
+        requirement.latitude === null
+          ? null
+          : String(requirement.latitude),
+      longitude:
+        requirement.longitude === null
+          ? null
+          : String(requirement.longitude),
+      status: requirement.status,
+      cancelledAt: requirement.cancelledAt,
+      cancellationReason: requirement.cancellationReason,
+      completedAt: requirement.completedAt,
+      createdAt: requirement.createdAt,
+      updatedAt: requirement.updatedAt,
+      booking: requirement.booking
+        ? {
+            id: requirement.booking.id,
+            status: requirement.booking.status,
+            worker: {
+              firstName:
+                requirement.booking.worker.user.firstName,
+              lastName:
+                requirement.booking.worker.user.lastName,
+              profilePhotoKey:
+                requirement.booking.worker.profilePhotoKey,
+            },
+          }
+        : null,
+    };
+  }
+
+  private toWorkerRequirementResponse(
+    requirement: {
+      id: string;
+      categoryId: string;
+      categoryName: string;
+      skillId: string | null;
+      skillName: string | null;
+      title: string;
+      description: string | null;
+      budget: unknown;
+      scheduledStart: Date;
+      scheduledEnd: Date;
+      address: string;
+      latitude: unknown;
+      longitude: unknown;
+      status: string;
+      cancelledAt: Date | null;
+      cancellationReason: string | null;
+      completedAt: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+      assignments: Array<{
+        id: string;
+        workerId: string;
+        status: string;
+        matchScore: unknown;
+        distanceKm: unknown;
+        respondedAt?: Date | null;
+      }>;
+    },
+    workerId: string,
+  ): WorkerRequirementResponseDto {
+    const assignment =
+      requirement.assignments.find(
+        item => item.workerId === workerId,
+      );
+
+    return {
+      id: requirement.id,
+      categoryId: requirement.categoryId,
+      categoryName: requirement.categoryName,
+      skillId: requirement.skillId,
+      skillName: requirement.skillName,
+      title: requirement.title,
+      description: requirement.description,
+      budget:
+        requirement.budget === null
+          ? null
+          : String(requirement.budget),
+      scheduledStart: requirement.scheduledStart,
+      scheduledEnd: requirement.scheduledEnd,
+      address: requirement.address,
+      latitude:
+        requirement.latitude === null
+          ? null
+          : String(requirement.latitude),
+      longitude:
+        requirement.longitude === null
+          ? null
+          : String(requirement.longitude),
+      status: requirement.status,
+      cancelledAt: requirement.cancelledAt,
+      cancellationReason: requirement.cancellationReason,
+      completedAt: requirement.completedAt,
+      createdAt: requirement.createdAt,
+      updatedAt: requirement.updatedAt,
+      assignment: assignment
+        ? {
+            id: assignment.id,
+            status: assignment.status,
+            matchScore:
+              assignment.matchScore === null
+                ? null
+                : String(assignment.matchScore),
+            distanceKm:
+              assignment.distanceKm === null
+                ? null
+                : String(assignment.distanceKm),
+            respondedAt:
+              assignment.respondedAt ?? null,
+          }
+        : null,
+    };
   }
 
   private distanceInKm(
