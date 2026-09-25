@@ -6,6 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { Readable } from 'stream';
+import { randomBytes } from 'node:crypto';
 import { ReadableStream as NodeReadableStream } from 'stream/web';
 
 type CloudinaryResourceType = 'image' | 'video' | 'raw';
@@ -352,7 +353,5 @@ export class CloudinaryStorageService {
 }
 
 function cryptoRandomId(): string {
-  return `${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2, 12)}`;
+  return randomBytes(24).toString('base64url');
 }
