@@ -8,7 +8,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import {UnauthorizedException} from '@nestjs/common';
-import {Server, Socket} from 'socket.io';
+import {Namespace, Socket} from 'socket.io';
 
 import {AuthJwtService} from '../auth/jwt.service';
 import {PrismaService} from '../common/prisma/prisma.service';
@@ -31,7 +31,7 @@ export class RealtimeGateway
     OnGatewayDisconnect
 {
   @WebSocketServer()
-  server!: Server;
+  server!: Namespace;
 
   private readonly socketsByUser =
     new Map<string, Set<string>>();
