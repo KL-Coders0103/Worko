@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -17,6 +18,9 @@ import {PaymentActionDto} from './dto/payment-action.dto';
 import { WalletService } from '../wallet/wallet.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { REALTIME_EVENTS } from '../realtime/realtime.types';
+import {assertPaymentTransition} from './payment-state-machine';
+import {PaymentProvider} from './payment-provider.interface';
+import {PAYMENT_PROVIDER} from './payment-provider.token';
 
 @Injectable()
 export class PaymentsService {
@@ -24,6 +28,8 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly walletService: WalletService,
     private readonly realtime: RealtimeGateway,
+    @Inject(PAYMENT_PROVIDER)
+    private readonly paymentProvider: PaymentProvider,
   ) {}
 
   async createPayment(
