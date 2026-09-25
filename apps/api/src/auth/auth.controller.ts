@@ -1,6 +1,13 @@
-import { Body, Controller, Get, Post, Req, UseGuards, Version } from '@nestjs/common';
-import {LoginDto, LogoutDto, RefreshTokenDto, RegisterDto, SendOtpDto, VerifyOtpDto,
-} from './dto/auth.dto';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  UseGuards,
+  Version,
+} from '@nestjs/common';
+import { LoginDto, LogoutDto, RefreshTokenDto, RegisterDto, SendOtpDto, VerifyOtpDto } from './dto/auth.dto';
 import { AuthService } from './auth.service';
 import { AuthJwtService } from './jwt.service';
 import { GoogleAuthService } from './google-auth.service';
@@ -61,6 +68,13 @@ export class AuthController {
     };
   }
 
+  @Post('logout-all')
+  @Version('1')
+  @UseGuards(JwtAuthGuard)
+  async logoutAll(@Req() request: AuthenticatedRequest) {
+    return this.authService.logoutAll(request.user.sub);
+  }
+
   @Post('google')
   @Version('1')
   async googleAuth(@Body() dto: GoogleAuthDto) {
@@ -71,9 +85,6 @@ export class AuthController {
   @Version('1')
   @UseGuards(JwtAuthGuard)
   async me(@Req() request: AuthenticatedRequest) {
-    return this.authService.getCurrentUser(
-      request.user.sub,
-    );
+    return this.authService.getCurrentUser(request.user.sub);
   }
 }
-
