@@ -45,9 +45,9 @@ export class GoogleAuthService {
       throw new UnauthorizedException('Invalid Google ID token');
     }
 
-    if (!payload?.sub || !payload.email) {
+    if (!payload?.sub || !payload.email || payload.email_verified !== true) {
       throw new UnauthorizedException(
-        'Google account information is incomplete',
+        'Google account information is incomplete or unverified',
       );
     }
 
