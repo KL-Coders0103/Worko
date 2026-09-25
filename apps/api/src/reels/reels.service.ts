@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 
-import { Reel, Prisma } from '@prisma/client';
+import type { Reel } from '@prisma/client';
 
 import { PrismaService } from '../common/prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
@@ -115,119 +115,96 @@ export class ReelsService {
   }
 
   async updateReel(
-  userId: string,
-  reelId: string,
-  data: {
-    title?: string;
-    description?: string;
-    thumbnailKey?: string;
-    durationSeconds?: number;
-  },
-) {
-  const worker = await this.prisma.worker.findUnique({
-    where: {
-      userId,
-    },
-    select: {
-      id: true,
-      status: true,
-    },
-  });
-
-  if (!worker) {
-    throw new NotFoundException(
-      'Worker profile not found.',
-    );
-  }
-
-  if (worker.status !== 'VERIFIED') {
-    throw new UnauthorizedException(
-      'Only verified workers can manage reels.',
-    );
-  }
-
-  const reel = await this.prisma.reel.findUnique({
-    where: {
-      id: reelId,
-    },
-  });
-
-  if (!reel) {
-    throw new NotFoundException(
-      'Reel not found.',
-    );
-  }
-
-  if (reel.workerId !== worker.id) {
-    throw new UnauthorizedException(
-      'You are not authorized to modify this reel.',
-    );
-  }
-
-  if (reel.status !== 'DRAFT') {
-    throw new BadRequestException(
-      'Only draft reels can be edited.',
-    );
-  }
-
-  if (
-    data.title !== undefined &&
-    data.title.trim().length === 0
-  ) {
-    throw new BadRequestException(
-      'Title cannot be empty.',
-    );
-  }
-
-  if (
-    data.title !== undefined &&
-    data.title.length > 150
-  ) {
-    throw new BadRequestException(
-      'Title cannot exceed 150 characters.',
-    );
-  }
-
-  if (
-    data.durationSeconds !== undefined &&
-    (!Number.isInteger(data.durationSeconds) ||
-      data.durationSeconds <= 0 ||
-      data.durationSeconds > 300)
-  ) {
-    throw new BadRequestException(
-      'Reel duration must be between 1 and 300 seconds.',
-    );
-  }
-
-  const updatedReel =
-  await this.prisma.reel.update({
-    where: {
-      id: reelId,
-    },
-
+    userId: string,
+    reelId: string,
     data: {
-      ...(data.title !== undefined
-        ? {title: data.title.trim()}
-        : {}),
-
-      ...(data.description !== undefined
-        ? {
-            description:
-              data.description.trim() || null,
-          }
-        : {}),
-
-      ...(data.durationSeconds !== undefined
-        ? {
-            durationSeconds:
-              data.durationSeconds,
-          }
-        : {}),
+      title?: string;
+      description?: string;
+      durationSeconds?: number;
     },
-  });
+  ) {
+    const worker = await this.prisma.worker.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
 
-return this.toWorkerReelResponse(updatedReel);
-}
+    if (!worker) {
+      throw new NotFoundException('Worker profile not found.');
+    }
+
+    if (worker.status !== 'VERIFIED') {
+      throw new UnauthorizedException(
+        'Only verified workers can manage reels.',
+      );
+    }
+
+    const reel = await this.prisma.reel.findUnique({
+      where: { id: reelId },
+    });
+
+    if (!reel) {
+      throw new NotFoundException('Reel not found.');
+    }
+
+    if (reel.workerId !== worker.id) {
+      throw new UnauthorizedException(
+        'You are not authorized to modify this reel.',
+      );
+    }
+
+    if (reel.status !== 'DRAFT') {
+      throw new BadRequestException(
+        'Only draft reels can be edited.',
+      );
+    }
+
+    if (
+      data.title !== undefined &&
+      data.title.trim().length === 0
+    ) {
+      throw new BadRequestException('Title cannot be empty.');
+    }
+
+    if (
+      data.title !== undefined &&
+      data.title.length > 150
+    ) {
+      throw new BadRequestException(
+        'Title cannot exceed 150 characters.',
+      );
+    }
+
+    if (
+      data.durationSeconds !== undefined &&
+      (!Number.isInteger(data.durationSeconds) ||
+        data.durationSeconds <= 0 ||
+        data.durationSeconds > 300)
+    ) {
+      throw new BadRequestException(
+        'Reel duration must be between 1 and 300 seconds.',
+      );
+    }
+
+    const updatedReel = await this.prisma.reel.update({
+      where: { id: reelId },
+      data: {
+        ...(data.title !== undefined
+          ? { title: data.title.trim() }
+          : {}),
+        ...(data.description !== undefined
+          ? { description: data.description.trim() || null }
+          : {}),
+        ...(data.durationSeconds !== undefined
+          ? { durationSeconds: data.durationSeconds }
+          : {}),
+      },
+    });
+
+    return this.toWorkerReelResponse(updatedReel);
+  }
 
 async publishReel(
   userId: string,
@@ -381,29 +358,41 @@ async getFeed(
 ) {
   const safeLimit = Math.min(Math.max(limit, 1), 20);
 
-  let cursorReel:
-    | { id: string; publishedAt: Date | null; createdAt: Date }
-    | null = null;
+    let cursorReel:
+      | { id: string; publishedAt: Date; createdAt: Date }
+      | null = null;
 
-  if (cursor) {
-    cursorReel = await this.prisma.reel.findUnique({
-      where: { id: cursor },
-      select: { id: true, publishedAt: true, createdAt: true },
-    });
+    if (cursor) {
+      cursorReel = await this.prisma.reel.findFirst({
+        where: {
+          id: cursor,
+          status: 'PUBLISHED',
+          publishedAt: { not: null },
+        },
+        select: {
+          id: true,
+          publishedAt: true,
+          createdAt: true,
+        },
+      }) as {
+        id: string;
+        publishedAt: Date;
+        createdAt: Date;
+      } | null;
 
-    if (!cursorReel) {
-      throw new BadRequestException('Invalid feed cursor.');
+      if (!cursorReel) {
+        throw new BadRequestException('Invalid feed cursor.');
+      }
     }
-  }
 
-  const reels = await this.prisma.reel.findMany({
+    const reels = await this.prisma.reel.findMany({
     where: {
       status: 'PUBLISHED',
       publishedAt: { not: null },
       ...(cursorReel
         ? {
             OR: [
-              { publishedAt: { lt: cursorReel.publishedAt! } },
+              { publishedAt: { lt: cursorReel.publishedAt } },
               {
                 publishedAt: cursorReel.publishedAt,
                 createdAt: { lt: cursorReel.createdAt },
