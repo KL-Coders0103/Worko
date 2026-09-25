@@ -4,12 +4,38 @@ import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { RequestHandler } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
   app.useGlobalFilters(new HttpExceptionFilter());
+
+  const expressApp = app.getHttpAdapter().getInstance();
+
+  expressApp.disable('x-powered-by');
+
+  const securityHeaders: RequestHandler = (_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader(
+      'Permissions-Policy',
+      'camera=(), microphone=(), geolocation=()',
+    );
+
+    if (configService.get<string>('app.nodeEnv') === 'production') {
+      res.setHeader(
+        'Strict-Transport-Security',
+        'max-age=31536000; includeSubDomains',
+      );
+    }
+
+    next();
+  };
+
+  expressApp.use(securityHeaders);
 
   const corsOrigins =
     configService.get<string[]>('app.corsOrigins') ?? [];
