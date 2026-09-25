@@ -8,8 +8,9 @@ import { BookingStatus } from '@prisma/client';
 
 import { PrismaService } from '../common/prisma/prisma.service';
 import { BookingActionDto } from './dto/booking-action.dto';
+import { BookingResponseDto } from './dto/booking-response.dto';
 
-interface BookingResponse {
+interface BookingResponse extends BookingResponseDto {
   id: string;
   requirementId: string | null;
   status: BookingStatus;
@@ -19,13 +20,13 @@ interface BookingResponse {
   skillName: string | null;
   serviceTitle: string;
   serviceDescription: string | null;
-  hourlyRate: unknown;
-  dailyRate: unknown;
+  hourlyRate: string | number | null;
+  dailyRate: string | number | null;
   scheduledStart: Date;
   scheduledEnd: Date;
   address: string;
-  latitude: unknown;
-  longitude: unknown;
+  latitude: string | number | null;
+  longitude: string | number | null;
   completedAt: Date | null;
   cancelledAt: Date | null;
   cancellationReason: string | null;
@@ -331,7 +332,7 @@ export class BookingsService {
   private toBookingResponse(
     booking: any,
     role: BookingRole,
-  ): BookingResponse {
+  ): BookingResponseDto {
     return {
       id: booking.id,
       requirementId: booking.requirementId,
@@ -389,10 +390,8 @@ export class BookingsService {
         include: {
           user: {
             select: {
-              id: true,
               firstName: true,
               lastName: true,
-              phoneNumber: true,
             },
           },
         },
