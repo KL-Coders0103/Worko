@@ -12,6 +12,7 @@ import {Namespace, Socket} from 'socket.io';
 
 import {AuthJwtService} from '../auth/jwt.service';
 import {PrismaService} from '../common/prisma/prisma.service';
+import {parseCorsOrigins} from '../config/configuration';
 
 type SocketUser = {
   sub: string;
@@ -21,7 +22,19 @@ type SocketUser = {
 @WebSocketGateway({
   namespace: '/realtime',
   cors: {
-    origin: true,
+    origin: (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const allowedOrigins = parseCorsOrigins(process.env.CORS_ORIGINS);
+
+      callback(
+        null,
+        allowedOrigins.includes(origin),
+      );
+    },
     credentials: true,
   },
 })
