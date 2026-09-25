@@ -7,6 +7,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { createHmac, randomInt } from 'crypto';
 import { PrismaService } from '../common/prisma/prisma.service';
 import {
@@ -25,6 +26,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly authJwtService: AuthJwtService,
     private readonly otpDeliveryService: OtpDeliveryService,
+    private readonly configService: ConfigService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -547,8 +549,7 @@ export class AuthService {
 
   private hashOtp(otp: string): string {
     const secret =
-      process.env.OTP_HASH_SECRET ??
-      process.env.JWT_ACCESS_SECRET;
+      this.configService.get<string>('auth.otpHashSecret');
 
     if (!secret) {
       throw new InternalServerErrorException(
