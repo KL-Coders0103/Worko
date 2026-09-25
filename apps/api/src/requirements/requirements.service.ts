@@ -1187,7 +1187,7 @@ export class RequirementsService {
             lastName: string | null;
           };
           profilePhotoKey: string | null;
-        };
+        } | null;
       } | null;
     },
   ): ClientRequirementResponseDto {
@@ -1224,14 +1224,18 @@ export class RequirementsService {
         ? {
             id: requirement.booking.id,
             status: requirement.booking.status,
-            worker: {
-              firstName:
-                requirement.booking.worker.user.firstName,
-              lastName:
-                requirement.booking.worker.user.lastName,
-              hasProfilePhoto:
-                Boolean(requirement.booking.worker.profilePhotoKey),
-            },
+            worker: requirement.booking.worker
+              ? {
+                  firstName:
+                    requirement.booking.worker.user.firstName,
+                  lastName:
+                    requirement.booking.worker.user.lastName,
+                  hasProfilePhoto:
+                    Boolean(
+                      requirement.booking.worker.profilePhotoKey,
+                    ),
+                }
+              : null,
           }
         : null,
     };
