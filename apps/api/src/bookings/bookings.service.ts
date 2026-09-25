@@ -379,10 +379,8 @@ export class BookingsService {
         include: {
           user: {
             select: {
-              id: true,
               firstName: true,
               lastName: true,
-              phoneNumber: true,
             },
           },
         },
