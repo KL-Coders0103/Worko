@@ -1,5 +1,7 @@
 import {BadRequestException, Body, Controller, Headers, Post, Req} from '@nestjs/common';
 import type {Request} from 'express';
+
+type RawBodyRequest = Request & {rawBody?: Buffer};
 import {PaymentWebhookDto} from './dto/payment-webhook.dto';
 import {PaymentWebhookService} from './payment-webhook.service';
 
@@ -9,11 +11,11 @@ export class PaymentWebhookController {
 
   @Post()
   async handle(
-    @Req() req: Request,
+    @Req() req: RawBodyRequest,
     @Headers('x-worko-signature') signature: string | undefined,
     @Body() dto: PaymentWebhookDto,
   ) {
-    const rawBody = (req as Request & {rawBody?: Buffer}).rawBody?.toString('utf8');
+    const rawBody = req.rawBody?.toString('utf8');
     if (!rawBody) {
       throw new BadRequestException('Raw webhook body is unavailable');
     }
