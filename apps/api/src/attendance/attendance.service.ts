@@ -887,11 +887,11 @@ async checkIn(
   }
 
   if (
-    booking.attendance?.status ===
-    'CHECKED_IN'
+    booking.attendance?.status !==
+    'NOT_STARTED'
   ) {
     throw new BadRequestException(
-      'Worker is already checked in',
+      'Attendance is not ready for check-in',
     );
   }
 
@@ -1097,10 +1097,10 @@ async checkOut(
 
   if (
     booking.attendance.status !==
-    'CHECKED_IN'
+    'IN_PROGRESS'
   ) {
     throw new BadRequestException(
-      'Worker has not checked in',
+      'Work must be in progress before check-out',
     );
   }
 
