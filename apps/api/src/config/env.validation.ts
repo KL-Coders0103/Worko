@@ -58,7 +58,15 @@ function parseBoolean(
   const normalized = value.toLowerCase();
 
   if (TRUE_VALUES.has(normalized)) {
-    return true;
+    if (env.NODE_ENV === 'production' && !env.PAYMENT_WEBHOOK_SECRET) {
+    throw new Error('PAYMENT_WEBHOOK_SECRET is required in production');
+  }
+
+  if (env.PAYMENT_WEBHOOK_SECRET && env.PAYMENT_WEBHOOK_SECRET.length < 32) {
+    throw new Error('PAYMENT_WEBHOOK_SECRET must be at least 32 characters');
+  }
+
+  return true;
   }
 
   if (FALSE_VALUES.has(normalized)) {
