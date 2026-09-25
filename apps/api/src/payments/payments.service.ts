@@ -151,7 +151,7 @@ export class PaymentsService {
     await this.assertPaymentAccess(
       userId,
       payment.booking.clientId,
-      payment.booking.workerId!,
+      payment.booking.workerId,
     );
 
     return {
@@ -229,6 +229,33 @@ export class PaymentsService {
     });
     await this.notifyPaymentStatusChanged(updated.id, updated.status);
     return {payment: updated};
+  }
+
+  private async transitionPayment(
+    paymentId: string,
+    targetStatus: PaymentStatus,
+    data: Prisma.PaymentUpdateInput = {},
+  ) {
+    const current = await this.prisma.payment.findUnique({
+      where: {id: paymentId},
+    });
+    if (!current) throw new NotFoundException('Payment not found');
+
+    assertPaymentTransition(current.status, targetStatus);
+
+    const changed = await this.prisma.payment.updateMany({
+      where: {id: paymentId, status: current.status},
+      data: {status: targetStatus, ...data},
+    });
+    if (changed.count !== 1) {
+      throw new BadRequestException('Payment changed before the transition completed');
+    }
+
+    const updated = await this.prisma.payment.findUniqueOrThrow({
+      where: {id: paymentId},
+    });
+    await this.notifyPaymentStatusChanged(updated.id, updated.status);
+    return updated;
   }
 
   private async notifyPaymentStatusChanged(
@@ -330,7 +357,7 @@ export class PaymentsService {
   private async assertPaymentAccess(
     userId: string,
     clientId: string,
-    workerId: string,
+    workerId: string | null,
   ) {
     const user =
       await this.prisma.user.findUnique({
@@ -367,6 +394,7 @@ export class PaymentsService {
 
     if (
       user.role === 'WORKER' &&
+      workerId !== null &&
       user.worker?.id === workerId
     ) {
       return;
