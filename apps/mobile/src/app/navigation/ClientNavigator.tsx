@@ -5,7 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { ClientStackParamList, ClientTabParamList } from './types';
 import { ClientHomeScreen } from '../../features/client/screens/ClientHomeScreen';
 import { ClientRequirementsScreen } from '../../features/client/screens/ClientRequirementScreen';
-import { ClientProfileScreen } from '../../features/client/screens/ClientProfileScreen';
+// import { ClientProfileScreen } from '../../features/client/screens/ClientProfileScreen';
 import { ClientSearchingScreen } from '../../features/client/screens/ClientSearchingScreen';
 import { WorkerMatchedScreen } from '../../features/client/screens/WorkerMatchedScreen';
 import { ClientActivityScreen } from '../../features/client/screens/ClientActivityScreen';
@@ -38,11 +38,11 @@ function ClientTabs() {
         component={ClientActivityScreen} 
         options={{ title: 'Activity' }} 
       />
-      <Tab.Screen 
+      {/* <Tab.Screen 
         name="ClientProfile" 
         component={ClientProfileScreen} 
         options={{ title: 'Profile' }} 
-      />
+      /> */}
     </Tab.Navigator>
   );
 }

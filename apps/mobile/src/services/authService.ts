@@ -29,11 +29,12 @@ export type RegisterResponse = {
 };
 
 export type OtpChannel = 'EMAIL' | 'SMS';
+export type OtpPurpose = 'REGISTRATION' | 'LOGIN';
 
 export type VerifyOtpPayload = {
   identifier: string;
   otp: string;
-  purpose: 'REGISTRATION' | 'LOGIN';
+  purpose: OtpPurpose;
   channel: OtpChannel;
 };
 
@@ -114,13 +115,14 @@ export async function logoutUser(): Promise<void> {
   }
 }
 
-export async function sendLoginOtp(
+export async function sendOtp(
   identifier: string,
+  purpose: OtpPurpose,
   channel: OtpChannel,
 ): Promise<void> {
   await api.post('/auth/send-otp', {
     identifier,
-    purpose: 'LOGIN',
+    purpose,
     channel,
   });
 }
