@@ -9,7 +9,6 @@ import { UsersModule } from './users/users.module';
 import { WorkersModule } from './workers/workers.module';
 import { ClientsModule } from './clients/clients.module';
 import { CategoriesModule } from './categories/categories.module';
-import { DiscoveryModule } from './discovery/discovery.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { PaymentsModule } from './payments/payments.module';
@@ -33,7 +32,6 @@ import { RadarGateway } from './bookings/radar.gateway';
     WorkersModule,
     ClientsModule,
     CategoriesModule,
-    DiscoveryModule,
     BookingsModule,
     AttendanceModule,
     PaymentsModule,
