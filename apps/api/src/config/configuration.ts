@@ -45,6 +45,10 @@ export default () => ({
     url: process.env.DATABASE_URL,
   },
 
+  payments: {
+    webhookSecret: process.env.PAYMENT_WEBHOOK_SECRET,
+  },
+
   storage: {
     provider: process.env.STORAGE_PROVIDER ?? 'cloudinary',
     cloudinaryCloudName:
