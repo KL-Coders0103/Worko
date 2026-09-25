@@ -179,7 +179,7 @@ export class AttendanceService {
       );
     }
 
-    const allowedStatuses =
+    const allowedStatuses: BookingStatus[] =
       purpose === AttendanceQrPurpose.CHECK_IN
         ? [
             BookingStatus.CONFIRMED,
@@ -595,10 +595,10 @@ export class AttendanceService {
 
   if (
     dto.type === AttendanceEvidenceType.BEFORE_PHOTO &&
-    ![
-      BookingStatus.ARRIVED,
-      BookingStatus.CHECKED_IN,
-    ].includes(booking.status)
+    !(
+      booking.status === BookingStatus.ARRIVED ||
+      booking.status === BookingStatus.CHECKED_IN
+    )
   ) {
     throw new BadRequestException(
       'Before-work evidence can only be captured after the worker arrives',
@@ -607,10 +607,10 @@ export class AttendanceService {
 
   if (
     dto.type === AttendanceEvidenceType.AFTER_PHOTO &&
-    ![
-      BookingStatus.CHECKED_IN,
-      BookingStatus.IN_PROGRESS,
-    ].includes(booking.status)
+    !(
+      booking.status === BookingStatus.CHECKED_IN ||
+      booking.status === BookingStatus.IN_PROGRESS
+    )
   ) {
     throw new BadRequestException(
       'After-work evidence can only be captured while work is in progress',
@@ -743,7 +743,7 @@ async uploadAttendanceEvidence(
     );
   }
 
-  const activeEvidenceStatuses = [
+  const activeEvidenceStatuses: BookingStatus[] = [
     BookingStatus.ARRIVED,
     BookingStatus.CHECKED_IN,
     BookingStatus.IN_PROGRESS,
