@@ -13,7 +13,10 @@ export class PaymentWebhookController {
     @Headers('x-worko-signature') signature: string | undefined,
     @Body() dto: PaymentWebhookDto,
   ) {
-    const rawBody = JSON.stringify(req.body);
+    const rawBody = (req as Request & {rawBody?: Buffer}).rawBody?.toString('utf8');
+    if (!rawBody) {
+      throw new Error('Raw webhook body is unavailable');
+    }
     return this.service.handle(rawBody, signature, dto);
   }
 }
