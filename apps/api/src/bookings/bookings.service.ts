@@ -226,6 +226,11 @@ export class BookingsService {
       return updated;
     });
 
+    await this.notifyBookingStatusChanged(
+      completed.id,
+      completed.status,
+    );
+
     return this.toBookingResponse(completed, 'WORKER');
   }
 
