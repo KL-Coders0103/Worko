@@ -41,7 +41,10 @@ async function bootstrap() {
     configService.get<string[]>('app.corsOrigins') ?? [];
 
   app.enableCors({
-    origin: (origin, callback) => {
+    origin: (
+      origin: string | undefined,
+      callback: (error: Error | null, allow?: boolean) => void,
+    ) => {
       if (!origin) {
         callback(null, true);
         return;
