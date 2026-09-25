@@ -20,6 +20,8 @@ import {
 import { PrismaService } from '../common/prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { assertBookingTransition } from '../bookings/booking-state-machine';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { REALTIME_EVENTS } from '../realtime/realtime.types';
 
 export const ATTENDANCE_GEOFENCE_RADIUS_METERS = 100;
 
@@ -41,6 +43,7 @@ export class AttendanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
+    private readonly realtime: RealtimeGateway,
   ) {}
 
   /*
@@ -990,6 +993,13 @@ async checkIn(
       },
     );
 
+  await this.notifyAttendanceUpdated(
+    bookingId,
+    result.booking.status,
+    result.attendance.status,
+    result.attendance.checkInAt ?? new Date(),
+  );
+
   return result;
 }
 
@@ -1187,6 +1197,46 @@ async checkOut(
       },
     );
 
+  await this.notifyAttendanceUpdated(
+    bookingId,
+    result.booking.status,
+    result.attendance.status,
+    result.attendance.checkOutAt ?? new Date(),
+  );
+
   return result;
+}
+
+private async notifyAttendanceUpdated(
+  bookingId: string,
+  bookingStatus: BookingStatus,
+  attendanceStatus: string,
+  occurredAt: Date,
+) {
+  const booking = await this.prisma.booking.findUnique({
+    where: {id: bookingId},
+    select: {
+      client: {select: {userId: true}},
+      worker: {select: {userId: true}},
+    },
+  });
+
+  if (!booking) {
+    return;
+  }
+
+  this.realtime.notifyUsers(
+    [
+      booking.client.userId,
+      ...(booking.worker?.userId ? [booking.worker.userId] : []),
+    ],
+    REALTIME_EVENTS.ATTENDANCE_UPDATED,
+    {
+      bookingId,
+      bookingStatus,
+      attendanceStatus,
+      occurredAt,
+    },
+  );
 }
 }
