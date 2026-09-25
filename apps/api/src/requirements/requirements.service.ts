@@ -625,7 +625,6 @@ export class RequirementsService {
         {
           requirementId,
           bookingId: result.booking.id,
-          workerId: result.booking.workerId,
           status: result.booking.status,
         },
       );
