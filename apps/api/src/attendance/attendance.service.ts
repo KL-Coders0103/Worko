@@ -8,6 +8,7 @@ import {
 import {
   AttendanceEvidenceType,
   AttendanceQrPurpose,
+  BookingStatus,
   Prisma,
 } from '@prisma/client';
 
@@ -963,23 +964,23 @@ async checkIn(
           },
         });
 
+        assertBookingTransition(
+          BookingStatus.ARRIVED,
+          BookingStatus.CHECKED_IN,
+        );
+
         const updatedBooking =
           await tx.booking.update({
             where: {
               id: booking.id,
             },
             data: {
-              status: 'CHECKED_IN',
+              status: BookingStatus.CHECKED_IN,
             },
             include: {
               attendance: true,
             },
           });
-
-        assertBookingTransition(
-          'ARRIVED',
-          'CHECKED_IN',
-        );
 
         return {
           attendance,
@@ -1157,8 +1158,8 @@ async checkOut(
 
         /*
         assertBookingTransition(
-          'IN_PROGRESS',
-          'CHECKED_OUT',
+          BookingStatus.IN_PROGRESS,
+          BookingStatus.CHECKED_OUT,
         );
 
         const checkedOutBooking =
