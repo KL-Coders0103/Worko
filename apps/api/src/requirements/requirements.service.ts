@@ -1068,9 +1068,6 @@ export class RequirementsService {
       completedAt: requirement.completedAt ?? null,
       createdAt: requirement.createdAt,
       updatedAt: requirement.updatedAt,
-      cancelledAt: requirement.cancelledAt ?? null,
-      cancellationReason: requirement.cancellationReason ?? null,
-      completedAt: requirement.completedAt ?? null,
       booking: requirement.booking
         ? {
             id: requirement.booking.id,
@@ -1117,9 +1114,6 @@ export class RequirementsService {
       address: requirement.address,
       latitude: requirement.latitude,
       longitude: requirement.longitude,
-      cancelledAt: requirement.cancelledAt ?? null,
-      cancellationReason: requirement.cancellationReason ?? null,
-      completedAt: requirement.completedAt ?? null,
       cancelledAt: requirement.cancelledAt ?? null,
       cancellationReason: requirement.cancellationReason ?? null,
       completedAt: requirement.completedAt ?? null,
