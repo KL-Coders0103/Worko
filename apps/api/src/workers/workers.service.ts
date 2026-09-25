@@ -604,7 +604,7 @@ export class WorkersService {
 
     if (!worker) throw new NotFoundException('Worker profile not found');
 
-    if (worker.status !== WorkerStatus.KYC_SUBMITTED && worker.status !== WorkerStatus.UNDER_REVIEW) {
+    if (worker.status !== WorkerStatus.KYC_SUBMITTED) {
       throw new BadRequestException('Worker is not awaiting KYC review');
     }
 
@@ -626,8 +626,11 @@ export class WorkersService {
         },
       });
 
-      return tx.worker.update({
-        where: {id: workerId},
+      const updated = await tx.worker.updateMany({
+        where: {
+          id: workerId,
+          status: WorkerStatus.KYC_SUBMITTED,
+        },
         data:
           decision === KycReviewDecision.APPROVED
             ? {
@@ -641,6 +644,14 @@ export class WorkersService {
                 verifiedAt: null,
                 isAvailable: false,
               },
+      });
+
+      if (updated.count !== 1) {
+        throw new BadRequestException('KYC review state changed; refresh and try again');
+      }
+
+      return tx.worker.findUniqueOrThrow({
+        where: {id: workerId},
       });
     });
 
