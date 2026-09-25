@@ -1183,8 +1183,8 @@ export class RequirementsService {
         status: string;
         worker: {
           user: {
-            firstName: string;
-            lastName: string;
+            firstName: string | null;
+            lastName: string | null;
           };
           profilePhotoKey: string | null;
         };
