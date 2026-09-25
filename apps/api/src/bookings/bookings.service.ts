@@ -49,6 +49,7 @@ export class BookingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeGateway,
+    private readonly walletService: WalletService,
   ) {}
 
   async getMyBookings(
@@ -288,12 +289,18 @@ export class BookingsService {
 
     const updated = await this.prisma.$transaction(async tx => {
       const booking = await tx.booking.findUnique({
-        where: { id: bookingId },
-        include: { payment: true },
+        where: {id: bookingId},
+        include: {payment: true},
       });
 
       if (!booking) {
         throw new NotFoundException('Booking not found');
+      }
+
+      if (booking.status !== BookingStatus.COMPLETED) {
+        throw new BadRequestException(
+          'Payment can be released only after booking completion',
+        );
       }
 
       if (!booking.payment || booking.payment.status !== 'SUCCESS') {
@@ -302,6 +309,30 @@ export class BookingsService {
         );
       }
 
+      if (!booking.workerId) {
+        throw new BadRequestException(
+          'Booking has no assigned worker',
+        );
+      }
+
+      const worker = await tx.worker.findUnique({
+        where: {id: booking.workerId},
+        select: {userId: true},
+      });
+
+      if (!worker) {
+        throw new NotFoundException('Booking worker not found');
+      }
+
+      await this.walletService.creditWalletInTransaction(
+        tx,
+        worker.userId,
+        booking.payment.amount,
+        'PAYMENT',
+        booking.payment.id,
+        `Payment released for booking ${booking.id}`,
+      );
+
       return this.transitionBookingInTransaction(
         tx,
         bookingId,
@@ -309,7 +340,10 @@ export class BookingsService {
       );
     });
 
-    await this.notifyBookingStatusChanged(updated.id, updated.status);
+    await this.notifyBookingStatusChanged(
+      updated.id,
+      updated.status,
+    );
 
     return this.toBookingResponse(updated, 'CLIENT');
   }
