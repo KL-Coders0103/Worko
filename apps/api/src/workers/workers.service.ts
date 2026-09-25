@@ -771,6 +771,7 @@ async uploadPoliceVerificationDocument(
     select: {
       id: true,
       status: true,
+      policeVerificationDocumentKey: true,
     },
   });
 
@@ -788,7 +789,7 @@ async uploadPoliceVerificationDocument(
   }
 
   const result =
-    await this.storageService.uploadPrivateObject(
+    await this.storageService.uploadKycDocument(
       file.buffer,
       file.mimetype,
       `kyc/${worker.id}/police-verification`,
@@ -807,7 +808,6 @@ async uploadPoliceVerificationDocument(
   return {
     message:
       'Police verification document uploaded successfully',
-    documentKey: result.key,
   };
 }
 
