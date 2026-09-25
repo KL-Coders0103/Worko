@@ -12,7 +12,7 @@ import {Namespace, Socket} from 'socket.io';
 
 import {AuthJwtService} from '../auth/jwt.service';
 import {PrismaService} from '../common/prisma/prisma.service';
-import {parseCorsOrigins} from '../config/configuration';
+import configuration, {parseCorsOrigins} from '../config/configuration';
 
 type SocketUser = {
   sub: string;
@@ -28,7 +28,7 @@ type SocketUser = {
         return;
       }
 
-      const allowedOrigins = parseCorsOrigins(process.env.CORS_ORIGINS);
+      const allowedOrigins = parseCorsOrigins(configuration().app.corsOrigins.join(','));
 
       callback(
         null,
