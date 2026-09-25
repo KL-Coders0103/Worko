@@ -218,6 +218,38 @@ export class BookingsService {
     return this.toBookingResponse(completed, 'WORKER');
   }
 
+  async releasePayment(
+    clientUserId: string,
+    bookingId: string,
+  ) {
+    await this.getOwnedBooking(clientUserId, 'CLIENT', bookingId);
+
+    const updated = await this.prisma.$transaction(async tx => {
+      const booking = await tx.booking.findUnique({
+        where: { id: bookingId },
+        include: { payment: true },
+      });
+
+      if (!booking) {
+        throw new NotFoundException('Booking not found');
+      }
+
+      if (!booking.payment || booking.payment.status !== 'SUCCESS') {
+        throw new BadRequestException(
+          'Payment must be successful before it can be released',
+        );
+      }
+
+      return this.transitionBookingInTransaction(
+        tx,
+        bookingId,
+        BookingStatus.PAYMENT_RELEASED,
+      );
+    });
+
+    return this.toBookingResponse(updated, 'CLIENT');
+  }
+
   async cancelBooking(
     userId: string,
     role: BookingRole,
