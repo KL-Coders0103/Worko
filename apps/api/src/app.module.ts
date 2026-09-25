@@ -18,6 +18,7 @@ import { AdminModule } from './admin/admin.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { StorageModule } from './storage/storage.module';
 import { RequirementsModule } from './requirements/requirements.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
   imports: [
@@ -39,7 +40,8 @@ import { RequirementsModule } from './requirements/requirements.module';
     AdminModule,
     PrismaModule,
     StorageModule,
-    RequirementsModule
+    RequirementsModule,
+    RealtimeModule
   ],
   controllers: [AppController],
   providers: [AppService],
