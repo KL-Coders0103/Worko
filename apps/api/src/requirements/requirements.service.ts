@@ -1063,6 +1063,9 @@ export class RequirementsService {
       address: requirement.address,
       latitude: requirement.latitude,
       longitude: requirement.longitude,
+      cancelledAt: requirement.cancelledAt ?? null,
+      cancellationReason: requirement.cancellationReason ?? null,
+      completedAt: requirement.completedAt ?? null,
       createdAt: requirement.createdAt,
       updatedAt: requirement.updatedAt,
       booking: requirement.booking
@@ -1092,7 +1095,8 @@ export class RequirementsService {
     workerId: string,
   ): WorkerRequirementResponseDto {
     const assignment = requirement.assignments.find(
-      item => item.workerId === workerId,
+      (item: {workerId: string}) =>
+        item.workerId === workerId,
     );
 
     return {
@@ -1110,6 +1114,9 @@ export class RequirementsService {
       address: requirement.address,
       latitude: requirement.latitude,
       longitude: requirement.longitude,
+      cancelledAt: requirement.cancelledAt ?? null,
+      cancellationReason: requirement.cancellationReason ?? null,
+      completedAt: requirement.completedAt ?? null,
       createdAt: requirement.createdAt,
       updatedAt: requirement.updatedAt,
       assignment: assignment
