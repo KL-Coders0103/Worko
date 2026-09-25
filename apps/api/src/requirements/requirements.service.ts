@@ -651,13 +651,13 @@ export class RequirementsService {
       );
     }
 
-    if (
-      [
-        RequirementStatus.MATCHED,
-        RequirementStatus.COMPLETED,
-        RequirementStatus.CANCELLED,
-      ].includes(requirement.status)
-    ) {
+    const nonCancellableStatuses: RequirementStatus[] = [
+      RequirementStatus.MATCHED,
+      RequirementStatus.COMPLETED,
+      RequirementStatus.CANCELLED,
+    ];
+
+    if (nonCancellableStatuses.includes(requirement.status)) {
       throw new BadRequestException(
         'Requirement cannot be cancelled in its current state',
       );
