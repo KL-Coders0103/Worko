@@ -1,4 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomUUID } from 'crypto';
 import { PrismaService } from '../common/prisma/prisma.service';
@@ -15,6 +16,7 @@ export class AuthJwtService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
   ) {}
 
   async verifyAccessToken(token: string): Promise<AccessTokenPayload> {
@@ -24,7 +26,7 @@ export class AuthJwtService {
       payload = await this.jwtService.verifyAsync<AccessTokenPayload>(
         token,
         {
-          secret: process.env.JWT_ACCESS_SECRET,
+          secret: this.getAccessSecret(),
         },
       );
     } catch {
@@ -69,7 +71,7 @@ export class AuthJwtService {
         jti,
       },
       {
-        secret: process.env.JWT_ACCESS_SECRET,
+        secret: this.getAccessSecret(),
         expiresIn: AUTH_CONSTANTS.accessTokenExpiresIn,
       },
     );
@@ -142,7 +144,7 @@ export class AuthJwtService {
         jti: accessJti,
       },
       {
-        secret: process.env.JWT_ACCESS_SECRET,
+        secret: this.getAccessSecret(),
         expiresIn: AUTH_CONSTANTS.accessTokenExpiresIn,
       },
     );
@@ -215,6 +217,19 @@ export class AuthJwtService {
         revokedAt: new Date(),
       },
     });
+  }
+
+  private getAccessSecret(): string {
+    const secret =
+      this.configService.get<string>('auth.jwtAccessSecret');
+
+    if (!secret) {
+      throw new Error(
+        'JWT_ACCESS_SECRET is not configured',
+      );
+    }
+
+    return secret;
   }
 
   private generateRefreshToken(): string {
