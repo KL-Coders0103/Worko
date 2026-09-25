@@ -1,5 +1,5 @@
 import {BadRequestException, Body, Controller, Headers, Post, Req} from '@nestjs/common';
-import {Request} from 'express';
+import type {Request} from 'express';
 import {PaymentWebhookDto} from './dto/payment-webhook.dto';
 import {PaymentWebhookService} from './payment-webhook.service';
 
