@@ -582,6 +582,6 @@ export class PaymentsService {
     result.payment.status,
   );
 
-  return result;
+  return {payment: toPaymentResponse(result.payment)};
 }
 }
