@@ -19,7 +19,7 @@ import { WalletService } from '../wallet/wallet.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { REALTIME_EVENTS } from '../realtime/realtime.types';
 import {assertPaymentTransition} from './payment-state-machine';
-import {PaymentProvider} from './payment-provider.interface';
+import type {PaymentProvider} from './payment-provider.interface';
 import {PAYMENT_PROVIDER} from './payment-provider.token';
 import {toPaymentResponse} from './dto/payment-response.dto';
 
