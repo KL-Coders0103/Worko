@@ -58,6 +58,7 @@ export class WorkersController {
   ) {
     return this.workersService.createProfile(
       request.user.sub,
+      dto,
     );
   }
 
@@ -123,11 +124,9 @@ export class WorkersController {
   @Version('1')
   submitKycDocuments(
     @Req() request: AuthenticatedRequest,
-    
   ) {
     return this.workersService.submitKycDocuments(
       request.user.sub,
-      dto,
     );
   }
 
