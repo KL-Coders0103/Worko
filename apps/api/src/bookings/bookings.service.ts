@@ -11,6 +11,7 @@ import { BookingActionDto } from './dto/booking-action.dto';
 import { BookingResponseDto } from './dto/booking-response.dto';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { REALTIME_EVENTS } from '../realtime/realtime.types';
+import { WalletService } from '../wallet/wallet.service';
 
 interface BookingResponse extends BookingResponseDto {
   id: string;
