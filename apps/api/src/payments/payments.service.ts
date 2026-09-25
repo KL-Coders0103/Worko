@@ -15,12 +15,15 @@ import {PrismaService} from '../common/prisma/prisma.service';
 import {CreatePaymentDto} from './dto/create-payment.dto';
 import {PaymentActionDto} from './dto/payment-action.dto';
 import { WalletService } from '../wallet/wallet.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { REALTIME_EVENTS } from '../realtime/realtime.types';
 
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly walletService: WalletService,
+    private readonly realtime: RealtimeGateway,
   ) {}
 
   async createPayment(
@@ -139,6 +142,8 @@ export class PaymentsService {
             dto.idempotencyKey,
         },
       });
+
+    await this.notifyPaymentStatusChanged(payment.id, payment.status);
 
     return {
       payment,
@@ -288,9 +293,47 @@ export class PaymentsService {
         },
       });
 
+    await this.notifyPaymentStatusChanged(updated.id, updated.status);
+
     return {
       payment: updated,
     };
+  }
+
+  private async notifyPaymentStatusChanged(
+    paymentId: string,
+    status: PaymentStatus,
+  ) {
+    const payment = await this.prisma.payment.findUnique({
+      where: {id: paymentId},
+      select: {
+        booking: {
+          select: {
+            client: {select: {userId: true}},
+            worker: {select: {userId: true}},
+          },
+        },
+      },
+    });
+
+    if (!payment) {
+      return;
+    }
+
+    this.realtime.notifyUsers(
+      [
+        payment.booking.client.userId,
+        ...(payment.booking.worker?.userId
+          ? [payment.booking.worker.userId]
+          : []),
+      ],
+      REALTIME_EVENTS.PAYMENT_STATUS_CHANGED,
+      {
+        paymentId,
+        status,
+        changedAt: new Date(),
+      },
+    );
   }
 
   private calculateBookingAmount(
@@ -577,5 +620,12 @@ export class PaymentsService {
       };
     },
   );
+
+  await this.notifyPaymentStatusChanged(
+    result.payment.id,
+    result.payment.status,
+  );
+
+  return result;
 }
 }
