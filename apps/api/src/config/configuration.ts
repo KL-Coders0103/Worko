@@ -1,4 +1,4 @@
-function parseCorsOrigins(value: string | undefined): string[] {
+export function parseCorsOrigins(value: string | undefined): string[] {
   if (!value?.trim()) {
     return [];
   }
