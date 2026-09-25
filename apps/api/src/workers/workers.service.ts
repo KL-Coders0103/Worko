@@ -827,6 +827,7 @@ async uploadProfilePhoto(
     select: {
       id: true,
       status: true,
+      profilePhotoKey: true,
     },
   });
 
