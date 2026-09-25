@@ -538,6 +538,11 @@ export class PaymentsService {
        * happen inside the same DB transaction.
        */
 
+      assertPaymentTransition(
+        PaymentStatus.PROCESSING,
+        PaymentStatus.SUCCESS,
+      );
+
       const updatedPayment =
         await tx.payment.update({
           where: {
