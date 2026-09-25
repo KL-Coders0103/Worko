@@ -76,6 +76,13 @@ export function validateEnv(env: Record<string, unknown>): Record<string, unknow
   }
 
   const webhookSecret = optionalValue(env, 'PAYMENT_WEBHOOK_SECRET');
+  const demoPayments = optionalValue(env, 'PAYMENT_DEMO_ENABLED') ?? 'false';
+  if (!['true', 'false'].includes(demoPayments.toLowerCase())) {
+    throw new Error('PAYMENT_DEMO_ENABLED must be true or false');
+  }
+  if (nodeEnv === 'production' && demoPayments.toLowerCase() === 'true') {
+    throw new Error('PAYMENT_DEMO_ENABLED must be false in production');
+  }
   if (webhookSecret && webhookSecret.length < 32) {
     throw new Error('PAYMENT_WEBHOOK_SECRET must be at least 32 characters');
   }
