@@ -783,6 +783,21 @@ export class RequirementsService {
       );
     }
 
+    const offeredAssignments =
+      await this.prisma.requirementAssignment.findMany({
+        where: {
+          requirementId,
+          status: RequirementAssignmentStatus.OFFERED,
+        },
+        select: {
+          worker: {
+            select: {
+              userId: true,
+            },
+          },
+        },
+      });
+
     await this.prisma.$transaction([
       this.prisma.requirement.update({
         where: {id: requirementId},
@@ -810,8 +825,8 @@ export class RequirementsService {
       }),
     ]);
 
-    await this.realtime.notifyUser(
-      userId,
+    this.realtime.notifyUsers(
+      offeredAssignments.map(item => item.worker.userId),
       REALTIME_EVENTS.REQUIREMENT_CANCELLED,
       {
         requirementId,
