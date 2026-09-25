@@ -73,7 +73,6 @@ export class ReelsService {
       return {
         id: reel.id,
         status: reel.status,
-        videoKey: reel.videoKey,
         mimeType: reel.mimeType,
         fileSizeBytes: reel.fileSizeBytes?.toString(),
         createdAt: reel.createdAt,
@@ -89,69 +88,25 @@ export class ReelsService {
 
   async getReelById(reelId: string) {
     const reel = await this.prisma.reel.findUnique({
-      where: {
-        id: reelId,
-      },
-      include: {
-        worker: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-              },
-            },
-          },
-        },
+      where: { id: reelId },
+      select: {
+        id: true,
+        status: true,
+        title: true,
+        description: true,
+        mimeType: true,
+        durationSeconds: true,
+        publishedAt: true,
+        createdAt: true,
       },
     });
 
     if (!reel) {
-      throw new NotFoundException(
-        'Reel not found.',
-      );
+      throw new NotFoundException('Reel not found.');
     }
 
     return reel;
   }
-
-  async getWorkerReels(workerId: string) {
-  const reels = await this.prisma.reel.findMany({
-    where: {
-      workerId,
-      status: 'PUBLISHED',
-    },
-    orderBy: [
-      {
-        publishedAt: 'desc',
-      },
-      {
-        createdAt: 'desc',
-      },
-    ],
-    include: {
-      worker: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  return reels.map(reel => ({
-    ...reel,
-    fileSizeBytes:
-      reel.fileSizeBytes?.toString() ?? null,
-  }));
-}
-
 
   async updateReel(
   userId: string,
@@ -439,156 +394,80 @@ async getFeed(
   cursor?: string,
   userId?: string,
 ) {
-  const safeLimit = Math.min(
-    Math.max(limit, 1),
-    20,
-  );
+  const safeLimit = Math.min(Math.max(limit, 1), 20);
 
   let cursorReel:
-    | {
-        id: string;
-        publishedAt: Date | null;
-        createdAt: Date;
-      }
+    | { id: string; publishedAt: Date | null; createdAt: Date }
     | null = null;
 
   if (cursor) {
-    cursorReel =
-      await this.prisma.reel.findUnique({
-        where: {
-          id: cursor,
-        },
-        select: {
-          id: true,
-          publishedAt: true,
-          createdAt: true,
-        },
-      });
+    cursorReel = await this.prisma.reel.findUnique({
+      where: { id: cursor },
+      select: { id: true, publishedAt: true, createdAt: true },
+    });
 
     if (!cursorReel) {
-      throw new BadRequestException(
-        'Invalid feed cursor.',
-      );
+      throw new BadRequestException('Invalid feed cursor.');
     }
   }
 
-  const reels =
-    await this.prisma.reel.findMany({
-      where: {
-        status: 'PUBLISHED',
-        publishedAt: {
-          not: null,
-        },
-
-        ...(cursorReel
-          ? {
-              OR: [
-                {
-                  publishedAt: {
-                    lt: cursorReel.publishedAt!,
-                  },
-                },
-                {
-                  publishedAt:
-                    cursorReel.publishedAt,
-                  createdAt: {
-                    lt: cursorReel.createdAt,
-                  },
-                },
-                {
-                  publishedAt:
-                    cursorReel.publishedAt,
-                  createdAt:
-                    cursorReel.createdAt,
-                  id: {
-                    lt: cursorReel.id,
-                  },
-                },
-              ],
-            }
-          : {}),
-      },
-
-      orderBy: [
-        {
-          publishedAt: 'desc',
-        },
-        {
-          createdAt: 'desc',
-        },
-        {
-          id: 'desc',
-        },
-      ],
-
-      take: safeLimit + 1,
-
-      include: {
-        worker: {
-          select: {
-            id: true,
-            profilePhotoKey: true,
-            bio: true,
-            expectedHourlyRate: true,
-            expectedDailyRate: true,
-
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
+  const reels = await this.prisma.reel.findMany({
+    where: {
+      status: 'PUBLISHED',
+      publishedAt: { not: null },
+      ...(cursorReel
+        ? {
+            OR: [
+              { publishedAt: { lt: cursorReel.publishedAt! } },
+              {
+                publishedAt: cursorReel.publishedAt,
+                createdAt: { lt: cursorReel.createdAt },
               },
-            },
-          },
-        },
-
-        likes: {
-          where: {
-            status: 'ACTIVE',
-          },
-          select: {
-            userId: true,
-          },
-        },
+              {
+                publishedAt: cursorReel.publishedAt,
+                createdAt: cursorReel.createdAt,
+                id: { lt: cursorReel.id },
+              },
+            ],
+          }
+        : {}),
+    },
+    orderBy: [
+      { publishedAt: 'desc' },
+      { createdAt: 'desc' },
+      { id: 'desc' },
+    ],
+    take: safeLimit + 1,
+    include: {
+      likes: {
+        where: { status: 'ACTIVE' },
+        select: { userId: true },
       },
-    });
+    },
+  });
 
-  const hasMore =
-    reels.length > safeLimit;
-
-  const items = hasMore
-    ? reels.slice(0, safeLimit)
-    : reels;
-
+  const hasMore = reels.length > safeLimit;
+  const items = hasMore ? reels.slice(0, safeLimit) : reels;
   const nextCursor =
     hasMore && items.length > 0
       ? items[items.length - 1].id
       : null;
 
-  const mappedItems = items.map((reel) => ({
-    id: reel.id,
-    status: reel.status,
-    title: reel.title,
-    description: reel.description,
-    videoKey: reel.videoKey,
-    thumbnailKey: reel.thumbnailKey,
-    durationSeconds: reel.durationSeconds,
-    publishedAt: reel.publishedAt,
-    createdAt: reel.createdAt,
-
-    worker: reel.worker,
-
-    likes: reel.likes.length,
-
-    liked: userId
-      ? reel.likes.some(
-          (like) => like.userId === userId,
-        )
-      : false,
-  }));
-
   return {
-    items: mappedItems,
+    items: items.map(reel => ({
+      id: reel.id,
+      status: reel.status,
+      title: reel.title,
+      description: reel.description,
+      durationSeconds: reel.durationSeconds,
+      publishedAt: reel.publishedAt,
+      createdAt: reel.createdAt,
+      likes: reel.likes.length,
+      liked: userId
+        ? reel.likes.some(like => like.userId === userId)
+        : false,
+      videoPath: `/api/v1/reels/${reel.id}/video`,
+    })),
     nextCursor,
     hasMore,
   };
