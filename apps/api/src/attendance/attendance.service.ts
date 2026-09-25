@@ -782,8 +782,8 @@ async getAttendanceEvidence(
   }
 
   if (
-    booking.client.userId !== userId && !booking.worker ||
-    booking.worker.userId !== userId
+    booking.client.userId !== userId &&
+    booking.worker?.userId !== userId
   ) {
     throw new ForbiddenException(
       'You do not have access to this booking',
