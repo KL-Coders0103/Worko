@@ -16,12 +16,15 @@ export class OtpDeliveryService {
   ) {
     // Configure Nodemailer to use your free Gmail account
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: {
         user: 'lovesh.m.bodhani@gmail.com', 
         pass: 'gpalqsxjhtcgcshy', 
       },
-    });
+      family: 4,
+    } as any);
   }
 
   async sendOtp(params: {
