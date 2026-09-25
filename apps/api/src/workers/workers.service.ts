@@ -705,6 +705,7 @@ async uploadAadhaarDocument(
     select: {
       id: true,
       status: true,
+      aadhaarDocumentKey: true,
     },
   });
 
