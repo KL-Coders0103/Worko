@@ -7,6 +7,7 @@ import {WalletService} from '../wallet/wallet.service';
 import {RealtimeGateway} from '../realtime/realtime.gateway';
 import {REALTIME_EVENTS} from '../realtime/realtime.types';
 import {PaymentWebhookDto, PaymentWebhookEventType} from './dto/payment-webhook.dto';
+import {assertPaymentTransition} from './payment-state-machine';
 
 @Injectable()
 export class PaymentWebhookService {
@@ -50,6 +51,8 @@ export class PaymentWebhookService {
       const target = dto.type === PaymentWebhookEventType.PAYMENT_SUCCEEDED
         ? PaymentStatus.SUCCESS
         : PaymentStatus.FAILED;
+
+      assertPaymentTransition(payment.status, target);
 
       if (payment.status !== PaymentStatus.PROCESSING) {
         throw new BadRequestException(
