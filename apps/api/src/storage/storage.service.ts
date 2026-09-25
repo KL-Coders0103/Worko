@@ -35,6 +35,42 @@ export class StorageService {
     );
   }
 
+  async uploadKycDocument(buffer: Buffer, contentType: string, folder: string, originalName?: string) {
+    this.validateKycDocument(buffer, contentType);
+    return this.cloudinaryStorage.upload(buffer, contentType, folder, originalName);
+  }
+
+  async uploadProfileImage(buffer: Buffer, contentType: string, folder: string, originalName?: string) {
+    this.validateImage(buffer, contentType, 5 * 1024 * 1024);
+    return this.cloudinaryStorage.upload(buffer, contentType, folder, originalName);
+  }
+
+  private validateKycDocument(buffer: Buffer, contentType: string): void {
+    const normalized = contentType.toLowerCase();
+    if (!buffer?.length || buffer.length > 5 * 1024 * 1024) {
+      throw new BadRequestException('KYC document must be between 1 byte and 5 MB');
+    }
+    const pdf = normalized === 'application/pdf' && buffer.subarray(0, 5).toString() === '%PDF-';
+    const jpeg = normalized === 'image/jpeg' && buffer.subarray(0, 3).equals(Buffer.from([255, 216, 255]));
+    const png = normalized === 'image/png' && buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    if (!pdf && !jpeg && !png) {
+      throw new BadRequestException('KYC document content does not match its declared file type');
+    }
+  }
+
+  private validateImage(buffer: Buffer, contentType: string, maxSize: number): void {
+    const normalized = contentType.toLowerCase();
+    if (!buffer?.length || buffer.length > maxSize) {
+      throw new BadRequestException('Image is empty or exceeds the allowed size');
+    }
+    const jpeg = normalized === 'image/jpeg' && buffer.subarray(0, 3).equals(Buffer.from([255, 216, 255]));
+    const png = normalized === 'image/png' && buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    const webp = normalized === 'image/webp' && buffer.subarray(0, 4).toString() === 'RIFF' && buffer.subarray(8, 12).toString() === 'WEBP';
+    if (!jpeg && !png && !webp) {
+      throw new BadRequestException('Image content does not match its declared file type');
+    }
+  }
+
   async downloadPrivateObject(key: string) {
     return this.cloudinaryStorage.download(key);
   }
