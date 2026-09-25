@@ -9,11 +9,12 @@ import {
   UploadedFile,
   UseGuards,
   Param,
+  Res,
   UseInterceptors,
   Version,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles, RolesGuard } from '../auth/guards/role.guards';
@@ -286,6 +287,28 @@ uploadProfilePhoto(
       file,
     );
   }
+  @Get(':workerId/kyc/:documentType')
+  @Version('1')
+  @Roles('ADMIN', 'OPERATIONS', 'SUPER_ADMIN')
+  async getKycDocument(
+    @Param('workerId') workerId: string,
+    @Param('documentType') documentType: string,
+    @Res() response: Response,
+  ) {
+    if (documentType !== 'aadhaar' && documentType !== 'policeVerification') {
+      throw new BadRequestException('Invalid KYC document type');
+    }
+
+    const file = await this.workersService.getKycDocument(
+      workerId,
+      documentType,
+    );
+
+    response.setHeader('Content-Type', file.contentType);
+    response.setHeader('Content-Disposition', 'inline');
+    return response.send(file.buffer);
+  }
+
   @Get('kyc/pending')
   @Version('1')
   @Roles('ADMIN', 'OPERATIONS', 'SUPER_ADMIN')
