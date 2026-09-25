@@ -3,7 +3,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { BookingStatus, RequirementAssignmentStatus, RequirementStatus, WorkerStatus } from '@prisma/client';
+import { RequirementAssignmentStatus, RequirementStatus, WorkerStatus } from '@prisma/client';
 
 import { RequirementsService } from './requirements.service';
 
