@@ -3,36 +3,21 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { RequirementAssignmentStatus, RequirementStatus, WorkerStatus } from '@prisma/client';
+import {
+  RequirementAssignmentStatus,
+  RequirementStatus,
+  WorkerStatus,
+} from '@prisma/client';
 
 import { RequirementsService } from './requirements.service';
 
-describe('RequirementsService authorization and matching boundaries', () => {
+describe('RequirementsService authorization boundaries', () => {
   const prisma = {
-    client: { findUnique: jest.fn() },
-    worker: { findUnique: jest.fn(), findMany: jest.fn() },
-    category: { findFirst: jest.fn() },
-    skill: { findFirst: jest.fn() },
-    requirement: {
-      create: jest.fn(),
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      update: jest.fn(),
-      updateMany: jest.fn(),
-    },
-    requirementAssignment: {
-      findUnique: jest.fn(),
-      updateMany: jest.fn(),
-      update: jest.fn(),
-      upsert: jest.fn(),
-      count: jest.fn(),
-    },
-    booking: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      create: jest.fn(),
-    },
-    attendance: { create: jest.fn() },
+    client: {findUnique: jest.fn()},
+    worker: {findUnique: jest.fn()},
+    requirement: {findUnique: jest.fn()},
+    requirementAssignment: {findUnique: jest.fn()},
+    booking: {findUnique: jest.fn(), findFirst: jest.fn()},
     $transaction: jest.fn(),
   };
 
@@ -45,7 +30,10 @@ describe('RequirementsService authorization and matching boundaries', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new RequirementsService(prisma as never, realtime as never);
+    service = new RequirementsService(
+      prisma as never,
+      realtime as never,
+    );
   });
 
   it('rejects worker access when the worker has no assignment', async () => {
@@ -69,7 +57,7 @@ describe('RequirementsService authorization and matching boundaries', () => {
       id: 'worker-1',
       status: WorkerStatus.REJECTED,
       isAvailable: false,
-      user: { status: 'ACTIVE' },
+      user: {status: 'ACTIVE'},
     });
 
     await expect(
@@ -84,10 +72,17 @@ describe('RequirementsService authorization and matching boundaries', () => {
       id: 'worker-1',
       status: WorkerStatus.VERIFIED,
       isAvailable: true,
-      user: { status: 'ACTIVE' },
+      user: {status: 'ACTIVE'},
     });
 
-    prisma.requirementAssignment.findUnique.mockResolvedValue({
+    const scheduledStart = new Date(
+      Date.now() + 60 * 60 * 1000,
+    );
+    const scheduledEnd = new Date(
+      Date.now() + 2 * 60 * 60 * 1000,
+    );
+
+    const assignment = {
       id: 'assignment-1',
       workerId: 'worker-1',
       status: RequirementAssignmentStatus.OFFERED,
@@ -101,49 +96,36 @@ describe('RequirementsService authorization and matching boundaries', () => {
         skillName: null,
         title: 'Repair',
         description: null,
-        scheduledStart: new Date(Date.now() + 60 * 60 * 1000),
-        scheduledEnd: new Date(Date.now() + 2 * 60 * 60 * 1000),
+        scheduledStart,
+        scheduledEnd,
         address: 'Work address',
         latitude: null,
         longitude: null,
       },
-    });
+    };
+
+    const tx = {
+      requirementAssignment: {
+        findUnique: jest.fn().mockResolvedValue(assignment),
+      },
+      booking: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'booking-conflict',
+        }),
+      },
+    };
 
     prisma.$transaction.mockImplementation(
-      async (callback: (tx: unknown) => unknown) =>
-        callback({
-          requirementAssignment: {
-            findUnique: jest.fn().mockResolvedValue({
-              id: 'assignment-1',
-              workerId: 'worker-1',
-              status: RequirementAssignmentStatus.OFFERED,
-              requirement: {
-                id: 'req-1',
-                clientId: 'client-1',
-                status: RequirementStatus.MATCHING,
-                categoryId: 'cat-1',
-                categoryName: 'Plumbing',
-                skillId: null,
-                skillName: null,
-                title: 'Repair',
-                description: null,
-                scheduledStart: new Date(Date.now() + 60 * 60 * 1000),
-                scheduledEnd: new Date(Date.now() + 2 * 60 * 60 * 1000),
-                address: 'Work address',
-                latitude: null,
-                longitude: null,
-              },
-            }),
-          },
-          booking: {
-            findUnique: jest.fn().mockResolvedValue(null),
-            findFirst: jest.fn().mockResolvedValue({ id: 'booking-conflict' }),
-          },
-        }),
+      async (
+        callback: (client: typeof tx) => unknown,
+      ) => callback(tx),
     );
 
     await expect(
       service.accept('worker-user-1', 'req-1'),
     ).rejects.toThrow(BadRequestException);
+
+    expect(tx.booking.findFirst).toHaveBeenCalled();
   });
 });
