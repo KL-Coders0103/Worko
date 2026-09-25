@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
@@ -25,6 +26,13 @@ import { RealtimeModule } from './realtime/realtime.module';
       isGlobal: true,
       cache: true,
     }),
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60_000,
+        limit: 60,
+      },
+    ]),
     HealthModule,
     AuthModule,
     WorkersModule,
@@ -39,7 +47,7 @@ import { RealtimeModule } from './realtime/realtime.module';
     PrismaModule,
     StorageModule,
     RequirementsModule,
-    RealtimeModule
+    RealtimeModule,
   ],
   controllers: [AppController],
   providers: [AppService],
