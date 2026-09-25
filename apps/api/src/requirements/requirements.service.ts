@@ -1013,14 +1013,7 @@ export class RequirementsService {
         candidates.map(
           candidate =>
             this.prisma.requirementAssignment.create({
-              where: {
-                requirementId_workerId: {
-                  requirementId,
-                  workerId:
-                    candidate.workerId,
-                },
-              },
-              create: {
+              data: {
                 requirementId,
                 workerId:
                   candidate.workerId,
