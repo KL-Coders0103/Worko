@@ -178,7 +178,7 @@ export class PaymentsService {
     await this.assertPaymentAccess(
       userId,
       payment.booking.clientId,
-      payment.booking.workerId,
+      payment.booking.workerId!,
     );
 
     return {
@@ -211,7 +211,7 @@ export class PaymentsService {
     await this.assertPaymentAccess(
       userId,
       booking.clientId,
-      booking.workerId,
+      booking.workerId!,
     );
 
     const payment =
@@ -255,7 +255,7 @@ export class PaymentsService {
     await this.assertPaymentAccess(
       userId,
       payment.booking.clientId,
-      payment.booking.workerId,
+      payment.booking.workerId!,
     );
 
     if (
@@ -547,7 +547,7 @@ export class PaymentsService {
       const worker =
         await tx.worker.findUnique({
           where: {
-            id: payment.booking.workerId,
+            id: payment.booking.workerId!,
           },
           select: {
             userId: true,

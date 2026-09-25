@@ -18,6 +18,7 @@ import { ReelsModule } from './reels/reels.module';
 import { AdminModule } from './admin/admin.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { StorageModule } from './storage/storage.module';
+import { RadarGateway } from './bookings/radar.gateway';
 
 @Module({
   imports: [
@@ -42,7 +43,7 @@ import { StorageModule } from './storage/storage.module';
     StorageModule
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, RadarGateway],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

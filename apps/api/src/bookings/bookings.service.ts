@@ -384,7 +384,7 @@ export class BookingsService {
     await this.assertOwnership(
       userId,
       role,
-      booking,
+      {...booking, workerId: booking.workerId! }
     );
 
     return booking;
@@ -426,7 +426,7 @@ export class BookingsService {
             },
             create: {
               bookingId: booking.id,
-              workerId: booking.workerId,
+              workerId: booking.workerId!,
               status: 'NOT_STARTED',
             },
             update: {},
@@ -498,7 +498,7 @@ export class BookingsService {
     await this.assertOwnership(
       userId,
       role,
-      booking,
+      {...booking, workerId: booking.workerId!}
     );
 
     if (
