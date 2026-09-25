@@ -2,15 +2,27 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import {ConfigService} from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
+import * as nodemailer from 'nodemailer';
 
 export type OtpChannel = 'EMAIL' | 'SMS';
 
 @Injectable()
 export class OtpDeliveryService {
+  private transporter: nodemailer.Transporter;
+
   constructor(
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    // Configure Nodemailer to use your free Gmail account
+    this.transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: 'lovesh.m.bodhani@gmail.com', 
+        pass: 'gpalqsxjhtcgcshy', 
+      },
+    });
+  }
 
   async sendOtp(params: {
     channel: OtpChannel;
@@ -31,55 +43,22 @@ export class OtpDeliveryService {
     otp: string;
     purpose: string;
   }): Promise<void> {
-    const apiKey =
-      this.configService.get<string>(
-        'RESEND_API_KEY',
-      );
+    try {
+      await this.transporter.sendMail({
+        from: '"WORKO" <lovesh.m.bodhani@gmail.com>',
+        to: params.destination, // This will now send to ANY email address!
+        subject: 'Your Worko verification code',
+        html: this.buildEmailHtml(
+          params.otp,
+          params.purpose,
+        ),
+      });
 
-    const fromEmail =
-      this.configService.get<string>(
-        'RESEND_FROM_EMAIL',
-      );
-
-    if (!apiKey || !fromEmail) {
+      console.log(`[SUCCESS] Email OTP sent to ${params.destination}`);
+    } catch (error) {
+      console.error('[OTP EMAIL ERROR]', error);
       throw new InternalServerErrorException(
-        'Email OTP service is not configured',
-      );
-    }
-
-    const response = await fetch(
-      'https://api.resend.com/emails',
-      {
-        method: 'POST',
-
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-
-        body: JSON.stringify({
-          from: fromEmail,
-          to: [params.destination],
-          subject: 'Your Worko verification code',
-          html: this.buildEmailHtml(
-            params.otp,
-            params.purpose,
-          ),
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-
-      console.error(
-        '[OTP EMAIL ERROR]',
-        response.status,
-        errorBody,
-      );
-
-      throw new InternalServerErrorException(
-        'Unable to send OTP email',
+        'Unable to send OTP email. Please check your Gmail App Password.',
       );
     }
   }

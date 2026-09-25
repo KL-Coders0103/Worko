@@ -1,30 +1,58 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Switch, Alert } from 'react-native';
 import { colors } from '../../../theme';
 import { WorkerIncomingJobModal } from '../components/WorkerIncomingJobModal';
+import { socketService } from '../../../services/socketService';
+import { useAuth } from '../../../context/AuthContext';
 
 export function WorkerHomeScreen() {
   const [isOnline, setIsOnline] = useState(false);
   const [incomingJob, setIncomingJob] = useState<any>(null);
 
-  const triggerSimulatedPing = () => {
-    if (!isOnline) {
-      Alert.alert("Offline", "You must be online to receive jobs.");
-      return;
+  const {user} = useAuth();
+
+  const WORKER_ID = user?.id || ''; 
+  const WORKER_NAME = user ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Worker';
+
+  useEffect(() => {
+    if (isOnline) {
+      // Connect to Socket when going online
+      socketService.connect(WORKER_ID, 'WORKER');
+
+      // Listen for incoming jobs
+      socketService.socket?.on('worker:receive_ping', (jobData) => {
+        console.log('Received Ping:', jobData);
+        setIncomingJob({
+          id: jobData.jobId,
+          clientId: jobData.clientId,
+          category: jobData.category,
+          budget: jobData.budget,
+          distance: jobData.distance,
+          clientLocation: jobData.location,
+        });
+      });
+    } else {
+      socketService.disconnect();
     }
-    
-    setIncomingJob({
-      id: Math.random().toString(),
-      category: 'Electrical Wiring',
-      distance: '2.5 km',
-      budget: '₹850',
-      clientLocation: 'Sector 44, Pimpri-Chinchwad, Maharashtra'
-    });
-  };
+
+    return () => {
+      socketService.socket?.off('worker:receive_ping');
+    };
+  }, [isOnline, WORKER_ID]);
 
   const handleAcceptJob = () => {
-    setIncomingJob(null);
-    Alert.alert("Job Accepted!", "Navigating you to the active job tracking screen...");
+    if (incomingJob) {
+      // Send the accept event back to the server
+      socketService.socket?.emit('worker:accept_job', {
+        jobId: incomingJob.id,
+        workerId: WORKER_ID,
+        workerName: WORKER_NAME,
+        rating: '4.8',
+      });
+      
+      setIncomingJob(null);
+      Alert.alert("Job Accepted!", "Navigating you to the active job tracking screen...");
+    }
   };
 
   const handleRejectJob = () => {
@@ -65,13 +93,6 @@ export function WorkerHomeScreen() {
           : "Go online to start receiving work requests in your area."}
       </Text>
 
-      <TouchableOpacity 
-        style={[styles.simButton, { opacity: isOnline ? 1 : 0.5 }]} 
-        onPress={triggerSimulatedPing}
-      >
-        <Text style={styles.simButtonText}>🧪 Simulate Incoming Client Ping</Text>
-      </TouchableOpacity>
-
       <WorkerIncomingJobModal 
         visible={!!incomingJob}
         job={incomingJob}
@@ -83,77 +104,14 @@ export function WorkerHomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-    padding: 20,
-    paddingTop: 60,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  greeting: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statusText: {
-    marginRight: 10,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 40,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-    padding: 20,
-    borderRadius: 12,
-    marginHorizontal: 5,
-    borderWidth: 1,
-    borderColor: '#333',
-    alignItems: 'center',
-  },
-  statLabel: {
-    color: '#888',
-    fontSize: 14,
-    marginBottom: 10,
-  },
-  statValue: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: 'bold',
-  },
-  radarMessage: {
-    color: '#666',
-    fontSize: 16,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-    lineHeight: 24,
-    marginTop: 'auto',
-    marginBottom: 40,
-  },
-  simButton: {
-    backgroundColor: '#333',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#555',
-  },
-  simButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
+  container: { flex: 1, backgroundColor: '#000', padding: 20, paddingTop: 60 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40 },
+  greeting: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
+  statusRow: { flexDirection: 'row', alignItems: 'center' },
+  statusText: { marginRight: 10, fontSize: 14, fontWeight: 'bold' },
+  statsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 40 },
+  statBox: { flex: 1, backgroundColor: '#1A1A1A', padding: 20, borderRadius: 12, marginHorizontal: 5, borderWidth: 1, borderColor: '#333', alignItems: 'center' },
+  statLabel: { color: '#888', fontSize: 14, marginBottom: 10 },
+  statValue: { color: '#fff', fontSize: 22, fontWeight: 'bold' },
+  radarMessage: { color: '#666', fontSize: 16, textAlign: 'center', paddingHorizontal: 20, lineHeight: 24, marginTop: 'auto', marginBottom: 40 },
 });
