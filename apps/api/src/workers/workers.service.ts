@@ -62,7 +62,7 @@ export class WorkersService {
     }
 
     return {
-      worker,
+      worker: this.toSafeWorkerResponse(worker),
     };
   }
 
@@ -117,13 +117,12 @@ export class WorkersService {
         expectedHourlyRate: dto.expectedHourlyRate,
         expectedDailyRate: dto.expectedDailyRate,
         isAvailable: dto.isAvailable ?? true,
-        profilePhotoKey: dto.profilePhotoKey,
       },
     });
 
     return {
       message: 'Worker profile created successfully',
-      worker,
+      worker: this.toSafeWorkerResponse(worker),
     };
   }
 
@@ -157,8 +156,7 @@ export class WorkersService {
         expectedHourlyRate: dto.expectedHourlyRate,
         expectedDailyRate: dto.expectedDailyRate,
         isAvailable: dto.isAvailable,
-        profilePhotoKey: dto.profilePhotoKey,
-      },
+        },
     });
 
     return {
