@@ -810,6 +810,15 @@ export class RequirementsService {
       }),
     ]);
 
+    await this.realtime.notifyUser(
+      userId,
+      REALTIME_EVENTS.REQUIREMENT_CANCELLED,
+      {
+        requirementId,
+        status: RequirementStatus.CANCELLED,
+      },
+    );
+
     return this.getClientRequirement(
       client.id,
       requirementId,
