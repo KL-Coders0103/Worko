@@ -10,25 +10,20 @@ import { AuthService } from './auth.service';
 describe('AuthService security boundaries', () => {
   const prisma = {
     user: {
-      findFirst: jest.fn(),
       findUnique: jest.fn(),
-      delete: jest.fn(),
-      update: jest.fn(),
     },
     otpCode: {
       findFirst: jest.fn(),
       updateMany: jest.fn(),
-      findUnique: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
     },
-    $transaction: jest.fn(),
   };
 
   const jwt = {};
-  const delivery = { sendOtp: jest.fn() };
+  const delivery = {sendOtp: jest.fn()};
   const config = {
-    get: jest.fn().mockReturnValue('0123456789012345678901234567890123456789012345678901234567890123'),
+    get: jest.fn().mockReturnValue(
+      '0123456789012345678901234567890123456789012345678901234567890123',
+    ),
   };
 
   let service: AuthService;
@@ -59,7 +54,7 @@ describe('AuthService security boundaries', () => {
     ).rejects.toThrow(UnauthorizedException);
   });
 
-  it('rejects expired OTPs', async () => {
+  it('rejects expired OTPs and marks them expired', async () => {
     prisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
       status: 'ACTIVE',
@@ -83,10 +78,18 @@ describe('AuthService security boundaries', () => {
       } as never),
     ).rejects.toThrow(BadRequestException);
 
-    expect(prisma.otpCode.updateMany).toHaveBeenCalled();
+    expect(prisma.otpCode.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'otp-1',
+          status: 'ACTIVE',
+        }),
+        data: {status: 'EXPIRED'},
+      }),
+    );
   });
 
-  it('returns too many attempts when the OTP is already at the limit', async () => {
+  it('returns too many attempts when the OTP has reached the limit', async () => {
     prisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
       status: 'ACTIVE',
