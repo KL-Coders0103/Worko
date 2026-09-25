@@ -8,6 +8,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
+import {ConfigService} from '@nestjs/config';
+import {BadRequestException} from '@nestjs/common';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles, RolesGuard } from '../auth/guards/role.guards';
@@ -31,6 +33,7 @@ type AuthenticatedRequest = Request & {
 export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
+    private readonly config: ConfigService,
   ) {}
 
   @Post()
@@ -89,6 +92,10 @@ export class PaymentsController {
     @Param('id') paymentId: string,
     @Body() dto: DemoPaymentDto,
   ) {
+    if (!this.config.get<boolean>('payments.demoEnabled')) {
+      throw new BadRequestException('Demo payments are disabled');
+    }
+
     return this.paymentsService.simulateDemoPayment(
       req.user.sub,
       paymentId,
