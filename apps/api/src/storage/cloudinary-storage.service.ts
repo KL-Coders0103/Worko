@@ -245,6 +245,13 @@ export class CloudinaryStorageService {
     return {
       buffer: Buffer.from(arrayBuffer),
       key,
+      contentType: metadata.resourceType === 'image'
+        ? `image/${metadata.format ?? 'jpeg'}`
+        : metadata.resourceType === 'video'
+          ? `video/${metadata.format ?? 'mp4'}`
+          : metadata.format
+            ? `application/${metadata.format}`
+            : 'application/octet-stream',
     };
   }
 
