@@ -21,6 +21,7 @@ import { REALTIME_EVENTS } from '../realtime/realtime.types';
 import {assertPaymentTransition} from './payment-state-machine';
 import {PaymentProvider} from './payment-provider.interface';
 import {PAYMENT_PROVIDER} from './payment-provider.token';
+import {toPaymentResponse} from './dto/payment-response.dto';
 
 @Injectable()
 export class PaymentsService {
@@ -60,7 +61,7 @@ export class PaymentsService {
         booking.payment.status === PaymentStatus.PROCESSING
       ) {
         if (booking.payment.idempotencyKey === dto.idempotencyKey) {
-          return {payment: booking.payment};
+          return {payment: toPaymentResponse(booking.payment)};
         }
         throw new BadRequestException('A payment is already in progress for this booking');
       }
@@ -89,7 +90,7 @@ export class PaymentsService {
           if (existing.bookingId !== booking.id) {
             throw new BadRequestException('Idempotency key has already been used');
           }
-          return {payment: existing};
+          return {payment: toPaymentResponse(existing)};
         }
       }
       throw error;
@@ -111,11 +112,11 @@ export class PaymentsService {
         failureCode: 'PAYMENT_PROVIDER_ERROR',
         failureMessage: 'Unable to create payment order',
       });
-      return {payment};
+      return {payment: toPaymentResponse(payment)};
     }
 
     await this.notifyPaymentStatusChanged(payment.id, payment.status);
-    return {payment};
+    return {payment: toPaymentResponse(payment)};
   }
 
   async getPayment(
@@ -154,9 +155,7 @@ export class PaymentsService {
       payment.booking.workerId,
     );
 
-    return {
-      payment,
-    };
+    return {payment: toPaymentResponse(payment)};
   }
 
   async getBookingPayment(
@@ -194,9 +193,7 @@ export class PaymentsService {
         },
       });
 
-    return {
-      payment,
-    };
+    return {payment: payment ? toPaymentResponse(payment) : null};
   }
 
   async cancelPayment(userId: string, paymentId: string, dto: PaymentActionDto) {
@@ -228,7 +225,7 @@ export class PaymentsService {
       where: {id: payment.id},
     });
     await this.notifyPaymentStatusChanged(updated.id, updated.status);
-    return {payment: updated};
+    return {payment: toPaymentResponse(updated)};
   }
 
   private async transitionPayment(
