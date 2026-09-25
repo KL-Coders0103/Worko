@@ -62,7 +62,12 @@ export class WorkersService {
     }
 
     return {
-      worker: this.toSafeWorkerResponse(worker),
+      worker: {
+        ...this.toSafeWorkerResponse(worker),
+        user: worker.user,
+        categories: worker.categories,
+        skills: worker.skills,
+      },
     };
   }
 
