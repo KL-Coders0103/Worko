@@ -8,6 +8,32 @@ import { BookingStatus } from '@prisma/client';
 
 import { PrismaService } from '../common/prisma/prisma.service';
 import { BookingActionDto } from './dto/booking-action.dto';
+
+interface BookingResponse {
+  id: string;
+  requirementId: string | null;
+  status: BookingStatus;
+  categoryId: string;
+  categoryName: string;
+  skillId: string | null;
+  skillName: string | null;
+  serviceTitle: string;
+  serviceDescription: string | null;
+  hourlyRate: unknown;
+  dailyRate: unknown;
+  scheduledStart: Date;
+  scheduledEnd: Date;
+  address: string;
+  latitude: unknown;
+  longitude: unknown;
+  completedAt: Date | null;
+  cancelledAt: Date | null;
+  cancellationReason: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  client?: { firstName: string; lastName: string };
+  worker?: { firstName: string; lastName: string };
+}
 import {
   assertBookingTransition,
   getAllowedBookingTransitions,
@@ -35,11 +61,12 @@ export class BookingsService {
         throw new BadRequestException('Client profile not found');
       }
 
-      return this.prisma.booking.findMany({
+      const bookings = await this.prisma.booking.findMany({
         where: { clientId: client.id },
         include: this.bookingInclude(),
         orderBy: { scheduledStart: 'asc' },
       });
+      return bookings.map(booking => this.toBookingResponse(booking, role));
     }
 
     const worker = await this.prisma.worker.findUnique({
@@ -51,11 +78,12 @@ export class BookingsService {
       throw new BadRequestException('Worker profile not found');
     }
 
-    return this.prisma.booking.findMany({
+    const bookings = await this.prisma.booking.findMany({
       where: { workerId: worker.id },
       include: this.bookingInclude(),
       orderBy: { scheduledStart: 'asc' },
     });
+    return bookings.map(booking => this.toBookingResponse(booking, role));
   }
 
   async getBookingById(
@@ -74,7 +102,7 @@ export class BookingsService {
 
     await this.assertOwnership(userId, role, booking);
 
-    return booking;
+    return this.toBookingResponse(booking, role);
   }
 
   async confirmBooking(
@@ -228,11 +256,13 @@ export class BookingsService {
       nextStatus,
     );
 
-    return this.prisma.booking.update({
+    const updated = await this.prisma.booking.update({
       where: { id: booking.id },
       data: { status: nextStatus },
       include: this.bookingInclude(),
     });
+
+    return updated;
   }
 
   getAllowedTransitions(status: BookingStatus) {
@@ -290,6 +320,51 @@ export class BookingsService {
         'You do not have access to this booking',
       );
     }
+  }
+
+  private toBookingResponse(
+    booking: any,
+    role: BookingRole,
+  ): BookingResponse {
+    return {
+      id: booking.id,
+      requirementId: booking.requirementId,
+      status: booking.status,
+      categoryId: booking.categoryId,
+      categoryName: booking.categoryName,
+      skillId: booking.skillId,
+      skillName: booking.skillName,
+      serviceTitle: booking.serviceTitle,
+      serviceDescription: booking.serviceDescription,
+      hourlyRate: booking.hourlyRate,
+      dailyRate: booking.dailyRate,
+      scheduledStart: booking.scheduledStart,
+      scheduledEnd: booking.scheduledEnd,
+      address: booking.address,
+      latitude: booking.latitude,
+      longitude: booking.longitude,
+      completedAt: booking.completedAt,
+      cancelledAt: booking.cancelledAt,
+      cancellationReason: booking.cancellationReason,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt,
+      ...(role === 'CLIENT' && booking.worker
+        ? {
+            worker: {
+              firstName: booking.worker.user.firstName,
+              lastName: booking.worker.user.lastName,
+            },
+          }
+        : {}),
+      ...(role === 'WORKER' && booking.client
+        ? {
+            client: {
+              firstName: booking.client.user.firstName,
+              lastName: booking.client.user.lastName,
+            },
+          }
+        : {}),
+    };
   }
 
   private bookingInclude() {
