@@ -537,6 +537,8 @@ model RequirementAssignment {
   worker Worker @relation(fields: [workerId], references: [id], onDelete: Restrict)
 
   status RequirementAssignmentStatus @default(OFFERED)
+  matchScore Decimal? @db.Decimal(8, 2)
+  distanceKm Decimal? @db.Decimal(8, 2)
   respondedAt DateTime?
   responseReason String? @db.Text
 
