@@ -451,7 +451,7 @@ export class PaymentsService {
   paymentId: string,
   success: boolean,
 ) {
-  return this.prisma.$transaction(
+  const result  = await this.prisma.$transaction(
     async (tx) => {
       const payment =
         await tx.payment.findUnique({
