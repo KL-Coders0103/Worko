@@ -4,25 +4,21 @@ import {
   Get,
   Param,
   Post,
+  Req,
   UseGuards,
   Version,
 } from '@nestjs/common';
+import { Request } from 'express';
 
-
-import {BookingsService} from './bookings.service';
-import {BookingActionDto} from './dto/booking-action.dto';
-
-
-import {Req} from '@nestjs/common';
-import {Request} from 'express';
+import { BookingsService } from './bookings.service';
+import { BookingActionDto } from './dto/booking-action.dto';
 import { Roles, RolesGuard } from '../auth/guards/role.guards';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessTokenPayload } from '../auth/jwt.service';
 
-type AuthenticatedRequest =
-  Request & {
-    user: AccessTokenPayload;
-  };
+type AuthenticatedRequest = Request & {
+  user: AccessTokenPayload;
+};
 
 @Controller('bookings')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -30,7 +26,6 @@ export class BookingsController {
   constructor(
     private readonly bookingsService: BookingsService,
   ) {}
-
 
   @Get()
   @Version('1')
@@ -58,47 +53,42 @@ export class BookingsController {
     );
   }
 
-  @Post(':id/accept')
+  @Post(':id/confirm')
   @Version('1')
-  @Roles('WORKER')
-  acceptBooking(
+  @Roles('CLIENT')
+  confirmBooking(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
   ) {
-    return this.bookingsService.acceptBooking(
+    return this.bookingsService.confirmBooking(
       req.user.sub,
       id,
     );
   }
 
-  @Post(':id/reject')
+  @Post(':id/en-route')
   @Version('1')
   @Roles('WORKER')
-  rejectBooking(
+  markWorkerEnRoute(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
-    @Body() dto: BookingActionDto,
   ) {
-    return this.bookingsService.rejectBooking(
+    return this.bookingsService.markWorkerEnRoute(
       req.user.sub,
       id,
-      dto,
     );
   }
 
-  @Post(':id/cancel')
+  @Post(':id/arrived')
   @Version('1')
-  @Roles('CLIENT', 'WORKER')
-  cancelBooking(
+  @Roles('WORKER')
+  markWorkerArrived(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
-    @Body() dto: BookingActionDto,
   ) {
-    return this.bookingsService.cancelBooking(
+    return this.bookingsService.markWorkerArrived(
       req.user.sub,
-      req.user.role as 'CLIENT' | 'WORKER',
       id,
-      dto,
     );
   }
 
@@ -125,6 +115,22 @@ export class BookingsController {
     return this.bookingsService.completeBooking(
       req.user.sub,
       id,
+    );
+  }
+
+  @Post(':id/cancel')
+  @Version('1')
+  @Roles('CLIENT', 'WORKER')
+  cancelBooking(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() dto: BookingActionDto,
+  ) {
+    return this.bookingsService.cancelBooking(
+      req.user.sub,
+      req.user.role as 'CLIENT' | 'WORKER',
+      id,
+      dto,
     );
   }
 }
