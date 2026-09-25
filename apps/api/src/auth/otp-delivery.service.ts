@@ -153,10 +153,10 @@ If you did not request this code, you can safely ignore this email.
       );
       console.log('========================================');
       console.log('');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(
         '[GMAIL API ERROR]',
-        error?.response?.data || error,
+        error instanceof Error ? error.message : error,
       );
 
       throw new InternalServerErrorException(
