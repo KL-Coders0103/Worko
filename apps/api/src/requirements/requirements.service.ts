@@ -263,7 +263,7 @@ export class RequirementsService {
       );
     }
 
-    return this.prisma.requirement.findMany({
+    const requirements = await this.prisma.requirement.findMany({
       where: {
         assignments: {
           some: {
@@ -278,6 +278,7 @@ export class RequirementsService {
           },
           select: {
             id: true,
+            workerId: true,
             status: true,
             matchScore: true,
             distanceKm: true,
@@ -289,6 +290,13 @@ export class RequirementsService {
         createdAt: 'desc',
       },
     });
+
+    return requirements.map(requirement =>
+      this.toWorkerRequirementResponse(
+        requirement,
+        worker.id,
+      ),
+    );
   }
 
   async getOne(
@@ -776,7 +784,7 @@ export class RequirementsService {
       );
     }
 
-    return this.prisma.$transaction([
+    await this.prisma.$transaction([
       this.prisma.requirement.update({
         where: {id: requirementId},
         data: {
@@ -802,6 +810,11 @@ export class RequirementsService {
         },
       }),
     ]);
+
+    return this.getClientRequirement(
+      client.id,
+      requirementId,
+    );
   }
 
   private async matchWorkers(
