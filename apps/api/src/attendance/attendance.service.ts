@@ -1175,19 +1175,10 @@ async checkOut(
             },
           });
 
-        await tx.attendance.update({
-          where: {
-            id: attendance.id,
-          },
-          data: {
-            status: 'COMPLETED',
-          },
-        });
-
         return {
           attendance: {
             ...attendance,
-            status: 'COMPLETED',
+            status: 'CHECKED_OUT',
           },
           booking: checkedOutBooking,
           paymentReleased: false,
