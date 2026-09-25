@@ -47,6 +47,7 @@ export default () => ({
 
   payments: {
     webhookSecret: process.env.PAYMENT_WEBHOOK_SECRET,
+    demoEnabled: process.env.PAYMENT_DEMO_ENABLED === 'true',
   },
 
   storage: {
