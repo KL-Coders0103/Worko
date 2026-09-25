@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   BookingStatus,
+  Prisma,
   RequirementAssignmentStatus,
   RequirementStatus,
   WorkerStatus,
@@ -382,8 +383,14 @@ export class RequirementsService {
       );
     }
 
-    const result = await this.prisma.$transaction(
-      async tx => {
+    let result: {
+      booking: Awaited<ReturnType<typeof this.prisma.booking.create>>;
+    } | null = null;
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        result = await this.prisma.$transaction(
+          async tx => {
         const assignment =
           await tx.requirementAssignment.findUnique({
             where: {
@@ -538,8 +545,32 @@ export class RequirementsService {
         return {
           booking,
         };
-      },
-    );
+          },
+          {
+            isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+            maxWait: 5000,
+            timeout: 10000,
+          },
+        );
+        break;
+      } catch (error: unknown) {
+        const code =
+          error instanceof Prisma.PrismaClientKnownRequestError
+            ? error.code
+            : null;
+        if (code === 'P2034' && attempt < 3) continue;
+        if (code === 'P2002') {
+          throw new BadRequestException('This requirement has already been matched');
+        }
+        throw error;
+      }
+    }
+
+    if (!result) {
+      throw new BadRequestException(
+        'Unable to accept the requirement due to a concurrent update. Please try again.',
+      );
+    }
 
     const client = await this.prisma.client.findUnique({
       where: {
@@ -591,6 +622,11 @@ export class RequirementsService {
             workerId: worker.id,
           },
         },
+        include: {
+          requirement: {
+            select: {id: true, status: true},
+          },
+        },
       });
 
     if (!assignment) {
@@ -608,16 +644,61 @@ export class RequirementsService {
       );
     }
 
-    return this.prisma.requirementAssignment.update({
-      where: {id: assignment.id},
+    const updated = await this.prisma.requirementAssignment.updateMany({
+      where: {
+        id: assignment.id,
+        status: RequirementAssignmentStatus.OFFERED,
+      },
       data: {
-        status:
-          RequirementAssignmentStatus.REJECTED,
+        status: RequirementAssignmentStatus.REJECTED,
         respondedAt: new Date(),
-        responseReason:
-          dto.reason?.trim(),
+        responseReason: dto.reason?.trim(),
       },
     });
+
+    if (updated.count !== 1) {
+      throw new BadRequestException('This requirement offer is no longer pending');
+    }
+
+    const remainingOffers = await this.prisma.requirementAssignment.count({
+      where: {
+        requirementId,
+        status: RequirementAssignmentStatus.OFFERED,
+      },
+    });
+
+    let matching = null;
+    if (
+      remainingOffers === 0 &&
+      (assignment.requirement.status === RequirementStatus.MATCHING ||
+        assignment.requirement.status === RequirementStatus.OPEN)
+    ) {
+      matching = await this.matchWorkers(requirementId);
+      if (matching.offers.length) {
+        this.realtime.notifyWorkers(
+          matching.offers.map(offer => offer.workerUserId),
+          REALTIME_EVENTS.REQUIREMENT_OFFERED,
+          {
+            requirementId,
+            offers: matching.offers.map(offer => ({
+              assignmentId: offer.assignmentId,
+              distanceKm: offer.distanceKm,
+              matchScore: offer.matchScore,
+            })),
+          },
+        );
+      }
+    }
+
+    return {
+      assignment: {
+        id: assignment.id,
+        status: RequirementAssignmentStatus.REJECTED,
+        respondedAt: new Date(),
+        responseReason: dto.reason?.trim() || null,
+      },
+      matching,
+    };
   }
 
   async cancel(
@@ -705,9 +786,43 @@ export class RequirementsService {
       );
     }
 
+    if (
+      requirement.status !== RequirementStatus.MATCHING &&
+      requirement.status !== RequirementStatus.OPEN
+    ) {
+      throw new BadRequestException('Requirement is not eligible for matching');
+    }
+
+    if (requirement.status === RequirementStatus.OPEN) {
+      await this.prisma.requirement.update({
+        where: {id: requirementId},
+        data: {status: RequirementStatus.MATCHING},
+      });
+    }
+
+    const existingAssignments =
+      await this.prisma.requirementAssignment.findMany({
+        where: {requirementId},
+        select: {workerId: true, status: true},
+      });
+
+    const excludedWorkerIds = new Set(
+      existingAssignments
+        .filter(assignment =>
+          [
+            RequirementAssignmentStatus.ACCEPTED,
+            RequirementAssignmentStatus.REJECTED,
+            RequirementAssignmentStatus.EXPIRED,
+            RequirementAssignmentStatus.CANCELLED,
+          ].includes(assignment.status),
+        )
+        .map(assignment => assignment.workerId),
+    );
+
     const workers =
       await this.prisma.worker.findMany({
         where: {
+          id: {notIn: [...excludedWorkerIds]},
           status: WorkerStatus.VERIFIED,
           isAvailable: true,
           user: {
@@ -744,7 +859,8 @@ export class RequirementsService {
             },
           },
         },
-        take: 100,
+        orderBy: {createdAt: 'asc'},
+        take: 500,
       });
 
     const workerIds =
@@ -888,6 +1004,7 @@ export class RequirementsService {
       return {
         matchedWorkers: 0,
         offers: [],
+        status: RequirementStatus.OPEN,
       };
     }
 
@@ -895,7 +1012,7 @@ export class RequirementsService {
       await this.prisma.$transaction(
         candidates.map(
           candidate =>
-            this.prisma.requirementAssignment.upsert({
+            this.prisma.requirementAssignment.create({
               where: {
                 requirementId_workerId: {
                   requirementId,
@@ -913,16 +1030,6 @@ export class RequirementsService {
                   candidate.score,
                 distanceKm:
                   candidate.distanceKm,
-              },
-              update: {
-                status:
-                  RequirementAssignmentStatus.OFFERED,
-                matchScore:
-                  candidate.score,
-                distanceKm:
-                  candidate.distanceKm,
-                respondedAt: null,
-                responseReason: null,
               },
               select: {
                 id: true,
@@ -961,6 +1068,7 @@ export class RequirementsService {
                 ),
         }),
       ),
+      status: RequirementStatus.MATCHING,
     };
   }
 
