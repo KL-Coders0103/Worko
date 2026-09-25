@@ -179,12 +179,21 @@ export class AttendanceService {
       );
     }
 
-    if (
-      booking.status === 'CANCELLED' ||
-      booking.status === 'REJECTED'
-    ) {
+    const allowedStatuses =
+      purpose === AttendanceQrPurpose.CHECK_IN
+        ? [
+            BookingStatus.CONFIRMED,
+            BookingStatus.WORKER_EN_ROUTE,
+            BookingStatus.ARRIVED,
+          ]
+        : [
+            BookingStatus.CHECKED_IN,
+            BookingStatus.IN_PROGRESS,
+          ];
+
+    if (!allowedStatuses.includes(booking.status)) {
       throw new BadRequestException(
-        'QR cannot be generated for this booking',
+        `QR cannot be generated for attendance action while booking is ${booking.status}`,
       );
     }
 
@@ -247,138 +256,123 @@ export class AttendanceService {
    * ============================================================
    */
 
-  async validateAndConsumeQrToken(
+  async validateQrToken(
     workerUserId: string,
     bookingId: string,
     token: string,
     purpose: AttendanceQrPurpose,
   ) {
-    if (
-      !token ||
-      token.length < 40
-    ) {
-      throw new BadRequestException(
-        'Invalid QR token',
-      );
-    }
-
-    const worker =
-      await this.prisma.worker.findUnique({
-        where: {
-          userId: workerUserId,
-        },
-        select: {
-          id: true,
-        },
-      });
+    const worker = await this.prisma.worker.findUnique({
+      where: { userId: workerUserId },
+      select: { id: true },
+    });
 
     if (!worker) {
-      throw new ForbiddenException(
-        'Worker profile not found',
-      );
+      throw new ForbiddenException('Worker profile not found');
     }
 
-    const booking =
-      await this.prisma.booking.findUnique({
-        where: {
-          id: bookingId,
-        },
-        select: {
-          id: true,
-          workerId: true,
-        },
-      });
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { id: true, workerId: true },
+    });
 
     if (!booking) {
-      throw new NotFoundException(
-        'Booking not found',
-      );
+      throw new NotFoundException('Booking not found');
     }
 
-    if (
-      booking.workerId !== worker.id
-    ) {
+    if (booking.workerId !== worker.id) {
       throw new ForbiddenException(
         'You do not have access to this booking',
       );
     }
 
-    const tokenHash =
-      this.hashQrToken(token);
+    const qrToken = await this.findValidQrToken(
+      this.prisma,
+      bookingId,
+      token,
+      purpose,
+    );
 
-    const qrToken =
-      await this.prisma.attendanceQrToken.findUnique(
-        {
-          where: {
-            tokenHash,
-          },
-        },
-      );
+    return {
+      valid: true,
+      bookingId,
+      purpose,
+      expiresAt: qrToken.expiresAt,
+      verifiedAt: new Date(),
+    };
+  }
 
-    if (!qrToken) {
-      throw new BadRequestException(
-        'Invalid QR token',
-      );
+  private async findValidQrToken(
+    client: PrismaService | Prisma.TransactionClient,
+    bookingId: string,
+    token: string,
+    purpose: AttendanceQrPurpose,
+  ) {
+    if (!token || token.length < 40) {
+      throw new BadRequestException('Invalid QR token');
     }
 
-    if (
-      qrToken.bookingId !== bookingId
-    ) {
+    const tokenHash = this.hashQrToken(token);
+
+    const qrToken = await client.attendanceQrToken.findUnique({
+      where: { tokenHash },
+    });
+
+    if (!qrToken) {
+      throw new BadRequestException('Invalid QR token');
+    }
+
+    if (qrToken.bookingId !== bookingId) {
       throw new BadRequestException(
         'QR token does not belong to this booking',
       );
     }
 
-    if (
-      qrToken.purpose !== purpose
-    ) {
+    if (qrToken.purpose !== purpose) {
       throw new BadRequestException(
         'QR token is not valid for this attendance action',
       );
     }
 
     if (qrToken.revokedAt) {
-      throw new BadRequestException(
-        'QR token has been revoked',
-      );
+      throw new BadRequestException('QR token has been revoked');
     }
 
     if (qrToken.usedAt) {
-      throw new BadRequestException(
-        'QR token has already been used',
-      );
+      throw new BadRequestException('QR token has already been used');
     }
 
-    if (
-      qrToken.expiresAt <= new Date()
-    ) {
-      throw new BadRequestException(
-        'QR token has expired',
-      );
+    if (qrToken.expiresAt <= new Date()) {
+      throw new BadRequestException('QR token has expired');
     }
 
-    /*
-     * Atomic consume.
-     *
-     * Two simultaneous requests cannot
-     * successfully consume the same token.
-     */
-    const consumed =
-      await this.prisma.attendanceQrToken.updateMany(
-        {
-          where: {
-            id: qrToken.id,
-            usedAt: null,
-            revokedAt: null,
-            expiresAt: {
-              gt: new Date(),
-            },
-          },
-          data: {
-            usedAt: new Date(),
-          },
-        },
-      );
+    return qrToken;
+  }
+
+  private async consumeQrTokenInTransaction(
+    tx: Prisma.TransactionClient,
+    bookingId: string,
+    token: string,
+    purpose: AttendanceQrPurpose,
+  ) {
+    const qrToken = await this.findValidQrToken(
+      tx,
+      bookingId,
+      token,
+      purpose,
+    );
+
+    const consumed = await tx.attendanceQrToken.updateMany({
+      where: {
+        id: qrToken.id,
+        usedAt: null,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      data: {
+        usedAt: new Date(),
+      },
+    });
 
     if (consumed.count !== 1) {
       throw new BadRequestException(
@@ -386,12 +380,7 @@ export class AttendanceService {
       );
     }
 
-    return {
-      valid: true,
-      bookingId,
-      purpose,
-      verifiedAt: new Date(),
-    };
+    return qrToken;
   }
 
   /*
@@ -603,6 +592,47 @@ export class AttendanceService {
     );
   }
 
+  if (
+    dto.type === AttendanceEvidenceType.BEFORE_PHOTO &&
+    booking.attendance.id &&
+    ![
+      BookingStatus.ARRIVED,
+      BookingStatus.CHECKED_IN,
+    ].includes(
+      (
+        await this.prisma.booking.findUnique({
+          where: { id: bookingId },
+          select: { status: true },
+        })
+      )?.status ?? BookingStatus.SEARCHING,
+    )
+  ) {
+    throw new BadRequestException(
+      'Before-work evidence can only be captured after the worker arrives',
+    );
+  }
+
+  if (
+    dto.type === AttendanceEvidenceType.AFTER_PHOTO
+  ) {
+    const currentBooking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { status: true },
+    });
+
+    if (
+      !currentBooking ||
+      ![
+        BookingStatus.CHECKED_IN,
+        BookingStatus.IN_PROGRESS,
+      ].includes(currentBooking.status)
+    ) {
+      throw new BadRequestException(
+        'After-work evidence can only be captured while work is in progress',
+      );
+    }
+  }
+
   /*
    * Validate GPS on the server.
    * The mobile client cannot simply claim
@@ -725,6 +755,25 @@ async uploadAttendanceEvidence(
   ) {
     throw new ForbiddenException(
       'You do not have access to this booking',
+    );
+  }
+
+  const activeEvidenceStatuses = [
+    BookingStatus.ARRIVED,
+    BookingStatus.CHECKED_IN,
+    BookingStatus.IN_PROGRESS,
+  ];
+
+  if (!activeEvidenceStatuses.includes(
+    (
+      await this.prisma.booking.findUnique({
+        where: { id: bookingId },
+        select: { status: true },
+      })
+    )?.status ?? BookingStatus.SEARCHING,
+  )) {
+    throw new BadRequestException(
+      'Attendance evidence cannot be uploaded in the current booking state',
     );
   }
 
@@ -886,12 +935,6 @@ async checkIn(
    * Validate and consume booking-specific
    * CHECK_IN QR.
    */
-  await this.validateAndConsumeQrToken(
-    workerUserId,
-    bookingId,
-    dto.qrToken,
-    'CHECK_IN',
-  );
 
   /*
    * BEFORE_PHOTO is mandatory.
@@ -924,6 +967,13 @@ async checkIn(
   const result =
     await this.prisma.$transaction(
       async tx => {
+        await this.consumeQrTokenInTransaction(
+          tx,
+          bookingId,
+          dto.qrToken,
+          'CHECK_IN',
+        );
+
         const attendance =
           await tx.attendance.update({
             where: {
@@ -1091,12 +1141,6 @@ async checkOut(
   /*
    * 12.12
    */
-  await this.validateAndConsumeQrToken(
-    workerUserId,
-    bookingId,
-    dto.qrToken,
-    'CHECK_OUT',
-  );
 
   /*
    * AFTER_PHOTO mandatory.
@@ -1123,6 +1167,13 @@ async checkOut(
   const result =
     await this.prisma.$transaction(
       async tx => {
+        await this.consumeQrTokenInTransaction(
+          tx,
+          bookingId,
+          dto.qrToken,
+          'CHECK_OUT',
+        );
+
         const attendance =
           await tx.attendance.update({
             where: {
