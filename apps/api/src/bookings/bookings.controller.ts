@@ -118,6 +118,19 @@ export class BookingsController {
     );
   }
 
+  @Post(':id/release-payment')
+  @Version('1')
+  @Roles('CLIENT')
+  releasePayment(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.bookingsService.releasePayment(
+      req.user.sub,
+      id,
+    );
+  }
+
   @Post(':id/cancel')
   @Version('1')
   @Roles('CLIENT', 'WORKER')
