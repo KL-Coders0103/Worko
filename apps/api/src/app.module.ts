@@ -18,7 +18,6 @@ import { AdminModule } from './admin/admin.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { StorageModule } from './storage/storage.module';
 import { RequirementsModule } from './requirements/requirements.module';
-import { RadarGateway } from './bookings/radar.gateway';
 
 @Module({
   imports: [
@@ -43,7 +42,7 @@ import { RadarGateway } from './bookings/radar.gateway';
     RequirementsModule
   ],
   controllers: [AppController],
-  providers: [AppService, RadarGateway],
+  providers: [AppService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
