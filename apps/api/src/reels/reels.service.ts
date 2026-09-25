@@ -206,7 +206,7 @@ export class ReelsService {
     return this.toWorkerReelResponse(updatedReel);
   }
 
-async publishReel(
+  async publishReel(
   userId: string,
   reelId: string,
 ) {
@@ -290,7 +290,7 @@ async publishReel(
   return this.toWorkerReelResponse(updateReel);
 }
 
-async deleteReel(
+  async deleteReel(
   userId: string,
   reelId: string,
 ) {
@@ -351,7 +351,7 @@ async deleteReel(
   return this.toWorkerReelResponse(updated);
 }
 
-async getFeed(
+  async getFeed(
   limit = 10,
   cursor?: string,
   userId?: string,
@@ -363,7 +363,7 @@ async getFeed(
       | null = null;
 
     if (cursor) {
-      cursorReel = await this.prisma.reel.findFirst({
+      const candidate = await this.prisma.reel.findFirst({
         where: {
           id: cursor,
           status: 'PUBLISHED',
@@ -374,19 +374,21 @@ async getFeed(
           publishedAt: true,
           createdAt: true,
         },
-      }) as {
-        id: string;
-        publishedAt: Date;
-        createdAt: Date;
-      } | null;
+      });
 
-      if (!cursorReel) {
+      if (!candidate || !candidate.publishedAt) {
         throw new BadRequestException('Invalid feed cursor.');
       }
+
+      cursorReel = {
+        id: candidate.id,
+        publishedAt: candidate.publishedAt,
+        createdAt: candidate.createdAt,
+      };
     }
 
     const reels = await this.prisma.reel.findMany({
-    where: {
+      where: {
       status: 'PUBLISHED',
       publishedAt: { not: null },
       ...(cursorReel
@@ -411,16 +413,15 @@ async getFeed(
       { createdAt: 'desc' },
       { id: 'desc' },
     ],
-    take: safeLimit + 1,
-    include: {
+      take: safeLimit + 1,
+      include: {
       likes: {
         where: { status: 'ACTIVE' },
         select: { userId: true },
       },
-    },
-  });
+    });
 
-  const hasMore = reels.length > safeLimit;
+    const hasMore = reels.length > safeLimit;
   const items = hasMore ? reels.slice(0, safeLimit) : reels;
   const nextCursor =
     hasMore && items.length > 0
@@ -447,7 +448,7 @@ async getFeed(
   };
 }
 
-async likeReel(
+  async likeReel(
   userId: string,
   reelId: string,
 ) {
@@ -497,7 +498,7 @@ async likeReel(
   };
 }
 
-async unlikeReel(
+  async unlikeReel(
   userId: string,
   reelId: string,
 ) {
@@ -540,24 +541,24 @@ async unlikeReel(
   };
 }
 
-async getReelEngagement(
-  reelId: string,
-  userId?: string,
-) {
-  const reel = await this.prisma.reel.findUnique({
-    where: {
-      id: reelId,
-    },
-    select: {
-      id: true,
-    },
-  });
+  async getReelEngagement(
+    reelId: string,
+    userId?: string,
+  ) {
+    const reel = await this.prisma.reel.findFirst({
+      where: {
+        id: reelId,
+        status: 'PUBLISHED',
+        publishedAt: { not: null },
+      },
+      select: {
+        id: true,
+      },
+    });
 
-  if (!reel) {
-    throw new NotFoundException(
-      'Reel not found.',
-    );
-  }
+    if (!reel) {
+      throw new NotFoundException('Reel not found.');
+    }
 
   const likes =
     await this.prisma.reelLike.count({
@@ -593,7 +594,7 @@ async getReelEngagement(
   };
 }
 
-async getReelVideo(reelId: string) {
+  async getReelVideo(reelId: string) {
   const reel = await this.prisma.reel.findUnique({
     where: {
       id: reelId,
@@ -630,7 +631,7 @@ async getReelVideo(reelId: string) {
   };
 }
 
-createReelVideoStream(
+  createReelVideoStream(
   key: string,
   start: number,
   end: number,
