@@ -113,6 +113,16 @@ export class RealtimeGateway
     }
   }
 
+  notifyUsers(
+    userIds: string[],
+    event: string,
+    payload: unknown,
+  ) {
+    for (const userId of new Set(userIds)) {
+      this.notifyUser(userId, event, payload);
+    }
+  }
+
   notifyUser(
     userId: string,
     event: string,
@@ -130,6 +140,11 @@ export class RealtimeGateway
         .to(socketId)
         .emit(event, payload);
     }
+  }
+
+  getConnectedUserRole(socket: Socket): string | null {
+    const user = socket.data.user as SocketUser | undefined;
+    return user?.role ?? null;
   }
 
   @SubscribeMessage('realtime:ping')
