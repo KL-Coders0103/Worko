@@ -183,7 +183,7 @@ export class PaymentsService {
     await this.assertPaymentAccess(
       userId,
       booking.clientId,
-      booking.workerId!,
+      booking.workerId,
     );
 
     const payment =
@@ -505,6 +505,11 @@ export class PaymentsService {
        * No wallet movement occurs.
        */
       if (!success) {
+        assertPaymentTransition(
+          PaymentStatus.PROCESSING,
+          PaymentStatus.FAILED,
+        );
+
         const failedPayment =
           await tx.payment.update({
             where: {
