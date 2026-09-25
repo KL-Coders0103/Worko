@@ -176,15 +176,9 @@ export class RealtimeGateway
     }
 
     const payload =
-      await this.authJwtService['jwtService']
-        .verifyAsync<SocketUser>(
-          token,
-          {
-            secret:
-              process.env
-                .JWT_ACCESS_SECRET,
-          },
-        );
+      await this.authJwtService.verifyAccessToken(
+        token,
+      );
 
     const user =
       await this.prisma.user.findUnique({
