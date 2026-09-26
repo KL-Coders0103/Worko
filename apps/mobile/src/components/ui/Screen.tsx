@@ -5,9 +5,14 @@ import {useTheme} from '../../theme/ThemeProvider';
 
 type ScreenProps = React.PropsWithChildren<{
   padded?: boolean;
+  centered?: boolean;
 }>;
 
-export const Screen = ({children, padded = true}: ScreenProps): React.JSX.Element => {
+export const Screen = ({
+  children,
+  padded = true,
+  centered = false,
+}: ScreenProps): React.JSX.Element => {
   const {theme} = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -21,6 +26,7 @@ export const Screen = ({children, padded = true}: ScreenProps): React.JSX.Elemen
           paddingBottom: insets.bottom,
           paddingHorizontal: padded ? theme.spacing.lg : 0,
         },
+        centered && styles.centered,
       ]}>
       {children}
     </View>
@@ -29,4 +35,8 @@ export const Screen = ({children, padded = true}: ScreenProps): React.JSX.Elemen
 
 const styles = StyleSheet.create({
   container: {flex: 1},
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
