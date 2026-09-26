@@ -88,7 +88,8 @@ const useNavigationBoundaryKey = (): string => {
 // Role selection happens once at the application boundary; feature screens stay role-focused.
 const AuthenticatedNavigator = (): React.JSX.Element => {
   const role = useAuthStore(state => state.user?.role);
-  return <AppStack.Navigator screenOptions={{headerShown: false, animation: 'fade'}}><AppStack.Screen name="Home">{() => role === 'WORKER' ? <WorkerNavigator /> : <ClientNavigator />}</AppStack.Screen>\n    <AppStack.Screen name="CreateRequirement" component={CreateRequirementScreen} options={{presentation: 'modal', title: 'Post work'}} />
+  return <AppStack.Navigator screenOptions={{headerShown: false, animation: 'fade'}}><AppStack.Screen name="Home">{() => role === 'WORKER' ? <WorkerNavigator /> : <ClientNavigator />}</AppStack.Screen>
+    <AppStack.Screen name="CreateRequirement" component={CreateRequirementScreen} options={{presentation: 'modal', title: 'Post work'}} />
     <AppStack.Screen name="RequirementDetail" component={RequirementDetailScreen} options={{title: 'Requirement'}} /></AppStack.Navigator>;
 };
 
