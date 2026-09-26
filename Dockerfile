@@ -13,6 +13,10 @@ RUN npm ci
 
 COPY apps/api ./apps/api
 
+# Prisma config requires DATABASE_URL during client generation.
+# This is build-time only; the real DATABASE_URL is provided at runtime.
+ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
+
 RUN npm run prisma:generate --workspace=apps/api
 RUN npm run build --workspace=apps/api
 
