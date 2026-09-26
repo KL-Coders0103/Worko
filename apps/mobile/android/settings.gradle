@@ -1,0 +1,4 @@
+pluginManagement { includeBuild("../../node_modules/@react-native/gradle-plugin") }
+dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS); repositories { google(); mavenCentral(); } }
+rootProject.name='Worko'
+include ':app'
