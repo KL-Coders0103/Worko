@@ -60,6 +60,26 @@ const WorkerNavigator = (): React.JSX.Element => {
   </WorkerTabs.Navigator>;
 };
 
+const useNavigationBoundaryKey = (): string => {
+  const authStatus = useAuthStore(state => state.status);
+  const onboardingStatus = useOnboardingStore(state => state.status);
+  const role = useAuthStore(state => state.user?.role);
+
+  if (authStatus === 'authenticated') {
+    return `authenticated:${role ?? 'unknown'}`;
+  }
+
+  if (onboardingStatus === 'required') {
+    return 'onboarding';
+  }
+
+  if (authStatus === 'hydrating' || onboardingStatus === 'checking') {
+    return 'startup';
+  }
+
+  return 'auth';
+};
+
 // Role selection happens once at the application boundary; feature screens stay role-focused.
 const AuthenticatedNavigator = (): React.JSX.Element => {
   const role = useAuthStore(state => state.user?.role);
@@ -82,7 +102,7 @@ const AppNavigatorContent = (): React.JSX.Element => {
 const AppNavigator = (): React.JSX.Element => (
   <ThemeProvider>
     <ToastProvider>
-      <NavigationContainer>
+      <NavigationContainer key={useNavigationBoundaryKey()}>
         <AppNavigatorContent />
       </NavigationContainer>
     </ToastProvider>
