@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect} from 'react';
+import React, {useCallback, useEffect} from 'react';\nimport {useNavigation} from '@react-navigation/native';\nimport type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {RefreshControl, ScrollView, StyleSheet, View} from 'react-native';
 import {Screen} from '../../components/ui/Screen';
 import {AppText} from '../../components/ui/AppText';
@@ -10,7 +10,7 @@ import {ErrorState} from '../../components/ui/ErrorState';
 import {SectionHeader} from '../../components/ui/SectionHeader';
 import {useAuthStore} from '../../store/authStore';
 import {useClientStore} from '../../store/clientStore';
-import {useTheme} from '../../theme/ThemeProvider';
+import {useTheme} from '../../theme/ThemeProvider';\nimport type {AppStackParamList} from '../../navigation/types';
 import type {ClientRequirement} from '../../client/types';
 
 const formatDate = (value: string): string => {
@@ -65,7 +65,7 @@ const RequirementCard = ({item}: {item: ClientRequirement}): React.JSX.Element =
 };
 
 export const ClientHomeScreen = (): React.JSX.Element => {
-  const user = useAuthStore(state => state.user);
+  const user = useAuthStore(state => state.user);\n  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const requirements = useClientStore(state => state.requirements);
   const status = useClientStore(state => state.status);
   const loadRequirements = useClientStore(state => state.loadRequirements);
@@ -110,7 +110,7 @@ export const ClientHomeScreen = (): React.JSX.Element => {
           <AppText variant="title" style={styles.heroTitle}>Post a requirement and let Worko find the right worker.</AppText>
           <AppText variant="body" muted>Workers are matched using the requirement, skills, availability and location.</AppText>
           <View style={styles.heroAction}>
-            <AppButton label="Post work" onPress={() => {}} />
+            <AppButton label="Post work" onPress={() => navigation.navigate('CreateRequirement')} />
           </View>
         </AppCard>
 
@@ -140,7 +140,7 @@ export const ClientHomeScreen = (): React.JSX.Element => {
             title="No requirements yet"
             description="Your posted work will appear here."
             actionLabel="Post your first requirement"
-            onActionPress={() => {}}
+            onActionPress={() => navigation.navigate('CreateRequirement')}
           />
         ) : (
           <View style={styles.list}>
