@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState}from'react';
-import{ActivityIndicator,Dimensions,FlatList,Pressable,StyleSheet,View,ViewToken}from'react-native';
+import{ActivityIndicator,Dimensions,FlatList,Pressable,StyleSheet,View}from'react-native';
 import Video from'react-native-video';
 import{AppText,ErrorState,Screen}from'../../components/ui';
 import{getWorkoApiErrorMessage}from'../../api/apiClient';
@@ -19,7 +19,7 @@ export const ReelsFeedScreen=():React.JSX.Element=>{
  const[items,setItems]=useState<ReelFeedItem[]>([]),[nextCursor,setNextCursor]=useState<string|null>(null),[hasMore,setHasMore]=useState(false);
  const[loading,setLoading]=useState(true),[loadingMore,setLoadingMore]=useState(false),[refreshing,setRefreshing]=useState(false),[error,setError]=useState<string|null>(null),[activeId,setActiveId]=useState<string|null>(null),[authToken,setAuthToken]=useState<string|null>(null);
  const viewabilityConfig=useRef({itemVisiblePercentThreshold:70}).current;
- const onViewableItemsChanged=useRef(({viewableItems}:{viewableItems:ViewToken[]})=>{const first=viewableItems[0]?.item as ReelFeedItem|undefined;setActiveId(first?.id??null);}).current;
+ const onViewableItemsChanged=useRef(({viewableItems}:{viewableItems:Array<{item:any}>})=>setActiveId(viewableItems[0]?.item?.id??null)).current;
 
  const fetchPage=useCallback(async(reset:boolean,cursor?:string)=>{
   if(reset){setLoading(true);setError(null);}else setLoadingMore(true);
@@ -40,7 +40,7 @@ export const ReelsFeedScreen=():React.JSX.Element=>{
   try{const result=item.liked?await reelsApi.unlike(item.id):await reelsApi.like(item.id);setItems(current=>current.map(reel=>reel.id===item.id?{...reel,liked:result.liked,likes:Math.max(0,reel.likes+(result.liked?1:-1))}:reel));}
   catch(err){setError(getWorkoApiErrorMessage(err));}
  },[]);
- const footer=useMemo(()=>loadingMore?<View style={styles.footer}><ActivityIndicator color={theme.colors.accent}/></View>:null,[loadingMore,theme.colors.accent]);
+ const footer=useMemo(()=>loadingMore?<View style={styles.footer}><ActivityIndicator color={theme.colors.accent}/></View>:undefined,[loadingMore,theme.colors.accent]);
 
  if(loading)return<Screen><View style={styles.center}><ActivityIndicator color={theme.colors.accent}/><AppText variant="body" muted style={styles.loadingText}>Loading reels...</AppText></View></Screen>;
  if(error&&items.length===0)return<Screen><ErrorState title="Could not load reels" description={error} onActionPress={()=>void loadInitial()}/></Screen>;
@@ -76,4 +76,4 @@ const ReelCard=({item,active,token,onLike,theme}:ReelCardProps):React.JSX.Elemen
  </View>
 </View>;
 
-const styles=StyleSheet.create({root:{flex:1},card:{width:'100%',overflow:'hidden'},scrim:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(0,0,0,0.18)'},overlay:{...StyleSheet.absoluteFillObject,justifyContent:'flex-end',padding:20},copy:{paddingRight:64,gap:8},white:{color:'#FFFFFF'},meta:{color:'#FFFFFF',opacity:0.86},likeButton:{position:'absolute',right:16,bottom:28,width:56,minHeight:64,borderRadius:18,alignItems:'center',justifyContent:'center',gap:2},center:{flex:1,alignItems:'center',justifyContent:'center'},loadingText:{marginTop:12},errorBanner:{margin:12,padding:12,borderWidth:1,borderRadius:12},empty:{height:FEED_HEIGHT,alignItems:'center',justifyContent:'center',padding:24,gap:8},footer:{padding:20,alignItems:'center'}});
+const styles=StyleSheet.create({root:{flex:1},card:{width:'100%',overflow:'hidden'},scrim:{...StyleSheet.absoluteFill,backgroundColor:'rgba(0,0,0,0.18)'},overlay:{...StyleSheet.absoluteFillObject,justifyContent:'flex-end',padding:20},copy:{paddingRight:64,gap:8},white:{color:'#FFFFFF'},meta:{color:'#FFFFFF',opacity:0.86},likeButton:{position:'absolute',right:16,bottom:28,width:56,minHeight:64,borderRadius:18,alignItems:'center',justifyContent:'center',gap:2},center:{flex:1,alignItems:'center',justifyContent:'center'},loadingText:{marginTop:12},errorBanner:{margin:12,padding:12,borderWidth:1,borderRadius:12},empty:{height:FEED_HEIGHT,alignItems:'center',justifyContent:'center',padding:24,gap:8},footer:{padding:20,alignItems:'center'}});
