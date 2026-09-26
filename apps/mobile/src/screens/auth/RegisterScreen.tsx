@@ -13,7 +13,7 @@ import type {AuthStackParamList} from '../../navigation/types';
 import type {RegisterInput, UserRole} from '../../auth/types';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
-const emailPattern = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+const emailPattern = /^[^\s@]+@[^\s@]+\\.[^\s@]+$/;
 
 type Role = Extract<UserRole, 'CLIENT' | 'WORKER'>;
 const roleInfo: Record<Role, {label:string; subtitle:string; mark:string}> = {
@@ -29,7 +29,7 @@ export const RegisterScreen = ({navigation}: Props): React.JSX.Element => {
   useEffect(()=>{Animated.parallel([Animated.timing(opacity,{toValue:1,duration:350,easing:Easing.out(Easing.ease),useNativeDriver:true}),Animated.spring(translateY,{toValue:0,useNativeDriver:true,damping:16,stiffness:150})]).start();},[opacity,translateY]);
 
   const submit=async():Promise<void>=>{
-    const normalizedEmail=email.trim().toLowerCase(); const normalizedPhone=phoneNumber.replace(/\\D/g,''); const normalizedFirstName=firstName.trim();
+    const normalizedEmail=email.trim().toLowerCase(); const normalizedPhone=phoneNumber.replace(/\D/g,''); const normalizedFirstName=firstName.trim();
     if(!normalizedFirstName){show('Enter your first name.','error');return;}
     if(!emailPattern.test(normalizedEmail)){show('Enter a valid email address.','error');return;}
     if(normalizedPhone.length!==10){show('Enter a valid 10-digit mobile number.','error');return;}
