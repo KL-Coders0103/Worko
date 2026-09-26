@@ -51,7 +51,7 @@ export interface AuthResponse {
 
 export interface RegisterInput {
   firstName: string;
-  lastName?: string;
+  lastName: string;
   email: string;
   phoneNumber: string;
   role: Extract<UserRole, 'CLIENT' | 'WORKER'>;
