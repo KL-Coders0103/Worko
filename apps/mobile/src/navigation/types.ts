@@ -18,6 +18,7 @@ export type AppTabParamList = {
 
 export type AppStackParamList = {
   Home: undefined;
+  CreateRequirement: undefined;
 };
 
 export type RootStackParamList = {
