@@ -11,7 +11,7 @@ import{useTheme}from'../../theme/ThemeProvider';
 
 const {height:WINDOW_HEIGHT}=Dimensions.get('window');
 const FEED_HEIGHT=Math.max(WINDOW_HEIGHT-72,520);
-const API_ORIGIN=API_BASE_URL.replace(/\\/api\\/v1\\/?$/,'');
+const API_ORIGIN=API_BASE_URL.replace('/api/v1','');
 const videoUrl=(path:string):string=>API_ORIGIN+path;
 
 export const ReelsFeedScreen=():React.JSX.Element=>{
@@ -21,19 +21,21 @@ export const ReelsFeedScreen=():React.JSX.Element=>{
  const viewabilityConfig=useRef({itemVisiblePercentThreshold:70}).current;
  const onViewableItemsChanged=useRef(({viewableItems}:{viewableItems:Array<{item:ReelFeedItem}>})=>setActiveId(viewableItems[0]?.item?.id??null)).current;
 
- const load=useCallback(async(reset=false)=>{
+ const fetchPage=useCallback(async(reset:boolean,cursor?:string)=>{
   if(reset){setLoading(true);setError(null);}else setLoadingMore(true);
   try{
-   const response=await reelsApi.getFeed(10,reset?undefined:nextCursor??undefined);
+   const response=await reelsApi.getFeed(10,cursor);
    setItems(current=>reset?response.items:[...current,...response.items.filter(item=>!current.some(existing=>existing.id===item.id))]);
    setNextCursor(response.nextCursor);setHasMore(response.hasMore);
    if(reset)setActiveId(response.items[0]?.id??null);
   }catch(err){setError(getWorkoApiErrorMessage(err));}
   finally{if(reset)setLoading(false);else setLoadingMore(false);}
- },[nextCursor]);
+ },[]);
 
- useEffect(()=>{setAuthToken(tokenStorage.getAccessToken());void load(true);},[load]);
- const refresh=useCallback(async()=>{setRefreshing(true);try{await load(true);}finally{setRefreshing(false);}},[load]);
+ const loadInitial=useCallback(()=>fetchPage(true),[fetchPage]);
+ const loadMore=useCallback(()=>{if(hasMore&&!loadingMore&&nextCursor)void fetchPage(false,nextCursor);},[fetchPage,hasMore,loadingMore,nextCursor]);
+ useEffect(()=>{setAuthToken(tokenStorage.getAccessToken());void loadInitial();},[loadInitial]);
+ const refresh=useCallback(async()=>{setRefreshing(true);try{await fetchPage(true);}finally{setRefreshing(false);}},[fetchPage]);
  const toggleLike=useCallback(async(item:ReelFeedItem)=>{
   try{const result=item.liked?await reelsApi.unlike(item.id):await reelsApi.like(item.id);setItems(current=>current.map(reel=>reel.id===item.id?{...reel,liked:result.liked,likes:Math.max(0,reel.likes+(result.liked?1:-1))}:reel));}
   catch(err){setError(getWorkoApiErrorMessage(err));}
@@ -41,7 +43,7 @@ export const ReelsFeedScreen=():React.JSX.Element=>{
  const footer=useMemo(()=>loadingMore?<View style={styles.footer}><ActivityIndicator color={theme.colors.accent}/></View>:null,[loadingMore,theme.colors.accent]);
 
  if(loading)return<Screen><View style={styles.center}><ActivityIndicator color={theme.colors.accent}/><AppText variant="body" muted style={styles.loadingText}>Loading reels...</AppText></View></Screen>;
- if(error&&items.length===0)return<Screen><ErrorState title="Could not load reels" description={error} onActionPress={()=>void load(true)}/></Screen>;
+ if(error&&items.length===0)return<Screen><ErrorState title="Could not load reels" description={error} onActionPress={()=>void loadInitial()}/></Screen>;
 
  return <View style={[styles.root,{backgroundColor:theme.colors.background}]}>
   {error?<Pressable onPress={()=>setError(null)} style={[styles.errorBanner,{backgroundColor:theme.colors.surface,borderColor:theme.colors.border}]}><AppText variant="caption" style={{color:theme.colors.danger}}>{error} • Tap to dismiss</AppText></Pressable>:null}
@@ -50,7 +52,7 @@ export const ReelsFeedScreen=():React.JSX.Element=>{
    pagingEnabled showsVerticalScrollIndicator={false} snapToInterval={FEED_HEIGHT} decelerationRate="fast"
    getItemLayout={(_,index)=>({length:FEED_HEIGHT,offset:FEED_HEIGHT*index,index})}
    viewabilityConfig={viewabilityConfig} onViewableItemsChanged={onViewableItemsChanged}
-   onEndReached={()=>{if(hasMore&&!loadingMore)void load(false);}} onEndReachedThreshold={0.6}
+   onEndReached={loadMore} onEndReachedThreshold={0.6}
    refreshing={refreshing} onRefresh={()=>void refresh()}
    ListEmptyComponent={<View style={styles.empty}><AppText variant="title">No reels yet</AppText><AppText variant="body" muted>Published worker showcases will appear here.</AppText></View>}
    ListFooterComponent={footer}/>
@@ -74,6 +76,4 @@ const ReelCard=({item,active,token,onLike,theme}:ReelCardProps):React.JSX.Elemen
  </View>
 </View>;
 
-const styles=StyleSheet.create({
- root:{flex:1},card:{width:'100%',overflow:'hidden'},scrim:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(0,0,0,0.18)'},overlay:{...StyleSheet.absoluteFillObject,justifyContent:'flex-end',padding:20},copy:{paddingRight:64,gap:8},white:{color:'#FFFFFF'},meta:{color:'#FFFFFF',opacity:0.86},likeButton:{position:'absolute',right:16,bottom:28,width:56,minHeight:64,borderRadius:18,alignItems:'center',justifyContent:'center',gap:2},center:{flex:1,alignItems:'center',justifyContent:'center'},loadingText:{marginTop:12},errorBanner:{margin:12,padding:12,borderWidth:1,borderRadius:12},empty:{height:FEED_HEIGHT,alignItems:'center',justifyContent:'center',padding:24,gap:8},footer:{padding:20,alignItems:'center'}
-});
+const styles=StyleSheet.create({root:{flex:1},card:{width:'100%',overflow:'hidden'},scrim:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(0,0,0,0.18)'},overlay:{...StyleSheet.absoluteFillObject,justifyContent:'flex-end',padding:20},copy:{paddingRight:64,gap:8},white:{color:'#FFFFFF'},meta:{color:'#FFFFFF',opacity:0.86},likeButton:{position:'absolute',right:16,bottom:28,width:56,minHeight:64,borderRadius:18,alignItems:'center',justifyContent:'center',gap:2},center:{flex:1,alignItems:'center',justifyContent:'center'},loadingText:{marginTop:12},errorBanner:{margin:12,padding:12,borderWidth:1,borderRadius:12},empty:{height:FEED_HEIGHT,alignItems:'center',justifyContent:'center',padding:24,gap:8},footer:{padding:20,alignItems:'center'}});
