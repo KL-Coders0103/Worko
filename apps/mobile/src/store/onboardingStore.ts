@@ -14,17 +14,29 @@ type OnboardingState = {
 
 export const useOnboardingStore = create<OnboardingState>(set => ({
   status: 'checking',
+
   initialize: async () => {
     try {
-      const credentials = await Keychain.getGenericPassword({service: SERVICE});
-      set({status: credentials?.password === KEY ? 'completed' : 'required'});
+      const credentials = await Keychain.getGenericPassword({
+        service: SERVICE,
+      });
+
+      const completed =
+        credentials !== false && credentials.password === KEY;
+
+      set({
+        status: completed ? 'completed' : 'required',
+      });
     } catch {
       set({status: 'required'});
     }
   },
+
   complete: async () => {
     try {
-      await Keychain.setGenericPassword('worko', KEY, {service: SERVICE});
+      await Keychain.setGenericPassword('worko', KEY, {
+        service: SERVICE,
+      });
     } finally {
       set({status: 'completed'});
     }
