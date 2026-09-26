@@ -19,8 +19,6 @@ import {ClientHomeScreen} from '../screens/client/ClientHomeScreen';
 import {CreateRequirementScreen} from '../screens/client/CreateRequirementScreen';
 import {useAuthStore} from '../store/authStore';
 import {useOnboardingStore} from '../store/onboardingStore';
-import {useNavigation} from '@react-navigation/native';
-import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
