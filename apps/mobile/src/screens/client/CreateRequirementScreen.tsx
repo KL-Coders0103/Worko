@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {ScrollView, StyleSheet, View} from 'react-native';
-import {NativeStackScreenProps} from '@react-navigation/native-stack';
+import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {AppButton} from '../../components/ui/AppButton';
 import {AppInput} from '../../components/ui/AppInput';
 import {AppText} from '../../components/ui/AppText';
