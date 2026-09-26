@@ -12,10 +12,9 @@ export class RegisterDto {
   @Length(2, 50)
   firstName!: string;
 
-  @IsOptional()
   @IsString()
   @Length(2, 50)
-  lastName?: string;
+  lastName!: string;
 
   @IsEmail()
   email!: string;
