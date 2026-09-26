@@ -3,7 +3,7 @@ import {StyleSheet, View} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import type {AppStackParamList, AuthStackParamList, RootStackParamList} from './types';
+import type {AppStackParamList, AppTabParamList, AuthStackParamList, RootStackParamList} from './types';
 import {ThemeProvider, useTheme} from '../theme/ThemeProvider';
 import {ToastProvider} from '../components/ui/ToastProvider';
 import {StartupScreen} from '../screens/startup/StartupScreen';
@@ -21,10 +21,10 @@ import {useOnboardingStore} from '../store/onboardingStore';
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const AppStack = createNativeStackNavigator<AppStackParamList>();
-const ClientTabs = createBottomTabNavigator();
-const WorkerTabs = createBottomTabNavigator();
+const ClientTabs = createBottomTabNavigator<AppTabParamList>();
+const WorkerTabs = createBottomTabNavigator<AppTabParamList>();
 
-const AuthNavigator = (): React.JSX.Element => (
+// Authentication is isolated from the authenticated application shell.\nconst AuthNavigator = (): React.JSX.Element => (
   <AuthStack.Navigator screenOptions={{headerShown: false, animation: 'fade'}}>
     <AuthStack.Screen name="AuthLanding" component={AuthLandingScreen} />
     <AuthStack.Screen name="Login" component={LoginScreen} />
@@ -38,7 +38,7 @@ const TabIcon = ({focused}: {focused: boolean}): React.JSX.Element => {
   return <View style={[styles.icon, {backgroundColor: focused ? theme.colors.accent : 'transparent'}]}><View style={[styles.dot, {backgroundColor: focused ? theme.colors.inverse : theme.colors.textSecondary}]} /></View>;
 };
 
-const ClientNavigator = (): React.JSX.Element => {
+// Client and worker shells intentionally share the same tab contract.\nconst ClientNavigator = (): React.JSX.Element => {
   const {theme} = useTheme();
   return <ClientTabs.Navigator screenOptions={{headerShown: false, tabBarActiveTintColor: theme.colors.accent, tabBarInactiveTintColor: theme.colors.textSecondary, tabBarStyle: [styles.tabBar, {backgroundColor: theme.colors.surfaceElevated, borderTopColor: theme.colors.border}], tabBarLabelStyle: styles.tabLabel}}>
     <ClientTabs.Screen name="Home" children={() => <AppOverviewScreen mode="CLIENT" />} options={{tabBarIcon: ({focused}) => <TabIcon focused={focused} />}} />
@@ -58,7 +58,7 @@ const WorkerNavigator = (): React.JSX.Element => {
   </WorkerTabs.Navigator>;
 };
 
-const AuthenticatedNavigator = (): React.JSX.Element => {
+// Role selection happens once at the application boundary; feature screens stay role-focused.\nconst AuthenticatedNavigator = (): React.JSX.Element => {
   const role = useAuthStore(state => state.user?.role);
   return <AppStack.Navigator screenOptions={{headerShown: false, animation: 'fade'}}><AppStack.Screen name="Home">{() => role === 'WORKER' ? <WorkerNavigator /> : <ClientNavigator />}</AppStack.Screen></AppStack.Navigator>;
 };
