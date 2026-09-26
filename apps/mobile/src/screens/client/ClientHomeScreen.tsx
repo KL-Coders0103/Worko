@@ -41,14 +41,14 @@ const statusLabel = (status: ClientRequirement['status']): string => {
   }
 };
 
-const RequirementCard = ({item}: {item: ClientRequirement}): React.JSX.Element => {
+const RequirementCard = ({item, onPress}: {item: ClientRequirement; onPress: () => void}): React.JSX.Element => {
   const {theme} = useTheme();
   const workerName = item.booking?.worker
     ? [item.booking.worker.firstName, item.booking.worker.lastName].filter(Boolean).join(' ')
     : '';
 
   return (
-    <AppCard>
+    <AppCard onPress={onPress}>
       <View style={styles.cardTop}>
         <View style={styles.cardCopy}>
           <AppText variant="title">{item.title}</AppText>
@@ -186,7 +186,7 @@ export const ClientHomeScreen = (): React.JSX.Element => {
         ) : (
           <View style={styles.list}>
             {requirements.slice(0, 5).map(item => (
-              <RequirementCard key={item.id} item={item} />
+              <RequirementCard key={item.id} item={item} onPress={() => navigation.navigate('RequirementDetail', {requirementId: item.id})} />
             ))}
           </View>
         )}
