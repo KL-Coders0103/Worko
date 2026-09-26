@@ -1,5 +1,7 @@
-import React, {useCallback, useEffect} from 'react';\nimport {useNavigation} from '@react-navigation/native';\nimport type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import React, {useCallback, useEffect} from 'react';
 import {RefreshControl, ScrollView, StyleSheet, View} from 'react-native';
+import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {Screen} from '../../components/ui/Screen';
 import {AppText} from '../../components/ui/AppText';
 import {AppCard} from '../../components/ui/AppCard';
@@ -10,7 +12,8 @@ import {ErrorState} from '../../components/ui/ErrorState';
 import {SectionHeader} from '../../components/ui/SectionHeader';
 import {useAuthStore} from '../../store/authStore';
 import {useClientStore} from '../../store/clientStore';
-import {useTheme} from '../../theme/ThemeProvider';\nimport type {AppStackParamList} from '../../navigation/types';
+import {useTheme} from '../../theme/ThemeProvider';
+import type {AppStackParamList} from '../../navigation/types';
 import type {ClientRequirement} from '../../client/types';
 
 const formatDate = (value: string): string => {
@@ -51,21 +54,33 @@ const RequirementCard = ({item}: {item: ClientRequirement}): React.JSX.Element =
           <AppText variant="title">{item.title}</AppText>
           <AppText variant="caption" muted>{item.categoryName}</AppText>
         </View>
-        <View style={[styles.status, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
-          <AppText variant="caption" style={{color: theme.colors.accent, fontWeight: '700'}}>
+        <View
+          style={[
+            styles.status,
+            {backgroundColor: theme.colors.surface, borderColor: theme.colors.border},
+          ]}>
+          <AppText
+            variant="caption"
+            style={{color: theme.colors.accent, fontWeight: '700'}}>
             {statusLabel(item.status)}
           </AppText>
         </View>
       </View>
       <AppText variant="body" muted style={styles.address}>{item.address}</AppText>
       <AppText variant="caption" muted>{formatDate(item.scheduledStart)}</AppText>
-      {workerName ? <AppText variant="caption" style={styles.worker}>Matched with {workerName}</AppText> : null}
+      {workerName ? (
+        <AppText variant="caption" style={styles.worker}>
+          Matched with {workerName}
+        </AppText>
+      ) : null}
     </AppCard>
   );
 };
 
 export const ClientHomeScreen = (): React.JSX.Element => {
-  const user = useAuthStore(state => state.user);\n  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const user = useAuthStore(state => state.user);
+  const navigation =
+    useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const requirements = useClientStore(state => state.requirements);
   const status = useClientStore(state => state.status);
   const loadRequirements = useClientStore(state => state.loadRequirements);
@@ -98,28 +113,54 @@ export const ClientHomeScreen = (): React.JSX.Element => {
         <View style={styles.header}>
           <View style={styles.headerCopy}>
             <AppText variant="caption" muted>CLIENT</AppText>
-            <AppText variant="display">Hi, {user?.firstName ?? 'there'} 👋</AppText>
+            <AppText variant="display">
+              Hi, {user?.firstName ?? 'there'} 👋
+            </AppText>
             <AppText variant="body" muted>What do you need done?</AppText>
           </View>
         </View>
 
         <AppCard elevated style={styles.hero}>
-          <AppText variant="caption" style={{color: theme.colors.accent, fontWeight: '800'}}>
+          <AppText
+            variant="caption"
+            style={{color: theme.colors.accent, fontWeight: '800'}}>
             WORKO DISPATCH
           </AppText>
-          <AppText variant="title" style={styles.heroTitle}>Post a requirement and let Worko find the right worker.</AppText>
-          <AppText variant="body" muted>Workers are matched using the requirement, skills, availability and location.</AppText>
+          <AppText variant="title" style={styles.heroTitle}>
+            Post a requirement and let Worko find the right worker.
+          </AppText>
+          <AppText variant="body" muted>
+            Workers are matched using the requirement, skills, availability and
+            location.
+          </AppText>
           <View style={styles.heroAction}>
-            <AppButton label="Post work" onPress={() => navigation.navigate('CreateRequirement')} />
+            <AppButton
+              label="Post work"
+              onPress={() => navigation.navigate('CreateRequirement')}
+            />
           </View>
         </AppCard>
 
         <View style={styles.summaryRow}>
-          <View style={[styles.summary, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
+          <View
+            style={[
+              styles.summary,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}>
             <AppText variant="display">{activeCount}</AppText>
             <AppText variant="caption" muted>Active</AppText>
           </View>
-          <View style={[styles.summary, {backgroundColor: theme.colors.surface, borderColor: theme.colors.border}]}>
+          <View
+            style={[
+              styles.summary,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}>
             <AppText variant="display">{requirements.length}</AppText>
             <AppText variant="caption" muted>Total requests</AppText>
           </View>
@@ -162,11 +203,23 @@ const styles = StyleSheet.create({
   heroTitle: {marginTop: 10, marginBottom: 8},
   heroAction: {marginTop: 18, maxWidth: 180},
   summaryRow: {flexDirection: 'row', gap: 12},
-  summary: {flex: 1, minHeight: 96, borderWidth: 1, borderRadius: 18, padding: 16, justifyContent: 'space-between'},
+  summary: {
+    flex: 1,
+    minHeight: 96,
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 16,
+    justifyContent: 'space-between',
+  },
   list: {gap: 12},
   cardTop: {flexDirection: 'row', alignItems: 'flex-start', gap: 12},
   cardCopy: {flex: 1, gap: 4},
-  status: {borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6},
+  status: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
   address: {marginTop: 14, marginBottom: 6},
   worker: {marginTop: 8, fontWeight: '600'},
 });
