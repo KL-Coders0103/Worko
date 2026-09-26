@@ -1,5 +1,5 @@
 import React from 'react';
-import {ActivityIndicator, Pressable, StyleSheet} from 'react-native';
+import {ActivityIndicator, Pressable, StyleSheet, View} from 'react-native';
 import {AppText} from './AppText';
 import {useTheme} from '../../theme/ThemeProvider';
 
@@ -8,7 +8,7 @@ type AppButtonProps = {
   onPress?: () => void;
   loading?: boolean;
   disabled?: boolean;
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
 };
 
 export const AppButton = ({
@@ -20,19 +20,17 @@ export const AppButton = ({
 }: AppButtonProps): React.JSX.Element => {
   const {theme} = useTheme();
   const isDisabled = disabled || loading;
+  const filled = variant === 'primary';
+  const outlined = variant === 'outline' || variant === 'secondary';
 
-  const backgroundColor =
-    variant === 'primary'
-      ? theme.colors.accent
-      : variant === 'secondary'
-        ? theme.colors.surface
-        : 'transparent';
+  const backgroundColor = filled
+    ? theme.colors.accent
+    : variant === 'secondary'
+      ? theme.colors.surface
+      : 'transparent';
 
-  const borderColor =
-    variant === 'secondary' ? theme.colors.border : 'transparent';
-
-  const textColor =
-    variant === 'primary' ? theme.colors.inverse : theme.colors.textPrimary;
+  const borderColor = outlined ? theme.colors.border : 'transparent';
+  const textColor = filled ? theme.colors.inverse : theme.colors.textPrimary;
 
   return (
     <Pressable
@@ -50,7 +48,9 @@ export const AppButton = ({
       {loading ? (
         <ActivityIndicator color={textColor} />
       ) : (
-        <AppText style={[styles.label, {color: textColor}]}>{label}</AppText>
+        <AppText variant="label" style={{color: textColor}}>
+          {label}
+        </AppText>
       )}
     </Pressable>
   );
@@ -65,5 +65,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
-  label: {fontSize: 16, fontWeight: '700'},
 });
