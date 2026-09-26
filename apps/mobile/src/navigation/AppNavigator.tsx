@@ -105,15 +105,38 @@ const AppNavigatorContent = (): React.JSX.Element => {
   return <AuthNavigator />;
 };
 
-const AppNavigator = (): React.JSX.Element => (
-  <ThemeProvider>
-    <ToastProvider>
-      <NavigationContainer key={useNavigationBoundaryKey()}>
-        <AppNavigatorContent />
-      </NavigationContainer>
-    </ToastProvider>
-  </ThemeProvider>
-);
+const AppNavigator = (): React.JSX.Element => {
+  const navigationKey = useNavigationBoundaryKey();
+
+  const navigation = (() => {
+    const authStatus = useAuthStore.getState().status;
+    const onboardingStatus = useOnboardingStore.getState().status;
+
+    if (authStatus === 'hydrating' || onboardingStatus === 'checking') {
+      return <RootStack.Navigator screenOptions={{headerShown: false}}><RootStack.Screen name="Startup" component={StartupScreen} /></RootStack.Navigator>;
+    }
+
+    if (authStatus === 'authenticated') {
+      return <AuthenticatedNavigator />;
+    }
+
+    if (onboardingStatus === 'required') {
+      return <RootStack.Navigator screenOptions={{headerShown: false}}><RootStack.Screen name="Onboarding" component={OnboardingScreen} /></RootStack.Navigator>;
+    }
+
+    return <AuthNavigator />;
+  })();
+
+  return (
+    <ThemeProvider>
+      <ToastProvider>
+        <NavigationContainer key={navigationKey}>
+          {navigation}
+        </NavigationContainer>
+      </ToastProvider>
+    </ThemeProvider>
+  );
+};
 
 const styles = StyleSheet.create({
   tabBar: {height: 72, paddingTop: 8, paddingBottom: 10, borderTopWidth: StyleSheet.hairlineWidth, elevation: 0},
