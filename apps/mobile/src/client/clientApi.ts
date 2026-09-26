@@ -59,6 +59,11 @@ export const clientApi = {
     return response.data;
   },
 
+  cancelRequirement: async (id: string, reason?: string): Promise<ClientRequirement> => {
+    const response = await workoApi.post<ClientRequirement>(`/requirements/${id}/cancel`, reason ? {reason} : {});
+    return response.data;
+  },
+
   createRequirement: async (
     input: CreateRequirementInput,
   ): Promise<CreateRequirementResponse> => {
