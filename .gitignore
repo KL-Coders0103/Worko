@@ -47,3 +47,10 @@ temp/
 /storage/
 /storage/private/
 *.local
+# React Native iOS generated artifacts
+apps/mobile/ios/Pods/
+apps/mobile/ios/build/
+apps/mobile/ios/*.xcworkspace/
+apps/mobile/ios/DerivedData/
+apps/mobile/ios/xcuserdata/
+**/*.xcuserstate
