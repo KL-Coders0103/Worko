@@ -37,7 +37,7 @@ export const ErrorState = ({
 
 const styles = StyleSheet.create({
   container: {alignItems: 'center', justifyContent: 'center', padding: 24},
-  mark: {width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.danger},
+  mark: {width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1},
   title: {textAlign: 'center', marginTop: 16},
   description: {textAlign: 'center', marginTop: 8, maxWidth: 340},
   action: {marginTop: 20, width: '100%', maxWidth: 280},
