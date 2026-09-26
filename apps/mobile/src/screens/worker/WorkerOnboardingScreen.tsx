@@ -60,6 +60,7 @@ export const WorkerOnboardingScreen=({onComplete}:Props):React.JSX.Element=>{
   if((h===undefined||!Number.isFinite(h)||h<0)&&(d===undefined||!Number.isFinite(d)||d<0))return setError('Add an hourly rate or a daily rate.');
   if(!selectedCategories.length)return setError('Select at least one category.');
   if(!selectedSkills.length)return setError('Select at least one skill.');
+  if(!location)return setError('Capture your current location before saving your worker profile.');
   setSaving(true);
   try{
    const input={bio:bio.trim(),experienceYears:exp,expectedHourlyRate:h,expectedDailyRate:d,isAvailable:true};
