@@ -15,6 +15,7 @@ import {VerifyOtpScreen} from '../screens/auth/VerifyOtpScreen';
 import {AppOverviewScreen} from '../screens/app/AppOverviewScreen';
 import {AppPlaceholderScreen} from '../screens/app/AppPlaceholderScreen';
 import {ProfileScreen} from '../screens/app/ProfileScreen';
+import {ClientHomeScreen} from '../screens/client/ClientHomeScreen';
 import {useAuthStore} from '../store/authStore';
 import {useOnboardingStore} from '../store/onboardingStore';
 
@@ -43,7 +44,7 @@ const TabIcon = ({focused}: {focused: boolean}): React.JSX.Element => {
 const ClientNavigator = (): React.JSX.Element => {
   const {theme} = useTheme();
   return <ClientTabs.Navigator screenOptions={{headerShown: false, tabBarActiveTintColor: theme.colors.accent, tabBarInactiveTintColor: theme.colors.textSecondary, tabBarStyle: [styles.tabBar, {backgroundColor: theme.colors.surfaceElevated, borderTopColor: theme.colors.border}], tabBarLabelStyle: styles.tabLabel}}>
-    <ClientTabs.Screen name="Home" children={() => <AppOverviewScreen mode="CLIENT" />} options={{tabBarIcon: ({focused}) => <TabIcon focused={focused} />}} />
+    <ClientTabs.Screen name="Home" component={ClientHomeScreen} options={{tabBarIcon: ({focused}) => <TabIcon focused={focused} />}} />
     <ClientTabs.Screen name="Jobs" children={() => <AppPlaceholderScreen title="Your work" description="Client requirements, dispatch status, and active jobs will be built here." />} options={{tabBarIcon: ({focused}) => <TabIcon focused={focused} />}} />
     <ClientTabs.Screen name="Reels" children={() => <AppPlaceholderScreen title="Reels" description="Discover worker skills and work showcases here." />} options={{tabBarIcon: ({focused}) => <TabIcon focused={focused} />}} />
     <ClientTabs.Screen name="Profile" component={ProfileScreen} options={{tabBarIcon: ({focused}) => <TabIcon focused={focused} />}} />
