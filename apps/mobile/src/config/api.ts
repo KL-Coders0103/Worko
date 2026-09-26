@@ -1,3 +1,4 @@
-export const API_BASE_URL = 'https://worko-api-xyxj.onrender.com/api/v1';
+import {APP_CONFIG} from './environment';
 
-export const API_TIMEOUT_MS = 15_000;
+export const API_BASE_URL = APP_CONFIG.apiBaseUrl;
+export const API_TIMEOUT_MS = APP_CONFIG.apiTimeoutMs;
