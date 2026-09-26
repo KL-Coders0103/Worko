@@ -1,6 +1,7 @@
 import {Platform} from 'react-native';
 import {
   check,
+  checkNotifications,
   PERMISSIONS,
   request,
   requestNotifications,
@@ -65,7 +66,3 @@ export const isPermissionGranted = (status: PermissionStatus): boolean =>
 export const isPermissionBlocked = (status: PermissionStatus): boolean =>
   status === RESULTS.BLOCKED;
 
-async function checkNotifications(): Promise<{status: PermissionStatus}> {
-  const module = await import('react-native-permissions');
-  return module.checkNotifications();
-}
