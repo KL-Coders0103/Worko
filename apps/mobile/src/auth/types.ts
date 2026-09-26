@@ -38,6 +38,11 @@ export interface AuthTokens {
   expiresIn: number;
 }
 
+export interface RegisterResponse {
+  message: string;
+  user: WorkoUser;
+}
+
 export interface AuthResponse {
   message: string;
   user: WorkoUser;
