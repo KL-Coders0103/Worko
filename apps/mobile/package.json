@@ -20,7 +20,8 @@
     "axios": "^1.20.0",
     "react-native-keychain": "^10.0.0",
     "zustand": "^5.0.15",
-    "@react-navigation/bottom-tabs": "^7.19.2"
+    "@react-navigation/bottom-tabs": "^7.19.2",
+    "react-native-permissions": "^5.6.1"
   },
   "devDependencies": {
     "@react-native/babel-preset": "0.87.1",
