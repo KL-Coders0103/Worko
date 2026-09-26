@@ -41,7 +41,7 @@ const setAuthenticated = (set: (state: Partial<AuthState>) => void, response: Au
   });
 };
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>(set => ({
   status: 'hydrating',
   user: null,
   error: null,
