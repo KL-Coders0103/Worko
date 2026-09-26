@@ -9,6 +9,12 @@ export type WorkerProfileInput = {
   isAvailable?: boolean;
 };
 
+export type WorkerLocationInput = {
+  latitude: number;
+  longitude: number;
+  accuracyMeters?: number;
+};
+
 export const workerApi = {
   getMyProfile: async (): Promise<WorkerProfile> =>
     (await workoApi.get<{worker: WorkerProfile}>('/workers/me')).data.worker,
@@ -31,6 +37,10 @@ export const workerApi = {
 
   updateSkills: async (skillIds: string[]): Promise<void> => {
     await workoApi.patch('/workers/me/skills', {skillIds});
+  },
+
+  updateLocation: async (input: WorkerLocationInput): Promise<void> => {
+    await workoApi.patch('/workers/me/location', input);
   },
 
   listRequirements: async (): Promise<WorkerRequirement[]> =>
