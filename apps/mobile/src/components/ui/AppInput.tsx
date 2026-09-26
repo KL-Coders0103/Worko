@@ -7,7 +7,9 @@ type AppInputProps = TextInputProps & {
   error?: string | null;
 };
 
-export const AppInput = forwardRef<TextInputInstance, AppInputProps>(function AppInputComponent(
+type AppInputRef = React.ComponentRef<typeof TextInput>;
+
+export const AppInput = forwardRef<AppInputRef, AppInputProps>(function AppInputComponent(
   {label, error, style, ...props},
   ref,
 ): React.JSX.Element {
