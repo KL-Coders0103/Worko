@@ -1,5 +1,5 @@
 import {workoApi} from '../api/apiClient';
-import type {WorkerCategory, WorkerProfile, WorkerSkill} from './types';
+import type {WorkerAcceptResponse, WorkerCategory, WorkerProfile, WorkerRequirement, WorkerSkill} from './types';
 
 export type WorkerProfileInput = {
   bio?: string;
@@ -32,4 +32,19 @@ export const workerApi = {
   updateSkills: async (skillIds: string[]): Promise<void> => {
     await workoApi.patch('/workers/me/skills', {skillIds});
   },
+
+  listRequirements: async (): Promise<WorkerRequirement[]> =>
+    (await workoApi.get<WorkerRequirement[]>('/requirements')).data,
+
+  getRequirement: async (requirementId: string): Promise<WorkerRequirement> =>
+    (await workoApi.get<WorkerRequirement>(`/requirements/${requirementId}`)).data,
+
+  acceptRequirement: async (requirementId: string): Promise<WorkerAcceptResponse> =>
+    (await workoApi.post<WorkerAcceptResponse>(`/requirements/${requirementId}/accept`)).data,
+
+  rejectRequirement: async (requirementId: string, reason?: string): Promise<WorkerRequirement> =>
+    (await workoApi.post<WorkerRequirement>(
+      `/requirements/${requirementId}/reject`,
+      reason ? {reason} : {},
+    )).data,
 };
