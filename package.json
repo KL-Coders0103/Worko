@@ -10,6 +10,7 @@
   "workspaces": {
     "packages": [
       "apps/api",
+      "apps/mobile",
       "packages/*"
     ]
   },
@@ -20,7 +21,9 @@
     "lint": "npm run lint --workspaces",
     "typecheck": "npm run typecheck --workspaces",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "mobile": "npm run start --workspace @worko/mobile",
+    "mobile:android": "npm run android --workspace @worko/mobile"
   },
   "devDependencies": {
     "prettier": "^3.6.2",
