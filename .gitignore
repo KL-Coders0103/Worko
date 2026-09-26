@@ -47,3 +47,8 @@ temp/
 /storage/
 /storage/private/
 *.local
+# Android generated build/cache
+**/android/.gradle/
+**/android/app/.cxx/
+**/android/app/build/
+**/android/build/
