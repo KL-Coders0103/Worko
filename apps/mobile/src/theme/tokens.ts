@@ -47,12 +47,6 @@ export const radius = {
 } as const;
 
 export const typography = {
-  family: {
-    regular: undefined,
-    medium: undefined,
-    semiBold: undefined,
-    bold: undefined,
-  },
   size: {
     xs: 12,
     sm: 14,
@@ -63,10 +57,10 @@ export const typography = {
     display: 34,
   },
   lineHeight: {
-    sm: 20,
-    md: 24,
-    lg: 28,
-    xl: 34,
+    sm: 18,
+    md: 20,
+    lg: 24,
+    xl: 28,
     xxl: 40,
   },
 } as const;
