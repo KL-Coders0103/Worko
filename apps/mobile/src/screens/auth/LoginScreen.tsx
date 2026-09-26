@@ -14,7 +14,7 @@ import type {OtpChannel} from '../../auth/types';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 type ChannelChoice = 'EMAIL' | 'SMS';
-const emailPattern = /^[^\s@]+@[^\s@]+\\.[^\s@]+$/;
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const LoginScreen = ({navigation}: Props): React.JSX.Element => {
   const {theme} = useTheme(); const {show} = useToast();
