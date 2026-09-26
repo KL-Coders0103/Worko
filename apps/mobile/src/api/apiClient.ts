@@ -18,7 +18,7 @@ export interface WorkoApiError {
 
 let refreshPromise: Promise<string | null> | null = null;
 
-const apiClient = axios.create({
+export const createApiClient = () => axios.create({
   baseURL: API_BASE_URL,
   timeout: API_TIMEOUT_MS,
   headers: {
@@ -94,7 +94,7 @@ apiClient.interceptors.response.use(
   },
 );
 
-export const workoApi = apiClient;
+export const workoApi = createApiClient();
 
 export const getWorkoApiErrorMessage = (error: unknown): string => {
   if (axios.isAxiosError<WorkoApiError>(error)) {
