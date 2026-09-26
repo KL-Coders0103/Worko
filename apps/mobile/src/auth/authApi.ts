@@ -2,6 +2,7 @@ import axios from 'axios';
 import {API_BASE_URL, API_TIMEOUT_MS} from '../config/api';
 import type {
   AuthResponse,
+  RegisterResponse,
   GoogleAuthInput,
   LoginInput,
   OtpInput,
@@ -20,7 +21,7 @@ const authClient = axios.create({
 
 export const authApi = {
   async register(input: RegisterInput) {
-    const response = await authClient.post<AuthResponse | {message: string}>(
+    const response = await authClient.post<RegisterResponse>(
       '/auth/register',
       input,
     );
