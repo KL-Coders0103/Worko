@@ -92,19 +92,6 @@ const AuthenticatedNavigator = (): React.JSX.Element => {
     <AppStack.Screen name="RequirementDetail" component={RequirementDetailScreen} options={{title: 'Requirement'}} /></AppStack.Navigator>;
 };
 
-const AppNavigatorContent = (): React.JSX.Element => {
-  const authStatus = useAuthStore(state => state.status);
-  const onboardingStatus = useOnboardingStore(state => state.status);
-
-  if (authStatus === 'hydrating' || onboardingStatus === 'checking') {
-    return <RootStack.Navigator screenOptions={{headerShown: false}}><RootStack.Screen name="Startup" component={StartupScreen} /></RootStack.Navigator>;
-  }
-
-  if (authStatus === 'authenticated') return <AuthenticatedNavigator />;
-  if (onboardingStatus === 'required') return <RootStack.Navigator screenOptions={{headerShown: false}}><RootStack.Screen name="Onboarding" component={OnboardingScreen} /></RootStack.Navigator>;
-  return <AuthNavigator />;
-};
-
 const AppNavigator = (): React.JSX.Element => {
   const navigationKey = useNavigationBoundaryKey();
 
