@@ -1,2 +1,19 @@
-buildscript { ext { buildToolsVersion="35.0.0"; minSdkVersion=24; compileSdkVersion=35; targetSdkVersion=35; ndkVersion="27.1.12297006"; kotlinVersion="2.1.20" } }
-plugins { id("com.facebook.react.rootproject") version "0.87.1" apply false }
+buildscript {
+  ext {
+    buildToolsVersion="37.0.0"
+    minSdkVersion=24
+    compileSdkVersion=37
+    targetSdkVersion=36
+    ndkVersion="27.1.12297006"
+    kotlinVersion="2.2.0"
+  }
+
+  repositories {
+    google()
+    mavenCentral()
+  }
+}
+
+plugins {
+  id("com.facebook.react.rootproject") version "0.87.1" apply false
+}
