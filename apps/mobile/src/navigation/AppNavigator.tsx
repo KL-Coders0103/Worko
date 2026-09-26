@@ -19,6 +19,7 @@ import {ClientHomeScreen} from '../screens/client/ClientHomeScreen';
 import {CreateRequirementScreen} from '../screens/client/CreateRequirementScreen';
 import {RequirementDetailScreen} from '../screens/client/RequirementDetailScreen';
 import {WorkerHomeScreen} from '../screens/worker/WorkerHomeScreen';
+import {ReelsFeedScreen} from '../screens/reels/ReelsFeedScreen';
 import {useAuthStore} from '../store/authStore';
 import {useOnboardingStore} from '../store/onboardingStore';
 
@@ -49,7 +50,7 @@ const ClientNavigator = (): React.JSX.Element => {
   return <ClientTabs.Navigator screenOptions={{headerShown: false, tabBarActiveTintColor: theme.colors.accent, tabBarInactiveTintColor: theme.colors.textSecondary, tabBarStyle: [styles.tabBar, {backgroundColor: theme.colors.surfaceElevated, borderTopColor: theme.colors.border}], tabBarLabelStyle: styles.tabLabel}}>
     <ClientTabs.Screen name="Home" component={ClientHomeScreen} options={{tabBarIcon: ({focused}) => <TabIcon focused={focused} />}} />
     <ClientTabs.Screen name="Jobs" children={() => <AppPlaceholderScreen title="Your work" description="Client requirements, dispatch status, and active jobs will be built here." />} options={{tabBarIcon: ({focused}) => <TabIcon focused={focused} />}} />
-    <ClientTabs.Screen name="Reels" children={() => <AppPlaceholderScreen title="Reels" description="Discover worker skills and work showcases here." />} options={{tabBarIcon: ({focused}) => <TabIcon focused={focused} />}} />
+    <ClientTabs.Screen name="Reels" component={ReelsFeedScreen} options={{tabBarIcon: ({focused}) => <TabIcon focused={focused} />}} />
     <ClientTabs.Screen name="Profile" component={ProfileScreen} options={{tabBarIcon: ({focused}) => <TabIcon focused={focused} />}} />
   </ClientTabs.Navigator>;
 };
@@ -59,7 +60,7 @@ const WorkerNavigator = (): React.JSX.Element => {
   return <WorkerTabs.Navigator screenOptions={{headerShown: false, tabBarActiveTintColor: theme.colors.accent, tabBarInactiveTintColor: theme.colors.textSecondary, tabBarStyle: [styles.tabBar, {backgroundColor: theme.colors.surfaceElevated, borderTopColor: theme.colors.border}], tabBarLabelStyle: styles.tabLabel}}>
     <WorkerTabs.Screen name="Home" component={WorkerHomeScreen} options={{tabBarIcon: ({focused}) => <TabIcon focused={focused} />}} />
     <WorkerTabs.Screen name="Jobs" children={() => <AppPlaceholderScreen title="Jobs" description="Relevant work requests and active jobs will be built here." />} options={{tabBarIcon: ({focused}) => <TabIcon focused={focused} />}} />
-    <WorkerTabs.Screen name="Reels" children={() => <AppPlaceholderScreen title="Reels" description="Post and discover worker work showcases here." />} options={{tabBarIcon: ({focused}) => <TabIcon focused={focused} />}} />
+    <WorkerTabs.Screen name="Reels" component={ReelsFeedScreen} options={{tabBarIcon: ({focused}) => <TabIcon focused={focused} />}} />
     <WorkerTabs.Screen name="Profile" component={ProfileScreen} options={{tabBarIcon: ({focused}) => <TabIcon focused={focused} />}} />
   </WorkerTabs.Navigator>;
 };
