@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState}from'react';
-import{ActivityIndicator,Dimensions,FlatList,Pressable,StyleSheet,View}from'react-native';
+import{ActivityIndicator,Dimensions,FlatList,Pressable,StyleSheet,View,ViewToken}from'react-native';
 import Video from'react-native-video';
 import{AppText,ErrorState,Screen}from'../../components/ui';
 import{getWorkoApiErrorMessage}from'../../api/apiClient';
@@ -19,7 +19,7 @@ export const ReelsFeedScreen=():React.JSX.Element=>{
  const[items,setItems]=useState<ReelFeedItem[]>([]),[nextCursor,setNextCursor]=useState<string|null>(null),[hasMore,setHasMore]=useState(false);
  const[loading,setLoading]=useState(true),[loadingMore,setLoadingMore]=useState(false),[refreshing,setRefreshing]=useState(false),[error,setError]=useState<string|null>(null),[activeId,setActiveId]=useState<string|null>(null),[authToken,setAuthToken]=useState<string|null>(null);
  const viewabilityConfig=useRef({itemVisiblePercentThreshold:70}).current;
- const onViewableItemsChanged=useRef(({viewableItems}:{viewableItems:Array<{item:ReelFeedItem}>})=>setActiveId(viewableItems[0]?.item?.id??null)).current;
+ const onViewableItemsChanged=useRef(({viewableItems}:{viewableItems:ViewToken[]})=>{const first=viewableItems[0]?.item as ReelFeedItem|undefined;setActiveId(first?.id??null);}).current;
 
  const fetchPage=useCallback(async(reset:boolean,cursor?:string)=>{
   if(reset){setLoading(true);setError(null);}else setLoadingMore(true);
