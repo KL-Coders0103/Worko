@@ -2,6 +2,7 @@ import {create} from 'zustand';
 import {authApi} from '../auth/authApi';
 import type {
   AuthResponse,
+  RegisterResponse,
   GoogleAuthInput,
   LoginInput,
   OtpInput,
@@ -22,7 +23,7 @@ interface AuthState {
   user: WorkoUser | null;
   error: string | null;
   initialize: () => Promise<void>;
-  register: (input: RegisterInput) => Promise<AuthResponse | null>;
+  register: (input: RegisterInput) => Promise<RegisterResponse | null>;
   sendOtp: (input: SendOtpInput) => Promise<boolean>;
   verifyOtp: (input: OtpInput) => Promise<boolean>;
   login: (input: LoginInput) => Promise<boolean>;
@@ -33,7 +34,6 @@ interface AuthState {
 }
 
 const setAuthenticated = (set: (state: Partial<AuthState>) => void, response: AuthResponse) => {
-  void tokenStorage.save(response.tokens);
   set({
     status: 'authenticated',
     user: response.user,
@@ -78,18 +78,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({error: null});
 
     try {
-      const response = await authApi.register(input);
-
-      if ('tokens' in response) {
-        await tokenStorage.save(response.tokens);
-        set({
-          status: 'authenticated',
-          user: response.user,
-        });
-        return response;
-      }
-
-      return response as AuthResponse;
+      return await authApi.register(input);
     } catch (error) {
       set({error: getWorkoApiErrorMessage(error)});
       return null;
