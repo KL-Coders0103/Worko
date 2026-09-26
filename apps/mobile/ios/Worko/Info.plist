@@ -1,1 +1,24 @@
-<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleDisplayName</key><string>Worko</string><key>CFBundleIdentifier</key><string>com.worko.app</string><key>CFBundleName</key><string>Worko</string><key>UILaunchStoryboardName</key><string>LaunchScreen</string><key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array></dict></plist>
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDisplayName</key>
+    <string>Worko</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.worko.app</string>
+    <key>CFBundleName</key>
+    <string>Worko</string>
+    <key>UILaunchStoryboardName</key>
+    <string>LaunchScreen</string>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+    <key>NSCameraUsageDescription</key>
+    <string>Worko uses your camera to create work showcase reels.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Worko uses your location to match work requirements and support attendance.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Worko uses your microphone when recording work showcase reels.</string>
+</dict>
+</plist>
