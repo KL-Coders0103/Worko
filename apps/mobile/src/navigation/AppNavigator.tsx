@@ -16,8 +16,11 @@ import {AppOverviewScreen} from '../screens/app/AppOverviewScreen';
 import {AppPlaceholderScreen} from '../screens/app/AppPlaceholderScreen';
 import {ProfileScreen} from '../screens/app/ProfileScreen';
 import {ClientHomeScreen} from '../screens/client/ClientHomeScreen';
+import {CreateRequirementScreen} from '../screens/client/CreateRequirementScreen';
 import {useAuthStore} from '../store/authStore';
 import {useOnboardingStore} from '../store/onboardingStore';
+import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -84,7 +87,7 @@ const useNavigationBoundaryKey = (): string => {
 // Role selection happens once at the application boundary; feature screens stay role-focused.
 const AuthenticatedNavigator = (): React.JSX.Element => {
   const role = useAuthStore(state => state.user?.role);
-  return <AppStack.Navigator screenOptions={{headerShown: false, animation: 'fade'}}><AppStack.Screen name="Home">{() => role === 'WORKER' ? <WorkerNavigator /> : <ClientNavigator />}</AppStack.Screen></AppStack.Navigator>;
+  return <AppStack.Navigator screenOptions={{headerShown: false, animation: 'fade'}}><AppStack.Screen name="Home">{() => role === 'WORKER' ? <WorkerNavigator /> : <ClientNavigator />}</AppStack.Screen>\n    <AppStack.Screen name="CreateRequirement" component={CreateRequirementScreen} options={{presentation: 'modal', title: 'Post work'}} /></AppStack.Navigator>;
 };
 
 const AppNavigatorContent = (): React.JSX.Element => {
