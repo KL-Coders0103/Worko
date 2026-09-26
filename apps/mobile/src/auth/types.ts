@@ -16,7 +16,7 @@ export type UserStatus =
 
 export type OtpPurpose =
   | 'LOGIN'
-  |  | 'REGISTRATION'
+  | 'REGISTRATION'
   | 'PHONE_VERIFICATION'
   | 'EMAIL_VERIFICATION';
 
