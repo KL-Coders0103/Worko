@@ -14,7 +14,7 @@ import type {OtpChannel} from '../../auth/types';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 type ChannelChoice = 'EMAIL' | 'SMS';
-const emailPattern = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+const emailPattern = /^[^\s@]+@[^\s@]+\\.[^\s@]+$/;
 
 export const LoginScreen = ({navigation}: Props): React.JSX.Element => {
   const {theme} = useTheme(); const {show} = useToast();
@@ -25,7 +25,7 @@ export const LoginScreen = ({navigation}: Props): React.JSX.Element => {
 
   const choose = (next: ChannelChoice): void => { setChannel(next); setIdentifier(''); clearError(); };
   const submit = async (): Promise<void> => {
-    const value = channel === 'EMAIL' ? identifier.trim().toLowerCase() : identifier.replace(/\\D/g, '');
+    const value = channel === 'EMAIL' ? identifier.trim().toLowerCase() : identifier.replace(/\D/g, '');
     const valid = channel === 'EMAIL' ? emailPattern.test(value) : value.length === 10;
     if (!valid) { show(channel === 'EMAIL' ? 'Enter a valid email address.' : 'Enter a valid 10-digit mobile number.', 'error'); return; }
     clearError(); setLoading(true);
