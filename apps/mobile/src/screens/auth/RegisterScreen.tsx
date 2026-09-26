@@ -57,7 +57,7 @@ export const RegisterScreen = ({navigation}: Props): React.JSX.Element => {
             </View>
             <View style={styles.section}><AppText variant="caption" muted style={styles.sectionLabel}>YOUR DETAILS</AppText>
               <AppInput label="First name" value={firstName} onChangeText={setFirstName} placeholder="Your first name" autoCapitalize="words" editable={!loading}/>
-              <AppInput label="Last name" value={lastName} onChangeText={setLastName} placeholder="Optional" autoCapitalize="words" editable={!loading}/>
+              <AppInput label="Last name" value={lastName} onChangeText={setLastName} placeholder="Your last name" autoCapitalize="words" editable={!loading}/>
               <AppInput label="Email" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} editable={!loading}/>
               <AppInput label="Phone number" value={phoneNumber} onChangeText={setPhoneNumber} placeholder="10-digit mobile number" keyboardType="phone-pad" maxLength={10} editable={!loading}/>
             </View>
