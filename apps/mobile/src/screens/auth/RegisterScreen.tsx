@@ -13,7 +13,7 @@ import type {AuthStackParamList} from '../../navigation/types';
 import type {RegisterInput, UserRole} from '../../auth/types';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
-const emailPattern = /^[^\s@]+@[^\s@]+\\.[^\s@]+$/;
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Role = Extract<UserRole, 'CLIENT' | 'WORKER'>;
 const roleInfo: Record<Role, {label:string; subtitle:string; mark:string}> = {
@@ -31,10 +31,11 @@ export const RegisterScreen = ({navigation}: Props): React.JSX.Element => {
   const submit=async():Promise<void>=>{
     const normalizedEmail=email.trim().toLowerCase(); const normalizedPhone=phoneNumber.replace(/\D/g,''); const normalizedFirstName=firstName.trim();
     if(!normalizedFirstName){show('Enter your first name.','error');return;}
+    if(!lastName.trim()){show('Enter your last name.','error');return;}
     if(!emailPattern.test(normalizedEmail)){show('Enter a valid email address.','error');return;}
     if(normalizedPhone.length!==10){show('Enter a valid 10-digit mobile number.','error');return;}
     clearError(); setLoading(true);
-    const input:RegisterInput={firstName:normalizedFirstName,lastName:lastName.trim()||undefined,email:normalizedEmail,phoneNumber:normalizedPhone,role};
+    const input:RegisterInput={firstName:normalizedFirstName,lastName:lastName.trim(),email:normalizedEmail,phoneNumber:normalizedPhone,role};
     const response=await register(input); setLoading(false);
     if(response){show('Account created. OTP sent to your email.','success');navigation.navigate('VerifyOtp',{identifier:normalizedEmail,purpose:'REGISTRATION',channel:'EMAIL'});}
     else show(useAuthStore.getState().error??'Unable to create account. Please try again.','error');
