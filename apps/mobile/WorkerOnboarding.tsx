@@ -57,7 +57,7 @@ export default function WorkerOnboarding({ onExit }: Props) {
     'Your Skills', 'Work Experience', 'Work Description', 'Service Area & Availability', 'Review Skills & Experience',
     'Set Your Work Location', 'Set Preferred Service Radius', 'Service Areas', 'Availability', 'Review Location & Availability',
   ], []);
-  const group = screen < 5 ? 1 : screen < 10 ? 2 : 3;
+  const group = screen < 5 ? 1 : screen < 10 ? 2 : screen < 13 ? 3 : 4;
   const groupLabel = group === 1 ? 'Basic Info' : group === 2 ? 'Skills' : 'Location';
   const groupIndex = group === 1 ? screen : group === 2 ? screen - 5 : screen - 10;
   const totalInGroup = group === 1 ? 5 : 5;
