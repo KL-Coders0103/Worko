@@ -59,7 +59,6 @@ export default function WorkerOnboarding({ onExit }: Props) {
   ], []);
   const group = screen < 5 ? 1 : screen < 10 ? 2 : screen < 13 ? 3 : 4;
   const groupLabel = group === 1 ? 'Basic Info' : group === 2 ? 'Skills' : 'Location';
-  const groupIndex = group === 1 ? screen : group === 2 ? screen - 5 : screen - 10;
   const title = titles[screen];
 
   const goNext = () => {
