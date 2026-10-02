@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import WorkerVerification from './WorkerVerification';
 
 const ORANGE = '#FF6B00';
 const INK = '#101010';
@@ -25,6 +26,7 @@ function Choice({ label, selected, onPress, detail }: { label: string; selected:
 export default function WorkerOnboarding({ onExit }: Props) {
   // Each numbered group follows the approved screens 037–040; substeps mirror the supplied panels.
   const [screen, setScreen] = useState(0);
+  const [showVerification, setShowVerification] = useState(false);
   const [name, setName] = useState('');
   const [dob, setDob] = useState('');
   const [gender, setGender] = useState('Male');
@@ -77,7 +79,7 @@ export default function WorkerOnboarding({ onExit }: Props) {
     if (screen === 10 && baseLocation.trim().length < 3) { Alert.alert('Set your work location', 'Enter your area or landmark.'); return; }
     if (screen === 12 && selectedAreas.length === 0) { Alert.alert('Choose service areas', 'Select at least one nearby area or continue after choosing your base area.'); return; }
     if (screen < 14) setScreen((current) => current + 1);
-    else Alert.alert('Profile details reviewed', 'Your worker profile details are ready. Document verification and secure profile submission will be connected in the next integration step.', [{ text: 'Done', onPress: onExit }]);
+    else setShowVerification(true);
   };
   const toggleList = (value: string, list: string[], setList: (v: string[]) => void) => setList(list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
   const updateDay = (index: number, patch: Partial<Availability>) => setAvailability((current) => current.map((day, i) => i === index ? { ...day, ...patch } : day));
@@ -119,6 +121,8 @@ export default function WorkerOnboarding({ onExit }: Props) {
 
   const [skillSearch, setSkillSearch] = useState('');
   const [areaSearch, setAreaSearch] = useState('');
+
+  if (showVerification) return <WorkerVerification onExit={onExit} />;
 
   return <SafeAreaView style={styles.safe}><StatusBar barStyle="dark-content" backgroundColor="#FFF" /><View style={styles.header}><Pressable accessibilityRole="button" onPress={() => screen === 0 ? onExit() : setScreen((v) => v - 1)}><Text style={styles.back}>‹</Text></Pressable><Text style={styles.headerTitle}>{title}</Text><Text style={styles.headerRight}>{screen + 1}/15</Text></View><View style={styles.stepper}>{[1, 2, 3, 4, 5].map((step) => <View key={step} style={styles.stepperItem}><View style={[styles.stepCircle, step === group && styles.stepCircleActive]}><Text style={[styles.stepNumber, step === group && styles.stepNumberActive]}>{step}</Text></View><Text style={[styles.stepLabel, step === group && styles.stepLabelActive]}>{['Basic Info', 'Skills', 'Location', 'Verification', 'Complete'][step - 1]}</Text></View>)}</View><View style={styles.screenTag}><Text style={styles.screenTagText}>SCREEN {screen < 5 ? '037' : screen < 10 ? '038' : screen < 13 ? '039' : '040'}  •  {groupLabel}</Text></View><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"><Text style={styles.pageTitle}>{title}</Text>{renderStep()}</ScrollView><View style={styles.footer}><ActionButton title={screen === 14 ? 'Review & Continue to Verification' : screen === 4 || screen === 9 ? 'Continue' : 'Continue'} onPress={goNext} /></View></SafeAreaView>;
 }
