@@ -113,8 +113,8 @@ export default function WorkerVerification({ onExit }: Props) {
       default:
         return <>
           <View style={[styles.heroIcon, styles.approvedIcon]}><Text style={styles.heroGlyph}>✓</Text></View>
-          <Text style={styles.title}>You're All Set!</Text>
-          <Text style={styles.centerBody}>Your profile has been completed and verified. You can now continue to the worker home.</Text>
+          <Text style={styles.title}>Onboarding Preview Complete</Text>
+          <Text style={styles.centerBody}>This is the success-state preview. In production, a worker becomes active only after the server confirms profile completion and verification approval.</Text>
           <InfoCard icon="▣" title="Receive Work Offers" body="Get matched with clients based on your skills and availability." />
           <InfoCard icon="⌖" title="Work in Your Preferred Area" body="Receive eligible offers within your selected radius." />
           <InfoCard icon="▦" title="Work on Your Schedule" body="You decide when you are available." />
@@ -135,7 +135,7 @@ export default function WorkerVerification({ onExit }: Props) {
       return;
     }
     if (step === 6 && status === 'approved') {
-      Alert.alert('Profile submission', 'Connect the profile submission API before enabling worker activation.');
+      Alert.alert('Preview only', 'The backend profile submission and approval flow is not connected yet.', [{ text: 'Continue preview', onPress: () => setStep(7) }]);
       return;
     }
     goNext();
