@@ -179,7 +179,6 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
       const location = JSON.parse(event.nativeEvent.data);
       if (typeof location.latitude !== 'number' || typeof location.longitude !== 'number') return;
       setCoordinate({ latitude: location.latitude, longitude: location.longitude });
-      await reverseGeocode(location.latitude, location.longitude);
     } catch {
       // Ignore malformed messages from the embedded map.
     }
