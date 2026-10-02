@@ -1,4 +1,3 @@
-
 services:
   postgres:
     image: postgres:17-alpine
@@ -9,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-worko_dev_password}
       POSTGRES_DB: ${POSTGRES_DB:-worko_dev}
     ports:
-      - "127.0.0.1:15432:5432"
+      - '127.0.0.1:15432:5432'
     volumes:
       - worko_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -26,12 +25,12 @@ services:
     container_name: worko-redis
     restart: unless-stopped
     ports:
-      - "127.0.0.1:16379:6379"
+      - '127.0.0.1:16379:6379'
     volumes:
       - worko_redis_data:/data
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ['redis-server', '--appendonly', 'yes']
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 3s
       retries: 10

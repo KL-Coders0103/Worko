@@ -1,4 +1,3 @@
-
 # Worko 2.0
 
 An on-demand workforce platform with requirement-based worker matching and a separate short-form discovery feed.

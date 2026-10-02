@@ -16,17 +16,12 @@ interface RequestWithId extends Request {
 export class RequestLoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger(RequestLoggingInterceptor.name);
 
-  intercept(
-    context: ExecutionContext,
-    next: CallHandler,
-  ): Observable<unknown> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const httpContext = context.switchToHttp();
 
-    const request =
-      httpContext.getRequest<RequestWithId>();
+    const request = httpContext.getRequest<RequestWithId>();
 
-    const response =
-      httpContext.getResponse<Response>();
+    const response = httpContext.getResponse<Response>();
 
     const startedAt = Date.now();
 

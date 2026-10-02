@@ -37,9 +37,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
     const exceptionResponse =
-      exception instanceof HttpException
-        ? exception.getResponse()
-        : null;
+      exception instanceof HttpException ? exception.getResponse() : null;
 
     const message =
       typeof exceptionResponse === 'string'
@@ -73,9 +71,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
           path: request.originalUrl,
           statusCode,
           error:
-            exception instanceof Error
-              ? exception.message
-              : 'Unknown error',
+            exception instanceof Error ? exception.message : 'Unknown error',
         }),
       );
     }
@@ -120,9 +116,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       case 429:
         return 'RATE_LIMIT_EXCEEDED';
       default:
-        return statusCode >= 500
-          ? 'INTERNAL_SERVER_ERROR'
-          : 'HTTP_ERROR';
+        return statusCode >= 500 ? 'INTERNAL_SERVER_ERROR' : 'HTTP_ERROR';
     }
   }
 }
