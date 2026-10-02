@@ -250,7 +250,12 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
               <Pressable style={s.locate} onPress={useCurrentLocation} accessibilityRole="button" accessibilityLabel="Use current location">
                 <Text style={s.locateText}>◎</Text>
               </Pressable>
-            </View>value={searchText}
+            </View>
+            <Text style={s.muted}>Drag the pin or move the map, then select “Use map pin location” to resolve its address.</Text>
+            <View style={s.searchRow}>
+              <TextInput
+                accessibilityLabel="Search address"
+                value={searchText}
                 onChangeText={setSearchText}
                 placeholder="Search area, street, landmark or PIN"
                 placeholderTextColor="#999"
