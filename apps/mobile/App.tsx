@@ -38,9 +38,9 @@ function AppContent() {
   const [permissionPrompted, setPermissionPrompted] = useState(false);
 
   const nextProfile = () => {
-    const normalizedPhone = phone.replace(/[\\s()-]/g, '');
-    const validPhone = /^\\+?\\d{10,13}$/.test(normalizedPhone);
-    const validEmail = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim());
+    const normalizedPhone = phone.replace(/[\s()-]/g, '');
+    const validPhone = /^\+?\d{10,13}$/.test(normalizedPhone);
+    const validEmail = /^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(email.trim());
     if (name.trim().length < 2 || !validPhone || !validEmail || !dateOfBirth || dateOfBirth > new Date()) {
       Alert.alert('Check your details', 'Enter a valid name, phone number, email address, and date of birth.');
       return;
@@ -88,8 +88,8 @@ function AppContent() {
         </>}
         {page === 1 && <>
           <Header onBack={() => setPage(0)} step="2/3" progress={1} />
-          <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <ScrollView contentContainerStyle={s.formScroll} keyboardShouldPersistTaps="handled">
+          <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <ScrollView contentContainerStyle={s.formScroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
               <Text style={s.title}>Complete your <Text style={s.orange}>profile</Text></Text>
               <Text style={s.subtitle}>This helps us provide a better experience and find the right worker for you.</Text>
               <Text style={s.label}>Profile photo <Text style={s.muted}>(optional)</Text></Text>
