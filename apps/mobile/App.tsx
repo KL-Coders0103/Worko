@@ -1,6 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { Alert, Image, Keyboard, KeyboardAvoidingView, PermissionsAndroid, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+
+// Work around WebView's incompatible JSX prop typing with this React Native/React version.
+const MapWebView = WebView as React.ComponentType<any>;
 import Geolocation from 'react-native-geolocation-service';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { launchImageLibrary, type Asset } from 'react-native-image-picker';
@@ -241,7 +244,7 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
             <Text style={s.subtitle}>This helps us find eligible workers near you and show accurate availability.</Text>
             <View style={s.why}><View style={s.pinBubble}><Text style={s.pinText}>⌖</Text></View><View style={s.flex}><Text style={s.featureTitle}>Why we need your location</Text><Text style={s.whyLine}>✓  Find nearby workers</Text><Text style={s.whyLine}>✓  Show accurate pricing and time</Text><Text style={s.whyLine}>✓  Faster, better service</Text></View></View>
             <View style={s.map}>
-              <WebView ref={mapRef} originWhitelist={['*']} source={{ html: mapHtml }}
+              <MapWebView ref={mapRef} originWhitelist={['*']} source={{ html: mapHtml }}
                 javaScriptEnabled domStorageEnabled onMessage={handleMapMessage}
                 style={StyleSheet.absoluteFill}
                 onError={() => Alert.alert('Map unavailable', 'Please check your internet connection and try again.')}
