@@ -84,7 +84,6 @@ model User {
   workerProfile WorkerProfile?
   requirements Requirement[] @relation("RequirementClient")
   clientBookings Booking[]   @relation("BookingClient")
-  workerBookings Booking[]   @relation("BookingWorker")
   reels        Reel[]
   engagements  ReelEngagement[]
   reviewsGiven Review[]     @relation("ReviewAuthor")
