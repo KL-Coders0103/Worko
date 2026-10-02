@@ -552,6 +552,7 @@ export class AuthService {
         role: true,
         status: true,
         createdAt: true,
+        clientProfile: true,
         workerProfile: {
           select: {
             id: true,
