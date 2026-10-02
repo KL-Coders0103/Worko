@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -15,6 +16,7 @@ import { VerifyLoginOtpDto } from './dto/verify-login-otp.dto';
 import { PasswordLoginDto } from './dto/password-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { LogoutDto } from './dto/logout.dto';
+import { SaveClientProfileDto } from './dto/save-client-profile.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import type { AuthenticatedUser } from './current-user.decorator';
@@ -57,6 +59,17 @@ export class AuthController {
   @Post('logout')
   logout(@Body() dto: LogoutDto) {
     return this.authService.logout(dto.refreshToken);
+  }
+
+
+  @Patch('client/profile')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  saveClientProfile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SaveClientProfileDto,
+  ) {
+    return this.authService.saveClientProfile(user.id, dto);
   }
 
   @Get('me')
