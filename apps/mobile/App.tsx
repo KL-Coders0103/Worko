@@ -41,8 +41,13 @@ function AppContent() {
     const normalizedPhone = phone.replace(/[\s()-]/g, '');
     const validPhone = /^\+?\d{10,13}$/.test(normalizedPhone);
     const validEmail = /^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(email.trim());
-    if (name.trim().length < 2 || !validPhone || !validEmail || !dateOfBirth || dateOfBirth > new Date()) {
-      Alert.alert('Check your details', 'Enter a valid name, phone number, email address, and date of birth.');
+    const missingFields: string[] = [];
+    if (name.trim().length < 2) missingFields.push('name (at least 2 characters)');
+    if (!validEmail) missingFields.push('a valid email address');
+    if (!validPhone) missingFields.push('a valid phone number (10–13 digits, with optional + country code)');
+    if (!dateOfBirth || dateOfBirth > new Date()) missingFields.push('a valid date of birth');
+    if (missingFields.length > 0) {
+      Alert.alert('Check your details', `Please enter ${missingFields.join(', ')}.`);
       return;
     }
     Keyboard.dismiss();
