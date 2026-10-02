@@ -12,6 +12,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 const ORANGE = '#FF6B00';
 const INK = '#101010';
 const MUTED = '#777777';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000/api/v1';
 const slides = [
   { title: 'Get your work done', accent: 'easily', body: 'Just describe what you need, and Worko will find an eligible worker near you.', symbol: '✓' },
   { title: 'One request.', accent: 'The right help.', body: 'Tell us what needs to be done. We coordinate with available, verified workers.', symbol: '⌕' },
@@ -34,6 +35,11 @@ function AppContent() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [pendingUserId, setPendingUserId] = useState('');
+  const [accessToken, setAccessToken] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
   const [dob, setDob] = useState('');
   const [gender, setGender] = useState('Male');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -85,7 +91,61 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
       return;
     }
     Keyboard.dismiss();
-    setPage(2);
+    if (password.length < 8) {
+      Alert.alert('Password required', 'Please enter a password with at least 8 characters.');
+      return;
+    }
+    void registerClient();
+  };
+  const registerClient = async () => {
+    setAuthBusy(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), phone: phone.replace(/[\\s()-]/g, ''), password, role: 'CLIENT' }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Registration failed.');
+      setPendingUserId(data.user.id);
+      setPage(3);
+      Alert.alert('OTP sent', 'Check your email for the verification code.');
+    } catch (error) {
+      Alert.alert('Registration failed', error instanceof Error ? error.message : 'Please try again.');
+    } finally { setAuthBusy(false); }
+  };
+  const verifyClientOtp = async () => {
+    if (!/^\\d{6}$/.test(otp)) { Alert.alert('Invalid OTP', 'Enter the 6-digit code.'); return; }
+    setAuthBusy(true);
+    try {
+      const verify = await fetch(`${API_BASE_URL}/auth/otp/verify`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: pendingUserId, code: otp }),
+      });
+      const verified = await verify.json();
+      if (!verify.ok) throw new Error(verified.message || 'OTP verification failed.');
+      const login = await fetch(`${API_BASE_URL}/auth/login/password`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: email.trim().toLowerCase(), password }),
+      });
+      const session = await login.json();
+      if (!login.ok) throw new Error(session.message || 'Login failed after verification.');
+      setAccessToken(session.accessToken);
+      const profile = await fetch(`${API_BASE_URL}/auth/client/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.accessToken}` },
+        body: JSON.stringify({
+          fullName: name.trim(), dateOfBirth: dateOfBirth?.toISOString(),
+          gender: gender === 'Prefer not to say' ? 'PREFER_NOT_TO_SAY' : gender.toUpperCase(),
+          photoUrl: photoUri || undefined,
+        }),
+      });
+      const saved = await profile.json();
+      if (!profile.ok) throw new Error(saved.message || 'Could not save your profile.');
+      setPage(2);
+    } catch (error) {
+      Alert.alert('Verification failed', error instanceof Error ? error.message : 'Please try again.');
+    } finally { setAuthBusy(false); }
   };
   const selectProfilePhoto = async () => {
     const result = await launchImageLibrary({ mediaType: 'photo', selectionLimit: 1 });
@@ -187,15 +247,25 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
     }
   };
 
-  const confirmLocation = () => {
+  const confirmLocation = async () => {
     if (address.trim().length < 5) {
       Alert.alert('Add your location', 'Use GPS, search for an address, or select a map location.');
       return;
     }
-    Alert.alert(
-      'Location captured',
-      `Address: ${address}\nCoordinates: ${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}\n\nSaved in this onboarding session. Server persistence will be connected with the profile API.`,
-    );
+    if (!accessToken) { Alert.alert('Session expired', 'Please register and verify your account again.'); return; }
+    setAuthBusy(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/client/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ fullName: name.trim(), dateOfBirth: dateOfBirth?.toISOString(), gender: gender === 'Prefer not to say' ? 'PREFER_NOT_TO_SAY' : gender.toUpperCase(), photoUrl: photoUri || undefined, address: address.trim(), latitude: coordinate.latitude, longitude: coordinate.longitude }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Could not save your location.');
+      Alert.alert('Onboarding complete', 'Your profile and location have been saved successfully.');
+    } catch (error) {
+      Alert.alert('Could not save location', error instanceof Error ? error.message : 'Please try again.');
+    } finally { setAuthBusy(false); }
   };
 
   return (
@@ -229,13 +299,23 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
               <Field label="Full name *" value={name} onChangeText={setName} placeholder="Enter your full name" />
               <Field label="Phone number *" value={phone} onChangeText={setPhone} placeholder="+91 98765 43210" keyboardType="phone-pad" />
               <Field label="Email address *" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
+              <Field label="Password *" value={password} onChangeText={setPassword} placeholder="At least 8 characters" />
               <View style={s.field}><Text style={s.label}>Date of birth *</Text><Pressable accessibilityRole="button" onPress={() => { Keyboard.dismiss(); setShowDatePicker(true); }} style={s.dateInput}><Text style={[s.dateText, !dateOfBirth && s.datePlaceholder]}>{dob || "Select your date of birth"}</Text><Text style={s.dateIcon}>▦</Text></Pressable>{showDatePicker && <DateTimePicker value={dateOfBirth || new Date(2000, 0, 1)} mode="date" display={Platform.OS === "ios" ? "spinner" : "calendar"} maximumDate={new Date()} onChange={(_, selectedDate) => { setShowDatePicker(Platform.OS === "ios"); if (selectedDate) { setDateOfBirth(selectedDate); setDob(formatDate(selectedDate)); } }} />}{Platform.OS === "ios" && showDatePicker && <Pressable onPress={() => setShowDatePicker(false)} style={s.dateDone}><Text style={s.dateDoneText}>Done</Text></Pressable>}</View>
               <Text style={s.label}>Gender <Text style={s.muted}>(optional)</Text></Text>
               <View style={s.genderRow}>{['Male', 'Female', 'Prefer not to say'].map((item) => <Pressable key={item} onPress={() => setGender(item)} style={[s.gender, gender === item && s.genderSelected]}><Text style={[s.genderText, gender === item && s.genderTextSelected]}>{item}</Text></Pressable>)}</View>
               <Text style={s.muted}>Your information is kept private and used to manage your Worko account.</Text>
             </ScrollView>
           </KeyboardAvoidingView>
-          <View style={s.bottom}><Button title="Continue" onPress={nextProfile} /></View>
+          <View style={s.bottom}><Button title={authBusy ? 'Creating account…' : 'Continue'} onPress={nextProfile} /></View>
+        </>}
+        {page === 3 && <>
+          <Header onBack={() => setPage(1)} step="2/3" progress={1} />
+          <View style={s.formScroll}>
+            <Text style={s.title}>Verify your <Text style={s.orange}>email</Text></Text>
+            <Text style={s.subtitle}>Enter the 6-digit code sent to {email}.</Text>
+            <Field label="Verification code" value={otp} onChangeText={setOtp} placeholder="000000" keyboardType="phone-pad" />
+            <View style={s.bottom}><Button title={authBusy ? 'Verifying…' : 'Verify & Continue'} onPress={verifyClientOtp} /></View>
+          </View>
         </>}
         {page === 2 && <>
           <Header onBack={() => setPage(1)} step="3/3" progress={2} />
@@ -301,7 +381,7 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
             )}
             <View style={s.info}><Text style={s.muted}>ⓘ</Text><View style={s.flex}><Text style={s.featureTitle}>Make sure your location is correct</Text><Text style={s.muted}>Workers will be matched based on this location. You can change it later in settings.</Text></View></View>
           </ScrollView>
-          <View style={s.bottom}><Button title="Confirm Location" onPress={confirmLocation}/><Pressable onPress={() => Alert.alert('Change location', 'Edit the address in the search field above.')} style={s.secondary}><Text style={s.secondaryText}>Use a different location</Text></Pressable></View>
+          <View style={s.bottom}><Button title={authBusy ? 'Saving…' : 'Confirm Location'} onPress={confirmLocation}/><Pressable onPress={() => Alert.alert('Change location', 'Edit the address in the search field above.')} style={s.secondary}><Text style={s.secondaryText}>Use a different location</Text></Pressable></View>
         </>}
         </>}
       </SafeAreaView>
