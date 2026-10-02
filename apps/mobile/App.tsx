@@ -40,7 +40,7 @@ function AppContent() {
   const nextProfile = () => {
     const normalizedPhone = phone.replace(/[\s()-]/g, '');
     const validPhone = /^\+?\d{10,13}$/.test(normalizedPhone);
-    const validEmail = /^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(email.trim());
+    const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
     const missingFields: string[] = [];
     if (name.trim().length < 2) missingFields.push('name (at least 2 characters)');
     if (!validEmail) missingFields.push('a valid email address');
