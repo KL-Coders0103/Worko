@@ -4,7 +4,8 @@ import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 
 import { envValidationSchema } from './config/env.validation';
 import { HealthModule } from './health/health.module';
-
+import { AuthModule } from './auth/auth.module';
+import { PrismaModule } from './prisma/prisma.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
@@ -17,6 +18,8 @@ import { RequestLoggingInterceptor } from './common/interceptors/request-logging
       validationSchema: envValidationSchema,
     }),
     HealthModule,
+    PrismaModule,
+    AuthModule,
   ],
   providers: [
     {
