@@ -61,7 +61,7 @@ function AppContent() {
     setPage(2);
   };
   const selectProfilePhoto = async () => {
-    const result = await launchImageLibrary({ mediaType: 'photo', selectionLimit: 1, quality: 0.85 });
+    const result = await launchImageLibrary({ mediaType: 'photo', selectionLimit: 1 });
     if (result.didCancel) return;
     if (result.errorCode) {
       Alert.alert('Unable to select photo', result.errorMessage || 'Please try again.');
@@ -164,7 +164,7 @@ function AppContent() {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={s.safe}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <StatusBar barStyle="dark-content" />
         {<>
         {page === 0 && <>
           <View style={s.welcomeHeader}><Brand /><Pressable onPress={() => setPage(1)}><Text style={s.skip}>Skip</Text></Pressable></View>
