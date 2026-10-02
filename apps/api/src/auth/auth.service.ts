@@ -498,6 +498,50 @@ export class AuthService {
     return { message: 'Logged out successfully' };
   }
 
+
+  async saveClientProfile(userId: string, input: {
+    fullName: string;
+    dateOfBirth?: string;
+    gender?: string;
+    photoUrl?: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+  }) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, status: true },
+    });
+    if (!user || user.role !== UserRole.CLIENT || user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('An active client account is required');
+    }
+    if ((input.latitude === undefined) !== (input.longitude === undefined)) {
+      throw new BadRequestException('Latitude and longitude must be provided together');
+    }
+    return this.prisma.clientProfile.upsert({
+      where: { userId },
+      create: {
+        userId,
+        fullName: input.fullName.trim(),
+        dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : undefined,
+        gender: input.gender,
+        photoUrl: input.photoUrl,
+        address: input.address?.trim(),
+        latitude: input.latitude,
+        longitude: input.longitude,
+      },
+      update: {
+        fullName: input.fullName.trim(),
+        dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : null,
+        gender: input.gender ?? null,
+        photoUrl: input.photoUrl ?? null,
+        address: input.address?.trim() ?? null,
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
+      },
+    });
+  }
+
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
