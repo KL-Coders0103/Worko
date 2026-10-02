@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import WorkerOnboarding from './WorkerOnboarding';
 
 const ORANGE = '#FF6B00';
 const INK = '#101010';
@@ -23,7 +22,6 @@ function Field({ label, value, onChangeText, placeholder, keyboardType = 'defaul
 }
 function AppContent() {
   const [page, setPage] = useState(0);
-  const [workerMode, setWorkerMode] = useState(false);
   const [slide, setSlide] = useState(0);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -52,13 +50,13 @@ function AppContent() {
     <SafeAreaProvider>
       <SafeAreaView style={s.safe}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        {workerMode ? <WorkerOnboarding onExit={() => setWorkerMode(false)} /> : <>
+        {<>
         {page === 0 && <>
           <View style={s.welcomeHeader}><Brand /><Pressable onPress={() => setPage(1)}><Text style={s.skip}>Skip</Text></Pressable></View>
           <ScrollView contentContainerStyle={s.welcomeScroll}>
             <View style={s.hero}><View style={s.heroBack} /><View style={s.heroCircle}><Text style={s.heroSymbol}>{slides[slide].symbol}</Text></View></View>
             <Text style={s.eyebrow}>WORKO • ON-DEMAND SERVICES</Text>
-            <Text style={s.heroTitle}>{slides[slide].title}{'\\n'}<Text style={s.orange}>{slides[slide].accent}</Text></Text>
+            <Text style={s.heroTitle}>{slides[slide].title}{'\n'}<Text style={s.orange}>{slides[slide].accent}</Text></Text>
             <Text style={s.subtitle}>{slides[slide].body}</Text>
             <View style={s.features}>
               <Feature symbol="▤" title="Describe your work" body="Tell us what you need and add photos if you like." />
@@ -66,7 +64,7 @@ function AppContent() {
               <Feature symbol="◇" title="Get it done with confidence" body="Track progress, pay securely, and share feedback." />
             </View>
           </ScrollView>
-          <View style={s.welcomeBottom}><View style={s.dots}>{slides.map((item, i) => <Pressable key={item.title} onPress={() => setSlide(i)} style={[s.dot, slide === i && s.dotActive]} />)}</View><Button title={slide === 2 ? 'Get Started' : 'Next'} onPress={() => slide === 2 ? setPage(1) : setSlide(slide + 1)} /><Pressable onPress={() => setWorkerMode(true)} style={s.workerEntry}><Text style={s.workerEntryText}>Are you a worker? Set up your profile</Text></Pressable></View>
+          <View style={s.welcomeBottom}><View style={s.dots}>{slides.map((item, i) => <Pressable key={item.title} onPress={() => setSlide(i)} style={[s.dot, slide === i && s.dotActive]} />)}</View><Button title={slide === 2 ? 'Get Started' : 'Next'} onPress={() => slide === 2 ? setPage(1) : setSlide(slide + 1)} /></View>
         </>}
         {page === 1 && <>
           <Header onBack={() => setPage(0)} step="2/3" progress={1} />
