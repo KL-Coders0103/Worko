@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { Alert, Image, Keyboard, KeyboardAvoidingView, PermissionsAndroid, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Image, Keyboard, KeyboardAvoidingView, PermissionsAndroid, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 // Work around WebView's incompatible JSX prop typing with this React Native/React version.
@@ -53,6 +53,20 @@ function AppContent() {
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{ place_id: number; display_name: string; lat: string; lon: string }>>([]);
   const [locationBusy, setLocationBusy] = useState(false);
+  const [toast, setToast] = useState<{ title: string; message: string; tone: 'success' | 'error' | 'info' } | null>(null);
+  const [resendBusy, setResendBusy] = useState(false);
+  const [resendSeconds, setResendSeconds] = useState(60);
+
+  const showToast = (title: string, message: string, tone: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ title, message, tone });
+    setTimeout(() => setToast(current => current?.title === title && current.message === message ? null : current), 3500);
+  };
+
+  useEffect(() => {
+    if (page !== 3 || resendSeconds <= 0) return;
+    const timer = setTimeout(() => setResendSeconds(seconds => Math.max(0, seconds - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [page, resendSeconds]);
 
   const mapHtml = `
 <!DOCTYPE html>
@@ -88,12 +102,12 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
     if (!validPhone) missingFields.push('a valid phone number (10–13 digits, with optional + country code)');
     if (!dateOfBirth || dateOfBirth > new Date()) missingFields.push('a valid date of birth');
     if (missingFields.length > 0) {
-      Alert.alert('Check your details', `Please enter ${missingFields.join(', ')}.`);
+      showToast('Check your details', `Please enter ${missingFields.join(', ')}.`);
       return;
     }
     Keyboard.dismiss();
     if (password.length < 8) {
-      Alert.alert('Password required', 'Please enter a password with at least 8 characters.');
+      showToast('Password required', 'Please enter a password with at least 8 characters.');
       return;
     }
     void registerClient();
@@ -109,19 +123,21 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Registration failed.');
       setPendingUserId(data.user.id);
+      setResendSeconds(60);
       setPage(3);
-      Alert.alert('OTP sent', 'Check your email for the verification code.');
+      showToast('OTP sent', 'Your verification code has been generated. Check your registered email or the development server log.', 'success');
     } catch (error) {
-      Alert.alert('Registration failed', error instanceof Error ? error.message : 'Please try again.');
+      showToast('Registration failed', error instanceof Error ? error.message : 'Please try again.');
     } finally { setAuthBusy(false); }
   };
   const verifyClientOtp = async () => {
-    if (!/^\\d{6}$/.test(otp)) { Alert.alert('Invalid OTP', 'Enter the 6-digit code.'); return; }
+    const cleanOtp = otp.trim();
+    if (!/^\d{6}$/.test(cleanOtp)) { showToast('Invalid OTP', 'Enter the 6-digit code.', 'error'); return; }
     setAuthBusy(true);
     try {
       const verify = await fetch(`${API_BASE_URL}/auth/otp/verify`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: pendingUserId, code: otp }),
+        body: JSON.stringify({ userId: pendingUserId, code: cleanOtp }),
       });
       const verified = await verify.json();
       if (!verify.ok) throw new Error(verified.message || 'OTP verification failed.');
@@ -145,14 +161,35 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
       if (!profile.ok) throw new Error(saved.message || 'Could not save your profile.');
       setPage(2);
     } catch (error) {
-      Alert.alert('Verification failed', error instanceof Error ? error.message : 'Please try again.');
+      showToast('Verification failed', error instanceof Error ? error.message : 'Please try again.');
     } finally { setAuthBusy(false); }
   };
+  const resendClientOtp = async () => {
+    if (resendBusy || resendSeconds > 0) return;
+    setResendBusy(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/otp/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: email.trim().toLowerCase(), purpose: 'REGISTRATION' }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Could not resend the verification code.');
+      setOtp('');
+      setResendSeconds(60);
+      showToast('New code requested', 'Use the latest verification code. Previous codes may no longer work.', 'success');
+    } catch (error) {
+      showToast('Resend failed', error instanceof Error ? error.message : 'Please try again.', 'error');
+    } finally {
+      setResendBusy(false);
+    }
+  };
+
   const selectProfilePhoto = async () => {
     const result = await launchImageLibrary({ mediaType: 'photo', selectionLimit: 1 });
     if (result.didCancel) return;
     if (result.errorCode) {
-      Alert.alert('Unable to select photo', result.errorMessage || 'Please try again.');
+      showToast('Unable to select photo', result.errorMessage || 'Please try again.');
       return;
     }
     const asset: Asset | undefined = result.assets?.[0];
@@ -168,10 +205,10 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
       if (data.display_name) {
         setAddress(data.display_name);
       } else {
-        Alert.alert('Address unavailable', 'We could not find a readable address for this location.');
+        showToast('Address unavailable', 'We could not find a readable address for this location.');
       }
     } catch {
-      Alert.alert('Address unavailable', 'Please check your internet connection or enter the address manually.');
+      showToast('Address unavailable', 'Please check your internet connection or enter the address manually.');
     }
   };
 
@@ -197,20 +234,20 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
         },
         error => {
           setLocationBusy(false);
-          Alert.alert('Unable to get location', error.message || 'Check that location services are enabled and try again.');
+          showToast('Unable to get location', error.message || 'Check that location services are enabled and try again.');
         },
         { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000, forceRequestLocation: true, showLocationDialog: true },
       );
     } catch (error) {
       setLocationBusy(false);
-      Alert.alert('Location permission', error instanceof Error ? error.message : 'Please enable location access.');
+      showToast('Location permission', error instanceof Error ? error.message : 'Please enable location access.');
     }
   };
 
   const searchAddress = async () => {
     const query = searchText.trim();
     if (query.length < 3) {
-      Alert.alert('Search address', 'Enter at least 3 characters.');
+      showToast('Search address', 'Enter at least 3 characters.');
       return;
     }
     setLocationBusy(true);
@@ -221,9 +258,9 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
       if (!response.ok) throw new Error('Search request failed');
       const results = await response.json();
       setSearchResults(results);
-      if (!results.length) Alert.alert('No results', 'Try a nearby locality, landmark, or PIN code.');
+      if (!results.length) showToast('No results', 'Try a nearby locality, landmark, or PIN code.');
     } catch {
-      Alert.alert('Search unavailable', 'Please check your internet connection and try again.');
+      showToast('Search unavailable', 'Please check your internet connection and try again.');
     } finally {
       setLocationBusy(false);
     }
@@ -250,10 +287,10 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
 
   const confirmLocation = async () => {
     if (address.trim().length < 5) {
-      Alert.alert('Add your location', 'Use GPS, search for an address, or select a map location.');
+      showToast('Add your location', 'Use GPS, search for an address, or select a map location.');
       return;
     }
-    if (!accessToken) { Alert.alert('Session expired', 'Please register and verify your account again.'); return; }
+    if (!accessToken) { showToast('Session expired', 'Please register and verify your account again.'); return; }
     setAuthBusy(true);
     try {
       const response = await fetch(`${API_BASE_URL}/auth/client/profile`, {
@@ -263,9 +300,9 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Could not save your location.');
-      Alert.alert('Onboarding complete', 'Your profile and location have been saved successfully.');
+      showToast('Onboarding complete', 'Your profile and location have been saved successfully.');
     } catch (error) {
-      Alert.alert('Could not save location', error instanceof Error ? error.message : 'Please try again.');
+      showToast('Could not save location', error instanceof Error ? error.message : 'Please try again.');
     } finally { setAuthBusy(false); }
   };
 
@@ -315,7 +352,7 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
             <Text style={s.title}>Verify your <Text style={s.orange}>email</Text></Text>
             <Text style={s.subtitle}>Enter the 6-digit code sent to {email}.</Text>
             <Field label="Verification code" value={otp} onChangeText={setOtp} placeholder="000000" keyboardType="phone-pad" />
-            <View style={s.bottom}><Button title={authBusy ? 'Verifying…' : 'Verify & Continue'} onPress={verifyClientOtp} /></View>
+            <View style={s.bottom}><Button title={authBusy ? 'Verifying…' : 'Verify & Continue'} onPress={verifyClientOtp} /><Pressable accessibilityRole="button" disabled={resendBusy || resendSeconds > 0} onPress={resendClientOtp} style={s.resendButton}><Text style={[s.resendText, (resendBusy || resendSeconds > 0) && s.resendDisabled]}>{resendBusy ? 'Requesting new code…' : resendSeconds > 0 ? `Resend code in ${resendSeconds}s` : 'Resend verification code'}</Text></Pressable></View>
           </View>
         </>}
         {page === 2 && <>
@@ -328,7 +365,7 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
               <MapWebView ref={mapRef} originWhitelist={['*']} source={{ html: mapHtml }}
                 javaScriptEnabled domStorageEnabled onMessage={handleMapMessage}
                 style={StyleSheet.absoluteFill}
-                onError={() => Alert.alert('Map unavailable', 'Please check your internet connection and try again.')}
+                onError={() => showToast('Map unavailable', 'Please check your internet connection and try again.')}
               />
               <Pressable style={s.locate} onPress={useCurrentLocation} accessibilityRole="button" accessibilityLabel="Use current location">
                 <Text style={s.locateText}>◎</Text>
@@ -382,9 +419,10 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
             )}
             <View style={s.info}><Text style={s.muted}>ⓘ</Text><View style={s.flex}><Text style={s.featureTitle}>Make sure your location is correct</Text><Text style={s.muted}>Workers will be matched based on this location. You can change it later in settings.</Text></View></View>
           </ScrollView>
-          <View style={s.bottom}><Button title={authBusy ? 'Saving…' : 'Confirm Location'} onPress={confirmLocation}/><Pressable onPress={() => Alert.alert('Change location', 'Edit the address in the search field above.')} style={s.secondary}><Text style={s.secondaryText}>Use a different location</Text></Pressable></View>
+          <View style={s.bottom}><Button title={authBusy ? 'Saving…' : 'Confirm Location'} onPress={confirmLocation}/><Pressable onPress={() => showToast('Change location', 'Edit the address in the search field above.')} style={s.secondary}><Text style={s.secondaryText}>Use a different location</Text></Pressable></View>
         </>}
         </>}
+        {toast && <View pointerEvents="none" style={[s.toast, toast.tone === 'error' ? s.toastError : toast.tone === 'success' ? s.toastSuccess : s.toastInfo]}><Text style={s.toastTitle}>{toast.title}</Text><Text style={s.toastMessage}>{toast.message}</Text></View>}
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -398,7 +436,11 @@ function Header({ onBack, step, progress }: { onBack: () => void; step: string; 
 export default function App() { return <AppContent />; }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFF' }, flex: { flex: 1 }, brand: { color: INK, fontSize: 34, fontWeight: '900', letterSpacing: -2 }, brandSmall: { fontSize: 27 }, orange: { color: ORANGE }, muted: { color: MUTED, fontSize: 13, lineHeight: 19 },
+  safe: { flex: 1, backgroundColor: '#FFF' },
+  toast: { position: 'absolute', top: 12, left: 16, right: 16, zIndex: 1000, elevation: 8, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
+  toastSuccess: { backgroundColor: '#176B45' }, toastError: { backgroundColor: '#A52828' }, toastInfo: { backgroundColor: '#242424' },
+  toastTitle: { color: '#FFF', fontSize: 14, fontWeight: '800', marginBottom: 3 }, toastMessage: { color: '#FFF', fontSize: 13, lineHeight: 18 },
+  resendButton: { alignItems: 'center', justifyContent: 'center', paddingVertical: 12 }, resendText: { color: ORANGE, fontSize: 14, fontWeight: '700' }, resendDisabled: { color: '#999' }, flex: { flex: 1 }, brand: { color: INK, fontSize: 34, fontWeight: '900', letterSpacing: -2 }, brandSmall: { fontSize: 27 }, orange: { color: ORANGE }, muted: { color: MUTED, fontSize: 13, lineHeight: 19 },
   welcomeHeader: { paddingHorizontal: 25, paddingTop: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, skip: { color: MUTED, fontSize: 16 },
   welcomeScroll: { paddingHorizontal: 27, paddingBottom: 8 }, hero: { height: 190, alignItems: 'center', justifyContent: 'center' }, heroBack: { position: 'absolute', left: '14%', width: 175, height: 175, borderRadius: 90, backgroundColor: '#FFF0E1' }, heroCircle: { width: 135, height: 135, borderRadius: 70, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center', elevation: 5 }, heroSymbol: { color: '#FFF', fontSize: 70 }, eyebrow: { color: ORANGE, fontWeight: '800', fontSize: 11, letterSpacing: 1.3, marginBottom: 9 }, heroTitle: { color: INK, fontSize: 35, lineHeight: 41, fontWeight: '900', letterSpacing: -1 }, subtitle: { color: MUTED, fontSize: 16, lineHeight: 23, marginTop: 9, marginBottom: 17 },
   features: { gap: 14, marginTop: 4 }, featureRow: { flexDirection: 'row', alignItems: 'center', gap: 13 }, featureIcon: { width: 53, height: 53, borderRadius: 28, backgroundColor: '#FFF3E9', alignItems: 'center', justifyContent: 'center' }, featureSymbol: { color: INK, fontSize: 25 }, featureTitle: { color: INK, fontWeight: '800', fontSize: 15, marginBottom: 3 }, welcomeBottom: { paddingHorizontal: 25, paddingBottom: 12, paddingTop: 5 }, dots: { flexDirection: 'row', justifyContent: 'center', gap: 9, marginBottom: 15 }, dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#D9DADD' }, dotActive: { width: 22, backgroundColor: ORANGE },
