@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Alert, Image, Keyboard, KeyboardAvoidingView, PermissionsAndroid, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
-import MapView, { Marker, UrlTile, type Region } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
 import Geolocation from 'react-native-geolocation-service';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { launchImageLibrary, type Asset } from 'react-native-image-picker';
@@ -39,10 +39,34 @@ function AppContent() {
   const [address, setAddress] = useState('');
   const [permissionPrompted, setPermissionPrompted] = useState(false);
   const [coordinate, setCoordinate] = useState({ latitude: 18.5204, longitude: 73.8567 });
-  const [mapRegion, setMapRegion] = useState<Region>({ latitude: 18.5204, longitude: 73.8567, latitudeDelta: 0.04, longitudeDelta: 0.04 });
+  const mapRef = useRef<WebView>(null);
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{ place_id: number; display_name: string; lat: string; lon: string }>>([]);
   const [locationBusy, setLocationBusy] = useState(false);
+
+  const mapHtml = `
+<!DOCTYPE html>
+<html><head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+html,body,#map{height:100%;width:100%;margin:0;padding:0}
+.leaflet-container{font-family:Arial,sans-serif}
+.worko-marker{background:#FF6B00;border:3px solid white;border-radius:50% 50% 50% 0;width:24px;height:24px;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+</style></head><body><div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const initialLat=${coordinate.latitude},initialLng=${coordinate.longitude};
+const map=L.map('map',{zoomControl:true}).setView([initialLat,initialLng],15);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+const icon=L.divIcon({className:'',html:'<div class="worko-marker"></div>',iconSize:[30,30],iconAnchor:[15,30]});
+const marker=L.marker([initialLat,initialLng],{icon,draggable:true}).addTo(map);
+function sendLocation(lat,lng){window.ReactNativeWebView.postMessage(JSON.stringify({latitude:lat,longitude:lng}));}
+marker.on('dragend',()=>{const p=marker.getLatLng();sendLocation(p.lat,p.lng);});
+map.on('click',e=>{marker.setLatLng(e.latlng);sendLocation(e.latlng.lat,e.latlng.lng);});
+map.on('moveend',()=>{const p=map.getCenter();marker.setLatLng(p);sendLocation(p.lat,p.lng);});
+window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([lat,lng]);};
+</script></body></html>`;
 
   const nextProfile = () => {
     const normalizedPhone = phone.replace(/[\s()-]/g, '');
@@ -103,7 +127,7 @@ function AppContent() {
         async position => {
           const next = { latitude: position.coords.latitude, longitude: position.coords.longitude };
           setCoordinate(next);
-          setMapRegion({ ...next, latitudeDelta: 0.012, longitudeDelta: 0.012 });
+          mapRef.current?.injectJavaScript(`window.setWorkoLocation?.(${next.latitude}, ${next.longitude}); true;`);
           await reverseGeocode(next.latitude, next.longitude);
           setLocationBusy(false);
         },
@@ -144,10 +168,21 @@ function AppContent() {
   const chooseSearchResult = (item: { display_name: string; lat: string; lon: string }) => {
     const next = { latitude: Number(item.lat), longitude: Number(item.lon) };
     setCoordinate(next);
-    setMapRegion({ ...next, latitudeDelta: 0.012, longitudeDelta: 0.012 });
+    mapRef.current?.injectJavaScript(`window.setWorkoLocation?.(${next.latitude}, ${next.longitude}); true;`);
     setAddress(item.display_name);
     setSearchResults([]);
     Keyboard.dismiss();
+  };
+
+  const handleMapMessage = async (event: { nativeEvent: { data: string } }) => {
+    try {
+      const location = JSON.parse(event.nativeEvent.data);
+      if (typeof location.latitude !== 'number' || typeof location.longitude !== 'number') return;
+      setCoordinate({ latitude: location.latitude, longitude: location.longitude });
+      await reverseGeocode(location.latitude, location.longitude);
+    } catch {
+      // Ignore malformed messages from the embedded map.
+    }
   };
 
   const confirmLocation = () => {
@@ -207,34 +242,15 @@ function AppContent() {
             <Text style={s.subtitle}>This helps us find eligible workers near you and show accurate availability.</Text>
             <View style={s.why}><View style={s.pinBubble}><Text style={s.pinText}>⌖</Text></View><View style={s.flex}><Text style={s.featureTitle}>Why we need your location</Text><Text style={s.whyLine}>✓  Find nearby workers</Text><Text style={s.whyLine}>✓  Show accurate pricing and time</Text><Text style={s.whyLine}>✓  Faster, better service</Text></View></View>
             <View style={s.map}>
-              <MapView
+              <WebView ref={mapRef} originWhitelist={['*']} source={{ html: mapHtml }}
+                javaScriptEnabled domStorageEnabled onMessage={handleMapMessage}
                 style={StyleSheet.absoluteFill}
-                region={mapRegion}
-                onRegionChangeComplete={setMapRegion}
-                onPress={event => setCoordinate(event.nativeEvent.coordinate)}
-                mapType="none"
-                showsUserLocation
-                showsMyLocationButton={false}
-              >
-                <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} />
-                <Marker
-                  coordinate={coordinate}
-                  draggable
-                  onDragEnd={event => {
-                    const next = event.nativeEvent.coordinate;
-                    setCoordinate(next);
-                    setMapRegion(region => ({ ...region, ...next }));
-                  }}
-                />
-              </MapView>
-              <View pointerEvents="none" style={s.osmAttribution}><Text style={s.osmText}>© OpenStreetMap contributors</Text></View>
-              <Pressable style={s.locate} onPress={useCurrentLocation}><Text style={s.locateText}>◎</Text></Pressable>
-            </View>
-            <Text style={s.muted}>Drag the pin or move the map, then select “Use map pin location” to resolve its address.</Text>
-            <View style={s.searchRow}>
-              <TextInput
-                accessibilityLabel="Search address"
-                value={searchText}
+                onError={() => Alert.alert('Map unavailable', 'Please check your internet connection and try again.')}
+              />
+              <Pressable style={s.locate} onPress={useCurrentLocation} accessibilityRole="button" accessibilityLabel="Use current location">
+                <Text style={s.locateText}>◎</Text>
+              </Pressable>
+            </View>value={searchText}
                 onChangeText={setSearchText}
                 placeholder="Search area, street, landmark or PIN"
                 placeholderTextColor="#999"
@@ -300,6 +316,6 @@ const s = StyleSheet.create({
   features: { gap: 14, marginTop: 4 }, featureRow: { flexDirection: 'row', alignItems: 'center', gap: 13 }, featureIcon: { width: 53, height: 53, borderRadius: 28, backgroundColor: '#FFF3E9', alignItems: 'center', justifyContent: 'center' }, featureSymbol: { color: INK, fontSize: 25 }, featureTitle: { color: INK, fontWeight: '800', fontSize: 15, marginBottom: 3 }, welcomeBottom: { paddingHorizontal: 25, paddingBottom: 12, paddingTop: 5 }, dots: { flexDirection: 'row', justifyContent: 'center', gap: 9, marginBottom: 15 }, dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#D9DADD' }, dotActive: { width: 22, backgroundColor: ORANGE },
   button: { height: 57, backgroundColor: ORANGE, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }, buttonText: { color: '#FFF', fontWeight: '800', fontSize: 18 }, header: { height: 55, paddingHorizontal: 23, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, back: { color: INK, fontSize: 42, lineHeight: 45 }, progress: { flexDirection: 'row', gap: 7, paddingHorizontal: 23, marginTop: 10, marginBottom: 20 }, progressSegment: { flex: 1, height: 8, borderRadius: 5, backgroundColor: '#E3E4E6' }, progressOn: { backgroundColor: ORANGE },
   formScroll: { paddingHorizontal: 23, paddingBottom: 20 }, title: { color: INK, fontSize: 31, lineHeight: 38, fontWeight: '900' }, field: { marginBottom: 15 }, label: { color: INK, fontSize: 14, fontWeight: '700', marginBottom: 8 }, input: { minHeight: 53, borderWidth: 1.2, borderColor: '#E1E2E5', borderRadius: 12, paddingHorizontal: 15, color: INK, fontSize: 15 }, dateInput: { minHeight: 53, borderWidth: 1.2, borderColor: '#E1E2E5', borderRadius: 12, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, dateText: { color: INK, fontSize: 15 }, datePlaceholder: { color: '#999' }, dateIcon: { color: ORANGE, fontSize: 20 }, dateDone: { alignSelf: 'flex-end', padding: 12 }, dateDoneText: { color: ORANGE, fontWeight: '800' }, photoBox: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFFAF5', borderRadius: 15, padding: 12, marginBottom: 20 }, avatarImage: { width: 76, height: 76, borderRadius: 40 }, avatar: { width: 76, height: 76, borderRadius: 40, backgroundColor: '#FFE2CB', alignItems: 'center', justifyContent: 'center' }, avatarText: { fontSize: 47, color: '#F7A16B' }, photoCopy: { flex: 1 }, genderRow: { flexDirection: 'row', gap: 7, marginBottom: 16 }, gender: { flex: 1, minHeight: 49, borderWidth: 1, borderColor: '#E1E2E5', borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }, genderSelected: { borderColor: ORANGE, backgroundColor: '#FFF5EC' }, genderText: { color: MUTED, fontSize: 11, textAlign: 'center' }, genderTextSelected: { color: INK, fontWeight: '700' }, bottom: { paddingHorizontal: 23, paddingVertical: 10, gap: 9, borderTopWidth: 1, borderTopColor: '#F2F2F2' },
-  osmAttribution: { position: 'absolute', bottom: 3, right: 5, backgroundColor: 'rgba(255,255,255,0.85)', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 }, osmText: { color: '#333', fontSize: 9 }, searchRow: { flexDirection: 'row', gap: 8, marginTop: 14, marginBottom: 8 }, searchInput: { flex: 1 }, searchButton: { backgroundColor: ORANGE, borderRadius: 12, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' }, searchButtonText: { color: '#FFF', fontWeight: '800' }, searchResult: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#EEE' },
-  why: { backgroundColor: '#FFF3E9', borderRadius: 16, padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 17 }, pinBubble: { width: 60, height: 60, borderRadius: 35, backgroundColor: '#FFE1C9', alignItems: 'center', justifyContent: 'center' }, pinText: { color: ORANGE, fontSize: 38 }, whyLine: { color: MUTED, fontSize: 12, lineHeight: 19 }, map: { height: 205, borderRadius: 16, backgroundColor: '#EAF0E9', overflow: 'hidden', marginBottom: 18 }, roadH1: { position: 'absolute', top: 57, left: -10, right: -10, height: 13, backgroundColor: '#FFF', transform: [{ rotate: '-8deg' }] }, roadH2: { position: 'absolute', top: 144, left: -10, right: -10, height: 12, backgroundColor: '#FFF', transform: [{ rotate: '8deg' }] }, roadV1: { position: 'absolute', left: 80, top: -20, bottom: -20, width: 11, backgroundColor: '#FFF', transform: [{ rotate: '16deg' }] }, roadV2: { position: 'absolute', right: 83, top: -20, bottom: -20, width: 12, backgroundColor: '#FFF', transform: [{ rotate: '-13deg' }] }, park: { position: 'absolute', top: 12, right: 13, width: 90, height: 55, borderRadius: 12, backgroundColor: '#D4E8CF', alignItems: 'center', justifyContent: 'center' }, parkText: { color: '#6B9B6B', fontSize: 8, fontWeight: '700' }, mapPin: { position: 'absolute', left: '47%', top: '37%', width: 37, height: 37, borderRadius: 20, backgroundColor: ORANGE, borderColor: '#FFF', borderWidth: 4, alignItems: 'center', justifyContent: 'center', elevation: 4 }, locate: { position: 'absolute', top: 11, right: 11, width: 40, height: 40, borderRadius: 22, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' }, locateText: { color: INK, fontSize: 26 }, mapCaption: { position: 'absolute', bottom: 10, alignSelf: 'center', backgroundColor: '#FFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 13, color: INK, fontSize: 11 }, locationRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderWidth: 1, borderColor: '#E1E2E5', borderRadius: 12, marginTop: 12, marginBottom: 12 }, info: { flexDirection: 'row', gap: 10, padding: 13, borderRadius: 12, backgroundColor: '#F7F8F9' }, secondary: { height: 51, borderRadius: 14, borderWidth: 1.5, borderColor: ORANGE, alignItems: 'center', justifyContent: 'center' }, secondaryText: { color: ORANGE, fontSize: 15, fontWeight: '700' },
+searchRow: { flexDirection: 'row', gap: 8, marginTop: 14, marginBottom: 8 }, searchInput: { flex: 1 }, searchButton: { backgroundColor: ORANGE, borderRadius: 12, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' }, searchButtonText: { color: '#FFF', fontWeight: '800' }, searchResult: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#EEE' },
+  why: { backgroundColor: '#FFF3E9', borderRadius: 16, padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 17 }, pinBubble: { width: 60, height: 60, borderRadius: 35, backgroundColor: '#FFE1C9', alignItems: 'center', justifyContent: 'center' }, pinText: { color: ORANGE, fontSize: 38 }, whyLine: { color: MUTED, fontSize: 12, lineHeight: 19 }, map: { height: 205, borderRadius: 16, backgroundColor: '#EAF0E9', overflow: 'hidden', marginBottom: 18 }, locate: { position: 'absolute', top: 11, right: 11, width: 40, height: 40, borderRadius: 22, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' }, locateText: { color: INK, fontSize: 26 }, locationRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderWidth: 1, borderColor: '#E1E2E5', borderRadius: 12, marginTop: 12, marginBottom: 12 }, info: { flexDirection: 'row', gap: 10, padding: 13, borderRadius: 12, backgroundColor: '#F7F8F9' }, secondary: { height: 51, borderRadius: 14, borderWidth: 1.5, borderColor: ORANGE, alignItems: 'center', justifyContent: 'center' }, secondaryText: { color: ORANGE, fontSize: 15, fontWeight: '700' },
 });
