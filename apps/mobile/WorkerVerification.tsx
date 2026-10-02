@@ -63,7 +63,7 @@ export default function WorkerVerification({ onExit }: Props) {
         return <>
           <Text style={styles.sectionTitle}>Choose a government-issued ID</Text>
           {(['Aadhaar Card', 'PAN Card', 'Driving License'] as IdType[]).map((item, index) => <Pressable key={item} onPress={() => setIdType(item)} style={[styles.idOption, idType === item && styles.idOptionActive]}><View style={styles.idIcon}><Text style={styles.idGlyph}>{['▤', '▣', '◉'][index]}</Text></View><View style={styles.infoCopy}><Text style={styles.idTitle}>{item}</Text><Text style={styles.infoBody}>{index === 0 ? 'Recommended' : index === 1 ? 'For identity verification' : 'Also accepted'}</Text></View><Text style={styles.radio}>{idType === item ? '◉' : '○'}</Text></Pressable>)}
-          <InfoCard body="Make sure the ID is clear, valid, and matches your personal information." />
+          <InfoCard title="Document quality" body="Make sure the ID is clear, valid, and matches your personal information." />
         </>;
       case 2:
         return <>
@@ -85,7 +85,7 @@ export default function WorkerVerification({ onExit }: Props) {
           <Text style={styles.title}>Verification in Progress</Text>
           <Text style={styles.centerBody}>Your documents are ready for review. In production, the verification service will confirm receipt and update this status.</Text>
           <View style={styles.timeline}>{[['Document selection', 'Details entered'], ['Selfie selection', 'Capture requested'], ['Under review', 'Awaiting secure submission']].map(([title, desc], i) => <View key={title} style={styles.timelineRow}><View style={[styles.timelineDot, i < 2 && styles.timelineDone]}><Text style={styles.timelineMark}>{i < 2 ? '✓' : '•'}</Text></View><View style={styles.infoCopy}><Text style={styles.infoTitle}>{title}</Text><Text style={styles.infoBody}>{desc}</Text></View></View>)}</View>
-          <InfoCard body="No verification has been submitted to the server yet. Document upload and review integration are still required." />
+          <InfoCard title="Submission not connected" body="No verification has been submitted to the server yet. Document upload and review integration are still required." />
         </>;
       case 5:
         return <>
@@ -93,7 +93,7 @@ export default function WorkerVerification({ onExit }: Props) {
           <Text style={styles.title}>{status === 'approved' ? 'Verification Complete!' : status === 'rejected' ? 'Verification Not Approved' : 'Verification Under Review'}</Text>
           <Text style={styles.centerBody}>{status === 'approved' ? 'Your identity has been verified. You can continue to profile review.' : status === 'rejected' ? 'We could not verify your documents. Review the reason and submit clear documents again.' : 'Your verification status is pending. We will notify you when the review is complete.'}</Text>
           {status === 'rejected' ? <View style={styles.rejection}><Text style={styles.rejectionTitle}>Reason for Rejection</Text><Text style={styles.infoBody}>Document review has not been connected. A real rejection reason will be provided by the verification service.</Text></View> : <InfoCard icon={status === 'approved' ? '✓' : '◷'} title={status === 'approved' ? 'Identity verified' : 'Under review'} body={status === 'approved' ? 'Identity check approved.' : 'Review is awaiting backend verification.'} />}
-          <InfoCard body="This is a UI preview. Status changes must come from the backend or an authorized reviewer, not from a client-side action." />
+          <InfoCard title="Preview only" body="This is a UI preview. Status changes must come from the backend or an authorized reviewer, not from a client-side action." />
           <View style={styles.previewControls}><PrimaryButton title="Preview: Pending" secondary onPress={() => setStatus('pending')} /><PrimaryButton title="Preview: Approved" secondary onPress={() => setStatus('approved')} /><PrimaryButton title="Preview: Rejected" secondary onPress={() => setStatus('rejected')} /></View>
         </>;
       case 6:
@@ -108,7 +108,7 @@ export default function WorkerVerification({ onExit }: Props) {
             ['Identity Verification', status === 'approved' ? 'Identity verified' : 'Verification pending', status === 'approved'],
             ['Profile Review', 'Final review and submit', false],
           ].map(([title, detail, complete]) => <View key={String(title)} style={styles.checkRow}><View style={[styles.checkCircle, complete && styles.checkCircleDone]}><Text style={styles.checkGlyph}>{complete ? '✓' : '○'}</Text></View><View style={styles.infoCopy}><Text style={styles.infoTitle}>{String(title)}</Text><Text style={styles.infoBody}>{String(detail)}</Text></View><Text style={[styles.checkStatus, !complete && styles.pendingText]}>{complete ? 'Complete' : 'Pending'}</Text></View>)}
-          <InfoCard body="Workers cannot receive offers until all required steps are complete and their profile is approved." />
+          <InfoCard title="Work eligibility" body="Workers cannot receive offers until all required steps are complete and their profile is approved." />
         </>;
       default:
         return <>
@@ -141,7 +141,7 @@ export default function WorkerVerification({ onExit }: Props) {
     goNext();
   };
 
-  return <SafeAreaView style={styles.safe}><StatusBar barStyle="dark-content" backgroundColor="#FFF" /><View style={styles.header}><Pressable onPress={() => step === 0 ? onExit() : setStep((current) => Math.max(0, current - 1))}><Text style={styles.back}>‹</Text></Pressable><Text style={styles.headerTitle}>{headerTitle}</Text><Text style={styles.headerStep}>{step + 1}/8</Text></View><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">{renderContent()}</ScrollView><View style={styles.footer}>{step === 7 ? <><PrimaryButton title="Go to Home" onPress={onExit} /><PrimaryButton title="View My Profile" onPress={onExit} secondary /></> : <PrimaryButton title={step === 4 ? 'View Verification Status' : step === 5 && status === 'rejected' ? 'Resubmit Documents' : step === 6 ? 'Submit Profile' : 'Continue'} onPress={onPrimary} />}</View></SafeAreaView>;
+  return <SafeAreaView style={styles.safe}><StatusBar barStyle="dark-content" /><View style={styles.header}><Pressable onPress={() => step === 0 ? onExit() : setStep((current) => Math.max(0, current - 1))}><Text style={styles.back}>‹</Text></Pressable><Text style={styles.headerTitle}>{headerTitle}</Text><Text style={styles.headerStep}>{step + 1}/8</Text></View><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">{renderContent()}</ScrollView><View style={styles.footer}>{step === 7 ? <><PrimaryButton title="Go to Home" onPress={onExit} /><PrimaryButton title="View My Profile" onPress={onExit} secondary /></> : <PrimaryButton title={step === 4 ? 'View Verification Status' : step === 5 && status === 'rejected' ? 'Resubmit Documents' : step === 6 ? 'Submit Profile' : 'Continue'} onPress={onPrimary} />}</View></SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
