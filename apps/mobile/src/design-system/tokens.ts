@@ -15,4 +15,4 @@ export const themes = {
   light: { background: palette.white, surface: palette.white, elevated: palette.lightBackground, text: palette.ink, secondaryText: palette.muted, border: palette.border, primary: palette.orange, onPrimary: palette.white, success: palette.success, error: palette.error, warning: palette.warning },
   dark: { background: palette.ink, surface: palette.darkSurface, elevated: '#292929', text: palette.white, secondaryText: '#B7B7B7', border: '#3A3A3A', primary: palette.orange, onPrimary: palette.white, success: '#55C58B', error: '#FF7777', warning: '#F3BD61' },
 } as const;
-export type WorkoTheme = typeof themes.light;
+export type WorkoTheme = (typeof themes)[ColorMode];
