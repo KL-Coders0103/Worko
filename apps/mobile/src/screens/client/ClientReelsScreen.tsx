@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useWorkoTheme } from '../../design-system/ThemeProvider';
 import { apiRequest } from '../../services/api/client';
 import { WebView } from 'react-native-webview';
 
 
+type ReelComment = { id: string; content: string; createdAt: string; author?: { displayName?: string } };
 type Reel = { id: string; caption?: string; mediaUrl?: string; publishedAt?: string; creator?: { id?: string; role?: string }; savedCount?: number };
 
 /** Accept only web URLs and escape them before embedding in a WebView HTML attribute. */
@@ -30,6 +31,10 @@ export function ClientReelsScreen({ accessToken }: { accessToken: string }) {
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [comments, setComments] = useState<ReelComment[]>([]);
+  const [commentText, setCommentText] = useState('');
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     setError('');
@@ -47,6 +52,33 @@ export function ClientReelsScreen({ accessToken }: { accessToken: string }) {
     } finally { setLoading(false); setRefreshing(false); }
   }, [accessToken]);
   useEffect(() => { void load(); }, [load]);
+  const loadComments = useCallback(async (reelId: string) => {
+    setCommentsLoading(true);
+    try {
+      const response = await apiRequest(`/reels/${encodeURIComponent(reelId)}/comments`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message || 'Could not load comments.');
+      const rows = Array.isArray(payload) ? payload : payload.data ?? [];
+      setComments(rows);
+    } catch (e) { setActionError(e instanceof Error ? e.message : 'Could not load comments.'); }
+    finally { setCommentsLoading(false); }
+  }, [accessToken]);
+
+  useEffect(() => { if (selected) { setComments([]); setCommentText(''); void loadComments(selected.id); } }, [selected?.id, loadComments]);
+
+  const submitComment = async () => {
+    if (!selected || !commentText.trim() || commentSubmitting) return;
+    setCommentSubmitting(true); setActionError('');
+    try {
+      const response = await apiRequest(`/reels/${encodeURIComponent(selected.id)}/comments`, { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ content: commentText.trim() }) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message || 'Could not post comment.');
+      setCommentText('');
+      await loadComments(selected.id);
+    } catch (e) { setActionError(e instanceof Error ? e.message : 'Could not post comment.'); }
+    finally { setCommentSubmitting(false); }
+  };
+
   const toggleSave = async (reel: Reel) => {
     setSaving(true); setActionError('');
     const isSaved = savedIds.includes(reel.id);
@@ -70,7 +102,7 @@ export function ClientReelsScreen({ accessToken }: { accessToken: string }) {
   return <View style={[styles.root, { backgroundColor: theme.background }]}>
     <View style={styles.header}><Text style={[styles.title, { color: theme.text }]}>Worko <Text style={{ color: theme.primary }}>Reels</Text></Text><Text style={[styles.subtitle, { color: theme.secondaryText }]}>Discover work, skills and inspiration from the community.</Text></View>
     {loading ? <View style={styles.center}><ActivityIndicator color={theme.primary} /><Text style={[styles.muted, { color: theme.secondaryText }]}>Loading reels…</Text></View> : error ? <View style={styles.center}><Text style={[styles.emptyTitle, { color: theme.text }]}>Reels unavailable</Text><Text style={[styles.muted, { color: theme.secondaryText }]}>{error}</Text><Pressable onPress={() => { setLoading(true); void load(); }} style={[styles.retry, { backgroundColor: theme.primary }]}><Text style={styles.retryText}>Try again</Text></Pressable></View> : reels.length === 0 ? <View style={styles.center}><Text style={[styles.emptyTitle, { color: theme.text }]}>No reels yet</Text><Text style={[styles.muted, { color: theme.secondaryText }]}>Creator videos will appear here when they are published and approved. Check back soon.</Text></View> : <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} tintColor={theme.primary} />} contentContainerStyle={styles.list}>{reels.map(reel => <Pressable key={reel.id} onPress={() => setSelected(reel)} accessibilityRole="button" accessibilityLabel="Open reel details" style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}><View style={styles.video}>{videoUrl(reel) ? <WebView source={{ html: `<!doctype html><html><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><body style="margin:0;background:#000"><video controls playsinline style="width:100%;height:100%;object-fit:contain" src="${videoUrl(reel)}"></video></body></html>` }} javaScriptEnabled allowsInlineMediaPlayback mediaPlaybackRequiresUserAction style={{ backgroundColor: '#000' }} /> : <Text style={styles.videoHint}>Video source unavailable</Text>}</View><View style={styles.meta}><Text style={[styles.creator, { color: theme.text }]}>{creatorName(reel)}</Text><Text style={[styles.caption, { color: theme.secondaryText }]}>{reelText(reel)}</Text><Text style={[styles.muted, { color: theme.secondaryText, textAlign: 'left', marginTop: 10 }]}>Likes and comments are not available yet. You can save or share this reel from its details.</Text></View></Pressable>)}</ScrollView>}
-    <Modal visible={Boolean(selected)} animationType="slide" onRequestClose={() => setSelected(null)}><View style={[styles.modal, { backgroundColor: theme.background }]}><View style={styles.modalHeader}><Text style={[styles.modalTitle, { color: theme.text }]}>Reel details</Text><Pressable onPress={() => setSelected(null)}><Text style={[styles.close, { color: theme.primary }]}>Close ✕</Text></Pressable></View>{selected ? <><View style={styles.detailVideo}>{videoUrl(selected) ? <WebView source={{ html: `<!doctype html><html><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><body style="margin:0;background:#000"><video controls playsinline style="width:100%;height:100%;object-fit:contain" src="${videoUrl(selected)}"></video></body></html>` }} javaScriptEnabled allowsInlineMediaPlayback mediaPlaybackRequiresUserAction style={{ backgroundColor: "#000" }} /> : <Text style={styles.videoHint}>Video source unavailable</Text>}</View><Pressable accessibilityRole="button" disabled={!selected.creator?.id} onPress={() => setProfileCreatorId(selected?.creator?.id ?? null)}><Text style={[styles.creator, { color: theme.primary }]}>{creatorName(selected)} · View profile</Text></Pressable><Text style={[styles.caption, { color: theme.secondaryText }]}>{reelText(selected)}</Text><Text style={[styles.section, { color: theme.text }]}>Comments</Text><Text style={[styles.muted, { color: theme.secondaryText }]}>Comments are not available yet.</Text><View style={{ flexDirection: 'row', gap: 12, marginTop: 18 }}><Pressable disabled={saving} onPress={() => void toggleSave(selected)} style={[styles.retry, { backgroundColor: theme.primary }]}><Text style={styles.retryText}>{savedIds.includes(selected.id) ? 'Remove saved' : 'Save reel'}</Text></Pressable><Pressable onPress={() => void shareReel(selected)} style={[styles.retry, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }]}><Text style={{ color: theme.text, fontWeight: '800' }}>Share</Text></Pressable></View>{actionError ? <Text style={{ color: theme.primary, marginTop: 10 }}>{actionError}</Text> : null}</> : null}</View></Modal>
+    <Modal visible={Boolean(selected)} animationType="slide" onRequestClose={() => setSelected(null)}><View style={[styles.modal, { backgroundColor: theme.background }]}><View style={styles.modalHeader}><Text style={[styles.modalTitle, { color: theme.text }]}>Reel details</Text><Pressable onPress={() => setSelected(null)}><Text style={[styles.close, { color: theme.primary }]}>Close ✕</Text></Pressable></View>{selected ? <><View style={styles.detailVideo}>{videoUrl(selected) ? <WebView source={{ html: `<!doctype html><html><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><body style="margin:0;background:#000"><video controls playsinline style="width:100%;height:100%;object-fit:contain" src="${videoUrl(selected)}"></video></body></html>` }} javaScriptEnabled allowsInlineMediaPlayback mediaPlaybackRequiresUserAction style={{ backgroundColor: "#000" }} /> : <Text style={styles.videoHint}>Video source unavailable</Text>}</View><Pressable accessibilityRole="button" disabled={!selected.creator?.id} onPress={() => setProfileCreatorId(selected?.creator?.id ?? null)}><Text style={[styles.creator, { color: theme.primary }]}>{creatorName(selected)} · View profile</Text></Pressable><Text style={[styles.caption, { color: theme.secondaryText }]}>{reelText(selected)}</Text><Text style={[styles.section, { color: theme.text }]}>Comments ({comments.length})</Text>{commentsLoading ? <ActivityIndicator color={theme.primary} /> : comments.length ? comments.map(comment => <View key={comment.id} style={[styles.profileReel, { borderColor: theme.border }]}><Text style={[styles.creator, { color: theme.text }]}>{comment.author?.displayName ?? 'Worko community member'}</Text><Text style={[styles.caption, { color: theme.secondaryText }]}>{comment.content}</Text></View>) : <Text style={[styles.muted, { color: theme.secondaryText }]}>Be the first to comment.</Text>}<View style={styles.commentRow}><TextInput value={commentText} onChangeText={setCommentText} maxLength={1000} placeholder="Write a comment…" placeholderTextColor={theme.secondaryText} multiline style={[styles.commentInput, { color: theme.text, borderColor: theme.border }]} /><Pressable accessibilityRole="button" disabled={!commentText.trim() || commentSubmitting} onPress={() => void submitComment()} style={[styles.send, { backgroundColor: theme.primary, opacity: !commentText.trim() || commentSubmitting ? 0.5 : 1 }]}><Text style={styles.retryText}>{commentSubmitting ? '…' : 'Post'}</Text></Pressable></View><View style={{ flexDirection: 'row', gap: 12, marginTop: 18 }}><Pressable disabled={saving} onPress={() => void toggleSave(selected)} style={[styles.retry, { backgroundColor: theme.primary }]}><Text style={styles.retryText}>{savedIds.includes(selected.id) ? 'Remove saved' : 'Save reel'}</Text></Pressable><Pressable onPress={() => void shareReel(selected)} style={[styles.retry, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }]}><Text style={{ color: theme.text, fontWeight: '800' }}>Share</Text></Pressable></View>{actionError ? <Text style={{ color: theme.primary, marginTop: 10 }}>{actionError}</Text> : null}</> : null}</View></Modal>
     <Modal visible={Boolean(profileCreatorId)} animationType="slide" onRequestClose={() => setProfileCreatorId(null)}><View style={[styles.modal, { backgroundColor: theme.background }]}><View style={styles.modalHeader}><Text style={[styles.modalTitle, { color: theme.text }]}>Creator profile</Text><Pressable onPress={() => setProfileCreatorId(null)}><Text style={[styles.close, { color: theme.primary }]}>Close ✕</Text></Pressable></View><View style={[styles.profileAvatar, { backgroundColor: theme.primary }]}><Text style={styles.avatarText}>W</Text></View><Text style={[styles.modalTitle, { color: theme.text, textAlign: 'center' }]}>Worko creator</Text><Text style={[styles.muted, { color: theme.secondaryText, marginTop: 8 }]}>Public profile details and biography are not currently available.</Text><Text style={[styles.section, { color: theme.text }]}>Published reels</Text><ScrollView>{reels.filter(item => item.creator?.id === profileCreatorId).map(item => <Pressable key={item.id} onPress={() => { setProfileCreatorId(null); setSelected(item); }} style={[styles.profileReel, { borderColor: theme.border }]}><Text style={[styles.caption, { color: theme.text }]}>{reelText(item)}</Text><Text style={{ color: theme.primary, marginTop: 6 }}>View reel →</Text></Pressable>)}</ScrollView></View></Modal>
   </View>;
 }
