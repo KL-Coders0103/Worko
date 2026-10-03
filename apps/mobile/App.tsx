@@ -18,7 +18,7 @@ const ORANGE = '#FF6B00';
 const INK = '#101010';
 const MUTED = '#777777';
 declare const process: { env: { EXPO_PUBLIC_API_URL?: string } };
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000/api/v1';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:3000/api/v1';
 const slides = [
   { title: 'Get your work done', accent: 'easily', body: 'Just describe what you need, and Worko will find an eligible worker near you.', symbol: '✓' },
   { title: 'One request.', accent: 'The right help.', body: 'Tell us what needs to be done. We coordinate with available, verified workers.', symbol: '⌕' },
