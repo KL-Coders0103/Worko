@@ -98,6 +98,7 @@ model User {
   workerProfile   WorkerProfile?
   clientProfile   ClientProfile?
   requirements    Requirement[]    @relation("RequirementClient")
+  requirementDrafts RequirementDraft[]
   clientBookings  Booking[]        @relation("BookingClient")
   reels           Reel[]
   authOtps        AuthOtp[]
@@ -203,6 +204,18 @@ model Requirement {
   @@index([status, categoryId, createdAt])
   @@index([status, scheduledAt])
   @@map("requirements")
+}
+
+model RequirementDraft {
+  id        String   @id @default(uuid()) @db.Uuid
+  clientId  String   @unique @map("client_id") @db.Uuid
+  payload   Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  client    User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([updatedAt])
+  @@map("requirement_drafts")
 }
 
 model MatchingOffer {
