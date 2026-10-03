@@ -7,6 +7,17 @@ declare const process: { env: { EXPO_PUBLIC_API_URL?: string } };
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000/api/v1';
 type SavedReel = { id: string; mediaUrl?: string; caption?: string; publishedAt?: string; creator?: { id?: string; role?: string } };
 
+function safeVideoUrl(value?: string): string | null {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+    return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;');
+  } catch {
+    return null;
+  }
+}
+
 export function SavedReelsScreen({ accessToken }: { accessToken: string }) {
   const { theme } = useWorkoTheme();
   const [reels, setReels] = useState<SavedReel[]>([]);
@@ -47,7 +58,7 @@ export function SavedReelsScreen({ accessToken }: { accessToken: string }) {
     {loading ? <View style={styles.center}><ActivityIndicator color={theme.primary} /><Text style={{ color: theme.secondaryText }}>Loading saved reels…</Text></View> : error && reels.length === 0 ? <View style={styles.center}><Text style={[styles.heading, { color: theme.text }]}>Saved reels unavailable</Text><Text style={[styles.subtitle, { color: theme.secondaryText }]}>{error}</Text><Pressable onPress={() => { setLoading(true); void load(); }} style={[styles.button, { backgroundColor: theme.primary }]}><Text style={styles.buttonText}>Try again</Text></Pressable></View> : reels.length === 0 ? <View style={styles.center}><Text style={[styles.heading, { color: theme.text }]}>Nothing saved yet</Text><Text style={[styles.subtitle, { color: theme.secondaryText }]}>Save reels from the discovery feed and they'll appear here.</Text></View> : <ScrollView contentContainerStyle={styles.list} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} tintColor={theme.primary} />}>
       {error ? <Text style={{ color: theme.primary, marginBottom: 10 }}>{error}</Text> : null}
       {reels.map(reel => <View key={reel.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={styles.video}>{reel.mediaUrl ? <WebView source={{ html: `<!doctype html><html><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><body style="margin:0;background:#000"><video controls playsinline style="width:100%;height:100%;object-fit:contain" src="${reel.mediaUrl}"></video></body></html>` }} javaScriptEnabled allowsInlineMediaPlayback mediaPlaybackRequiresUserAction style={{ backgroundColor: '#000' }} /> : <Text style={styles.videoHint}>Video source unavailable</Text>}</View>
+        <View style={styles.video}>{safeVideoUrl(reel.mediaUrl) ? <WebView source={{ html: `<!doctype html><html><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><body style="margin:0;background:#000"><video controls playsinline style="width:100%;height:100%;object-fit:contain" src="${safeVideoUrl(reel.mediaUrl)}"></video></body></html>` }} javaScriptEnabled allowsInlineMediaPlayback mediaPlaybackRequiresUserAction style={{ backgroundColor: '#000' }} /> : <Text style={styles.videoHint}>Video source unavailable</Text>}</View>
         <View style={styles.meta}><Text style={[styles.creator, { color: theme.text }]}>Worko creator</Text><Text style={[styles.caption, { color: theme.secondaryText }]}>{reel.caption || 'A look at this creator’s work.'}</Text><Pressable accessibilityRole="button" disabled={busyId === reel.id} onPress={() => void unsave(reel.id)} style={[styles.button, { backgroundColor: theme.primary, opacity: busyId === reel.id ? 0.6 : 1 }]}><Text style={styles.buttonText}>{busyId === reel.id ? 'Removing…' : 'Remove from saved'}</Text></Pressable></View>
       </View>)}
     </ScrollView>}
