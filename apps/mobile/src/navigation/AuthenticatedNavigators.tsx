@@ -44,12 +44,12 @@ const tabOptions = (theme: ReturnType<typeof useWorkoTheme>['theme']) => ({
   tabBarStyle: { backgroundColor: theme.surface, borderTopColor: theme.border, height: 62, paddingBottom: 7, paddingTop: 7 },
   tabBarLabelStyle: { fontSize: 11, fontWeight: '600' as const },
 });
-export function ClientAppNavigator() {
+export function ClientAppNavigator({ route }: { route: { params: { accessToken: string } } }) {
   const { theme } = useWorkoTheme();
   return <ClientTabs.Navigator screenOptions={tabOptions(theme)}>
     <ClientTabs.Screen name="Home" component={ClientHomeScreen} options={{ tabBarLabel: 'Home', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>⌂</Text> }} />
     <ClientTabs.Screen name="Discover" component={ClientCategoriesScreen} options={{ tabBarLabel: 'Discover', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>⌕</Text> }} />
-    <ClientTabs.Screen name="Reels" component={ClientReelsScreen} options={{ tabBarLabel: 'Reels', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>▷</Text> }} />
+    <ClientTabs.Screen name="Reels" options={{ tabBarLabel: 'Reels', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>▷</Text> }}>{() => <ClientReelsScreen accessToken={route.params.accessToken} />}</ClientTabs.Screen>
     <ClientTabs.Screen name="Requests" component={ClientRequests} options={{ tabBarLabel: 'Requests', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>▤</Text> }} />
     <ClientTabs.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>○</Text> }} />
   </ClientTabs.Navigator>;
