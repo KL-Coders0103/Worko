@@ -59,7 +59,7 @@ function AppContent({ navigation }: { navigation: any }) {
             else setPage(onboardingComplete === 'true' ? 5 : 0);
             return;
           }
-          if (response.status === 401) await AsyncStorage.multiRemove(['worko.accessToken', 'worko.refreshToken', 'worko.role']);
+          if (response.status === 401) await Promise.all([AsyncStorage.removeItem('worko.accessToken'), AsyncStorage.removeItem('worko.refreshToken'), AsyncStorage.removeItem('worko.role')]);
         }
         if (active && onboardingComplete === 'true') setPage(5);
       } catch {
