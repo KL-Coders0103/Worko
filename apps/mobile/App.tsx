@@ -39,7 +39,39 @@ function AppContent({ navigation }: { navigation: any }) {
   const [page, setPage] = useState(0);
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  useEffect(() => { AsyncStorage.getItem('worko.onboarding.complete').then(value => { if (value === 'true') setPage(5); }).catch(() => {}); }, []);
+  useEffect(() => {
+    let active = true;
+    const restoreSession = async () => {
+      try {
+        const [accessToken, savedRole, onboardingComplete] = await Promise.all([
+          AsyncStorage.getItem('worko.accessToken'),
+          AsyncStorage.getItem('worko.role'),
+          AsyncStorage.getItem('worko.onboarding.complete'),
+        ]);
+        if (!active) return;
+        if (accessToken && savedRole) {
+          const response = await apiRequest('/auth/me', { headers: { Authorization: `Bearer ${accessToken}` } });
+          const me = await response.json();
+          if (!active) return;
+          if (response.ok && me.role === savedRole) {
+            if (me.role === 'CLIENT') navigation.replace('Client', { accessToken });
+            else if (me.role === 'WORKER') navigation.replace('Worker');
+            else setPage(onboardingComplete === 'true' ? 5 : 0);
+            return;
+          }
+          if (response.status === 401) await AsyncStorage.multiRemove(['worko.accessToken', 'worko.refreshToken', 'worko.role']);
+        }
+        if (active && onboardingComplete === 'true') setPage(5);
+      } catch {
+        if (active) {
+          const completed = await AsyncStorage.getItem('worko.onboarding.complete').catch(() => null);
+          if (completed === 'true') setPage(5);
+        }
+      }
+    };
+    void restoreSession();
+    return () => { active = false; };
+  }, [navigation]);
   const [slide, setSlide] = useState(0);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
