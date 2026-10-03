@@ -40,17 +40,32 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
     Promise.all([
       apiRequest('/categories').then(async response => { const payload = await response.json(); if (!response.ok) throw new Error(payload.message || 'Unable to load categories'); return Array.isArray(payload) ? payload : payload.data ?? payload.categories ?? []; }),
       AsyncStorage.getItem(STORAGE_KEY),
-    ]).then(([rows, saved]) => {
+      apiRequest('/requirements/draft', { headers: { Authorization: `Bearer ${accessToken}` } }).then(async response => {
+        if (!response.ok) return null;
+        const payload = await response.json().catch(() => null);
+        return payload?.data?.payload ?? null;
+      }).catch(() => null),
+    ]).then(([rows, saved, remoteDraft]) => {
       if (!active) return;
       setCategories(rows.filter((item: Category) => item?.id && item?.name && item.isActive !== false));
-      if (saved) { try { setDraft({ ...EMPTY, ...JSON.parse(saved) }); } catch { void AsyncStorage.removeItem(STORAGE_KEY); } }
+      const localDraft = saved ? (() => { try { return JSON.parse(saved); } catch { void AsyncStorage.removeItem(STORAGE_KEY); return null; } })() : null;
+      const restored = remoteDraft ?? localDraft;
+      if (restored && typeof restored === 'object') setDraft({ ...EMPTY, ...restored });
     }).catch(error => Alert.alert('Unable to load', error instanceof Error ? error.message : 'Please try again.')).finally(() => { if (active) { setLoading(false); setDraftLoaded(true); } });
     return () => { active = false; };
   }, []);
 
   useEffect(() => {
     if (!draftLoaded) return;
-    const handle = setTimeout(() => { void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(draft)).then(() => setSaving(false)).catch(() => setSaving(false)); setSaving(true); }, 500);
+    const handle = setTimeout(() => {
+      setSaving(true);
+      const serialized = JSON.stringify(draft);
+      void AsyncStorage.setItem(STORAGE_KEY, serialized).then(async () => {
+        try {
+          await apiRequest('/requirements/draft', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }, body: serialized });
+        } catch { /* Local draft remains available when offline. */ }
+      }).finally(() => setSaving(false));
+    }, 700);
     return () => clearTimeout(handle);
   }, [draft, draftLoaded]);
 
