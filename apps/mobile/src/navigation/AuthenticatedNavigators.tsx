@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useWorkoTheme } from '../design-system/ThemeProvider';
 import { ClientHomeScreen, ClientCategoriesScreen } from '../screens/client/ClientHomeScreens';
+import { ClientReelsScreen } from '../screens/client/ClientReelsScreen';
 import type { ClientTabParamList, WorkerTabParamList } from './types';
 
 const ClientTabs = createBottomTabNavigator<ClientTabParamList>();
@@ -48,6 +49,7 @@ export function ClientAppNavigator() {
   return <ClientTabs.Navigator screenOptions={tabOptions(theme)}>
     <ClientTabs.Screen name="Home" component={ClientHomeScreen} options={{ tabBarLabel: 'Home', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>⌂</Text> }} />
     <ClientTabs.Screen name="Discover" component={ClientCategoriesScreen} options={{ tabBarLabel: 'Discover', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>⌕</Text> }} />
+    <ClientTabs.Screen name="Reels" component={ClientReelsScreen} options={{ tabBarLabel: 'Reels', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>▷</Text> }} />
     <ClientTabs.Screen name="Requests" component={ClientRequests} options={{ tabBarLabel: 'Requests', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>▤</Text> }} />
     <ClientTabs.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>○</Text> }} />
   </ClientTabs.Navigator>;
