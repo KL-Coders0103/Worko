@@ -51,7 +51,7 @@ export function ClientReelsScreen({ accessToken }: { accessToken: string }) {
     setSaving(true); setActionError('');
     const isSaved = savedIds.includes(reel.id);
     try {
-      const response = await apiRequest('/reels/${encodeURIComponent(reel.id)}/save', { method: isSaved ? 'DELETE' : 'POST', headers: { Authorization: `Bearer ${accessToken}` } });
+      const response = await apiRequest(`/reels/${encodeURIComponent(reel.id)}/save`, { method: isSaved ? 'DELETE' : 'POST', headers: { Authorization: `Bearer ${accessToken}` } });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.message || 'Could not update saved reels.');
       setSavedIds(current => isSaved ? current.filter(id => id !== reel.id) : [...current, reel.id]);
