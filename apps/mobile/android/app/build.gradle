@@ -96,8 +96,12 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+            // Permit local HTTP API calls during physical-device development.
+            manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
         release {
+            // Keep cleartext HTTP disabled in production builds.
+            manifestPlaceholders = [usesCleartextTraffic: "false"]
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
             signingConfig signingConfigs.debug
