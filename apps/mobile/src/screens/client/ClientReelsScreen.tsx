@@ -8,7 +8,7 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000/ap
 
 type Reel = { id: string; caption?: string; mediaUrl?: string; publishedAt?: string; creator?: { id?: string; role?: string }; savedCount?: number };
 
-export function ClientReelsScreen() {
+export function ClientReelsScreen({ accessToken }: { accessToken: string }) {
   const { theme } = useWorkoTheme();
   const [reels, setReels] = useState<Reel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +20,7 @@ export function ClientReelsScreen() {
   const load = useCallback(async () => {
     setError('');
     try {
-      const response = await fetch(`${API_BASE_URL}/reels`);
+      const response = await fetch(`${API_BASE_URL}/reels`, { headers: { Authorization: `Bearer ${accessToken}` } });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Reels are temporarily unavailable.');
       const rows = Array.isArray(payload) ? payload : payload.data ?? payload.reels ?? [];
@@ -29,7 +29,7 @@ export function ClientReelsScreen() {
       setError(e instanceof Error ? e.message : 'Could not load reels.');
       setReels([]);
     } finally { setLoading(false); setRefreshing(false); }
-  }, []);
+  }, [accessToken]);
   useEffect(() => { void load(); }, [load]);
 
   const creatorName = (_reel: Reel) => 'Worko creator';
