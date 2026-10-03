@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image, Keyboard, KeyboardAvoidingView, PermissionsAndroid, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -36,6 +37,9 @@ function Field({ label, value, onChangeText, placeholder, keyboardType = 'defaul
 function formatDate(date: Date) { return `${String(date.getDate()).padStart(2, '0')} ${date.toLocaleString('en-US', { month: 'short' })} ${date.getFullYear()}`; }
 function AppContent({ navigation }: { navigation: any }) {
   const [page, setPage] = useState(0);
+  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  useEffect(() => { AsyncStorage.getItem('worko.onboarding.complete').then(value => { if (value === 'true') setPage(5); }).catch(() => {}); }, []);
   const [slide, setSlide] = useState(0);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -96,6 +100,18 @@ map.on('moveend',()=>{const p=map.getCenter();marker.setLatLng(p);sendLocation(p
 window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([lat,lng]);};
 </script></body></html>`;
 
+  const openWelcome = () => { void AsyncStorage.setItem('worko.onboarding.complete', 'true'); setPage(5); };
+  const login = async () => {
+    if (!loginIdentifier.trim() || !loginPassword) { showToast('Missing details', 'Enter your email or phone and password.', 'error'); return; }
+    setAuthBusy(true);
+    try {
+      const response = await apiRequest('/auth/login/password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: loginIdentifier.trim(), password: loginPassword }) });
+      const session = await response.json(); if (!response.ok) throw new Error(session.message || 'Login failed.');
+      const meResponse = await apiRequest('/auth/me', { headers: { Authorization: `Bearer ${session.accessToken}` } }); const me = await meResponse.json(); if (!meResponse.ok) throw new Error(me.message || 'Could not load your account.');
+      await AsyncStorage.multiSet([['worko.accessToken', session.accessToken], ['worko.refreshToken', session.refreshToken], ['worko.role', me.role], ['worko.onboarding.complete', 'true']]);
+      if (me.role === 'CLIENT') navigation.replace('Client', { accessToken: session.accessToken }); else if (me.role === 'WORKER') navigation.replace('Worker'); else throw new Error('This account role is not supported in the mobile app.');
+    } catch (error) { showToast('Login failed', error instanceof Error ? error.message : 'Please try again.', 'error'); } finally { setAuthBusy(false); }
+  };
   const nextProfile = () => {
     const normalizedPhone = phone.replace(/[\s()-]/g, '');
     const validPhone = /^\+?\d{10,13}$/.test(normalizedPhone);
@@ -317,7 +333,7 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
         <StatusBar barStyle="dark-content" />
         {<>
         {page === 0 && <>
-          <View style={s.welcomeHeader}><Brand /><Pressable onPress={() => setPage(1)}><Text style={s.skip}>Skip</Text></Pressable></View>
+          <View style={s.welcomeHeader}><Brand /><Pressable onPress={openWelcome}><Text style={s.skip}>Skip</Text></Pressable></View>
           <ScrollView contentContainerStyle={s.welcomeScroll}>
             <View style={s.hero}><View style={s.heroBack} /><View style={s.heroCircle}><Text style={s.heroSymbol}>{slides[slide].symbol}</Text></View></View>
             <Text style={s.eyebrow}>WORKO • ON-DEMAND SERVICES</Text>
@@ -329,8 +345,10 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
               <Feature symbol="◇" title="Get it done with confidence" body="Track progress, pay securely, and share feedback." />
             </View>
           </ScrollView>
-          <View style={s.welcomeBottom}><View style={s.dots}>{slides.map((item, i) => <Pressable key={item.title} onPress={() => setSlide(i)} style={[s.dot, slide === i && s.dotActive]} />)}</View><Button title={slide === 2 ? 'Get Started' : 'Next'} onPress={() => slide === 2 ? setPage(1) : setSlide(slide + 1)} /></View>
+          <View style={s.welcomeBottom}><View style={s.dots}>{slides.map((item, i) => <Pressable key={item.title} onPress={() => setSlide(i)} style={[s.dot, slide === i && s.dotActive]} />)}</View><Button title={slide === 2 ? 'Get Started' : 'Next'} onPress={() => slide === 2 ? openWelcome() : setSlide(slide + 1)} /></View>
         </>}
+        {page === 5 && <View style={s.authLanding}><Brand /><Text style={s.landingTitle}>Welcome to Worko</Text><Text style={s.subtitle}>Local services, made simpler. Sign in to continue or create your account.</Text><Button title="Log in" onPress={() => setPage(4)} /><Pressable style={s.outlineButton} onPress={() => setPage(1)}><Text style={s.outlineText}>Create an account</Text></Pressable><Pressable style={s.textButton} onPress={() => { setSlide(0); setPage(0); }}><Text style={s.muted}>View introduction</Text></Pressable></View>}
+        {page === 4 && <><Header onBack={() => setPage(5)} step="Sign in" progress={0}/><ScrollView contentContainerStyle={s.formScroll} keyboardShouldPersistTaps="handled"><Text style={s.title}>Welcome <Text style={s.orange}>back</Text></Text><Text style={s.subtitle}>Sign in with the email address or phone number linked to your account.</Text><Field label="Email or phone" value={loginIdentifier} onChangeText={setLoginIdentifier} placeholder="you@example.com or phone" keyboardType="email-address"/><View style={s.field}><Text style={s.label}>Password</Text><TextInput accessibilityLabel="Password" secureTextEntry value={loginPassword} onChangeText={setLoginPassword} placeholder="Enter your password" placeholderTextColor="#999" autoCapitalize="none" style={s.input} returnKeyType="done" onSubmitEditing={login}/></View><Button title={authBusy ? 'Signing in…' : 'Sign in'} onPress={login}/><Pressable style={s.textButton} onPress={() => setPage(1)}><Text style={s.muted}>New to Worko? <Text style={s.orange}>Create an account</Text></Text></Pressable></ScrollView></>}
         {page === 1 && <>
           <Header onBack={() => setPage(0)} step="2/3" progress={1} />
           <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -467,11 +485,16 @@ function ThemedNavigation() {
 }
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+  useEffect(() => { const timer = setTimeout(() => setShowSplash(false), 1400); return () => clearTimeout(timer); }, []);
+  if (showSplash) return <View style={s.splash}><Text style={s.splashBrand}>W<Text style={{ color: ORANGE }}>o</Text>rk<Text style={{ color: ORANGE }}>o</Text></Text><Text style={s.splashTagline}>Work made simpler.</Text></View>;
   return <ThemeProvider><ThemedNavigation /></ThemeProvider>;
 }
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FFF' },
+  splash: { flex: 1, backgroundColor: INK, alignItems: 'center', justifyContent: 'center' }, splashBrand: { color: '#FFF', fontSize: 56, fontWeight: '900', letterSpacing: -3 }, splashTagline: { color: '#DDD', fontSize: 14, marginTop: 8, letterSpacing: 1 },
+  authLanding: { flex: 1, padding: 26, justifyContent: 'center', gap: 16 }, landingTitle: { color: INK, fontSize: 32, fontWeight: '900', marginTop: 32 }, outlineButton: { height: 56, borderWidth: 1.5, borderColor: ORANGE, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }, outlineText: { color: ORANGE, fontWeight: '800', fontSize: 16 }, textButton: { alignItems: 'center', padding: 12 },
   toast: { position: 'absolute', top: 12, left: 16, right: 16, zIndex: 1000, elevation: 8, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
   toastSuccess: { backgroundColor: '#176B45' }, toastError: { backgroundColor: '#A52828' }, toastInfo: { backgroundColor: '#242424' },
   toastTitle: { color: '#FFF', fontSize: 14, fontWeight: '800', marginBottom: 3 }, toastMessage: { color: '#FFF', fontSize: 13, lineHeight: 18 },
