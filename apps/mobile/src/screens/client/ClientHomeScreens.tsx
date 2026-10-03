@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useWorkoTheme } from '../../design-system/ThemeProvider';
+import { apiRequest } from '../../services/api/client';
 
-declare const process: { env: { EXPO_PUBLIC_API_URL?: string } };
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000/api/v1';
 
 type Category = { id: string; name: string; slug: string; isActive?: boolean };
 type RequestSummary = { id: string; title: string; status: string; category?: { name: string } };
@@ -15,7 +14,7 @@ function useCategories() {
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const response = await fetch(`${API_BASE_URL}/categories`);
+      const response = await apiRequest('/categories');
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Could not load categories.');
       const rows = Array.isArray(payload) ? payload : payload.data ?? payload.categories ?? [];
@@ -45,7 +44,7 @@ export function ClientHomeScreen({ navigation, accessToken }: { navigation: any;
     setRefreshing(true);
     await reload();
     try {
-      const response = await fetch(`${API_BASE_URL}/requirements/my`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const response = await apiRequest('/requirements/my', { headers: { Authorization: `Bearer ${accessToken}` } });
       if (response.ok) {
         const payload = await response.json();
         setRequests(Array.isArray(payload) ? payload : payload.data ?? payload.requirements ?? []);
