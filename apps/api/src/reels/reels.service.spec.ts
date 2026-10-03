@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EngagementType, ReelModerationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -6,9 +7,16 @@ import { ReelsService } from './reels.service';
 describe('ReelsService', () => {
   let service: ReelsService;
   const prisma = {
-    reel: { findMany: jest.fn(), findFirst: jest.fn() },
-    reelEngagement: { upsert: jest.fn(), deleteMany: jest.fn(), findMany: jest.fn() },
-  };
+  reel: {
+    findMany: jest.fn<(...args: any[]) => Promise<any>>(),
+    findFirst: jest.fn<(...args: any[]) => Promise<any>>(),
+  },
+  reelEngagement: {
+    upsert: jest.fn<(...args: any[]) => Promise<any>>(),
+    deleteMany: jest.fn<(...args: any[]) => Promise<any>>(),
+    findMany: jest.fn<(...args: any[]) => Promise<any>>(),
+  },
+};
 
   beforeEach(async () => {
     jest.clearAllMocks();
