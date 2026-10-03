@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { EngagementType, ReelModerationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -18,6 +18,38 @@ export class ReelsService {
       },
     });
     return { data: reels.map(({ engagements, ...reel }) => ({ ...reel, savedCount: engagements.length })) };
+  }
+
+  async creatorProfile(creatorId: string) {
+    const creator = await this.prisma.user.findFirst({
+      where: { id: creatorId, status: 'ACTIVE', role: 'WORKER' },
+      select: {
+        id: true,
+        workerProfile: { select: { verificationStatus: true, availabilityStatus: true, categories: { select: { category: { select: { id: true, name: true, slug: true } } } } } },
+        reels: { where: { moderationStatus: ReelModerationStatus.APPROVED, publishedAt: { not: null } }, orderBy: { publishedAt: 'desc' }, select: { id: true, caption: true, mediaUrl: true, publishedAt: true } },
+      },
+    });
+    if (!creator) throw new NotFoundException('Creator not found');
+    return { data: { id: creator.id, displayName: 'Worko worker', verified: creator.workerProfile?.verificationStatus === 'VERIFIED', availability: creator.workerProfile?.availabilityStatus ?? 'OFFLINE', categories: creator.workerProfile?.categories.map(x => x.category) ?? [], reels: creator.reels } };
+  }
+
+  async listComments(reelId: string) {
+    const reel = await this.prisma.reel.findFirst({ where: { id: reelId, moderationStatus: ReelModerationStatus.APPROVED, publishedAt: { not: null } }, select: { id: true } });
+    if (!reel) throw new NotFoundException('Reel not found');
+    const comments = await this.prisma.reelComment.findMany({
+      where: { reelId }, orderBy: { createdAt: 'asc' }, take: 100,
+      select: { id: true, content: true, createdAt: true, user: { select: { id: true, role: true } } },
+    });
+    return { data: comments.map(c => ({ ...c, author: { id: c.user.id, displayName: 'Worko community member', role: c.user.role }, user: undefined })) };
+  }
+
+  async addComment(reelId: string, userId: string, content: string) {
+    const normalized = content.trim();
+    if (!normalized || normalized.length > 1000) throw new BadRequestException('Comment must contain 1–1000 characters');
+    const reel = await this.prisma.reel.findFirst({ where: { id: reelId, moderationStatus: ReelModerationStatus.APPROVED, publishedAt: { not: null } }, select: { id: true } });
+    if (!reel) throw new NotFoundException('Reel not found');
+    const comment = await this.prisma.reelComment.create({ data: { reelId, userId, content: normalized }, select: { id: true, content: true, createdAt: true } });
+    return { data: comment };
   }
 
   async save(reelId: string, userId: string) {
