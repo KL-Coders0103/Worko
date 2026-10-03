@@ -2,9 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useWorkoTheme } from '../../design-system/ThemeProvider';
+import { apiRequest } from '../../services/api/client';
 
-declare const process: { env: { EXPO_PUBLIC_API_URL?: string } };
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000/api/v1';
 type SavedReel = { id: string; mediaUrl?: string; caption?: string; publishedAt?: string; creator?: { id?: string; role?: string } };
 
 function safeVideoUrl(value?: string): string | null {
@@ -29,7 +28,7 @@ export function SavedReelsScreen({ accessToken }: { accessToken: string }) {
   const load = useCallback(async () => {
     setError('');
     try {
-      const response = await fetch(`${API_BASE_URL}/reels/saved`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const response = await apiRequest('/reels/saved', { headers: { Authorization: `Bearer ${accessToken}` } });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Saved reels are temporarily unavailable.');
       const rows = Array.isArray(payload) ? payload : payload.data ?? payload.reels ?? [];
@@ -44,7 +43,7 @@ export function SavedReelsScreen({ accessToken }: { accessToken: string }) {
   const unsave = async (id: string) => {
     setBusyId(id);
     try {
-      const response = await fetch(`${API_BASE_URL}/reels/${encodeURIComponent(id)}/save`, { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } });
+      const response = await apiRequest('/reels/${encodeURIComponent(id)}/save', { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.message || 'Could not remove saved reel.');
       setReels(current => current.filter(reel => reel.id !== id));
