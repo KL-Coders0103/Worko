@@ -8,7 +8,7 @@ import Geolocation from 'react-native-geolocation-service';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { launchImageLibrary, type Asset } from 'react-native-image-picker';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { ThemeProvider } from './src/design-system/ThemeProvider';
+import { ThemeProvider, useWorkoTheme } from './src/design-system/ThemeProvider';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './src/navigation/types';
@@ -439,16 +439,32 @@ function Header({ onBack, step, progress }: { onBack: () => void; step: string; 
 }
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
-export default function App() {
+function ThemedNavigation() {
+  const { theme, mode } = useWorkoTheme();
+  const navigationTheme = React.useMemo(() => ({
+    ...(mode === 'dark' ? require('@react-navigation/native').DarkTheme : DefaultTheme),
+    colors: {
+      ...(mode === 'dark' ? require('@react-navigation/native').DarkTheme.colors : DefaultTheme.colors),
+      primary: theme.primary,
+      background: theme.background,
+      card: theme.surface,
+      text: theme.text,
+      border: theme.border,
+      notification: theme.primary,
+    },
+  }), [mode, theme]);
+
   return (
-    <ThemeProvider>
-      <NavigationContainer theme={DefaultTheme}>
-        <RootStack.Navigator initialRouteName="Auth" screenOptions={{ headerShown: false, animation: 'fade', gestureEnabled: true, contentStyle: { backgroundColor: '#FFFFFF' } }}>
-          <RootStack.Screen name="Auth" component={AppContent} options={{ title: 'Worko onboarding' }} />
-        </RootStack.Navigator>
-      </NavigationContainer>
-    </ThemeProvider>
+    <NavigationContainer theme={navigationTheme}>
+      <RootStack.Navigator initialRouteName="Auth" screenOptions={{ headerShown: false, animation: 'fade', gestureEnabled: true, contentStyle: { backgroundColor: theme.background } }}>
+        <RootStack.Screen name="Auth" component={AppContent} options={{ title: 'Worko onboarding' }} />
+      </RootStack.Navigator>
+    </NavigationContainer>
   );
+}
+
+export default function App() {
+  return <ThemeProvider><ThemedNavigation /></ThemeProvider>;
 }
 
 const s = StyleSheet.create({
