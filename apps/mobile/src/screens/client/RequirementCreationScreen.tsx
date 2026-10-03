@@ -1,22 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, PermissionsAndroid, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { launchImageLibrary, type Asset } from 'react-native-image-picker';
+import Geolocation from 'react-native-geolocation-service';
 import { useWorkoTheme } from '../../design-system/ThemeProvider';
 import { apiRequest } from '../../services/api/client';
 
 type Category = { id: string; name: string; slug: string; isActive?: boolean };
 type Draft = {
   categoryId: string; title: string; description: string; photos: string[];
-  address: string; latitude: number; longitude: number; building: string; floor: string; landmark: string;
+  address: string; latitude: number | null; longitude: number | null; building: string; floor: string; landmark: string;
   scheduleType: 'ASAP' | 'LATER'; scheduledAt: string; duration: '1-2 hours' | '2-4 hours' | 'Full day';
   verifiedOnly: boolean; experiencedOnly: boolean; instructions: string;
 };
-const EMPTY: Draft = { categoryId: '', title: '', description: '', photos: [], address: '', latitude: 18.5204, longitude: 73.8567, building: '', floor: '', landmark: '', scheduleType: 'ASAP', scheduledAt: new Date(Date.now() + 86400000).toISOString(), duration: '1-2 hours', verifiedOnly: true, experiencedOnly: false, instructions: '' };
+const EMPTY: Draft = { categoryId: '', title: '', description: '', photos: [], address: '', latitude: null, longitude: null, building: '', floor: '', landmark: '', scheduleType: 'ASAP', scheduledAt: new Date(Date.now() + 86400000).toISOString(), duration: '1-2 hours', verifiedOnly: true, experiencedOnly: false, instructions: '' };
 const STORAGE_KEY = 'worko.requirement.draft.v1';
 const ORANGE = '#FF6B00';
-const ESTIMATES: Record<Draft['duration'], [number, number]> = { '1-2 hours': [500, 800], '2-4 hours': [800, 1400], 'Full day': [1800, 3000] };
+
 
 export function RequirementCreationScreen({ accessToken }: { accessToken: string }) {
   const { theme } = useWorkoTheme();
@@ -32,7 +33,7 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
   const update = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft(old => ({ ...old, [key]: value }));
   const selectedCategory = categories.find(item => item.id === draft.categoryId);
   const filteredCategories = useMemo(() => categories.filter(item => item.name.toLowerCase().includes(categoryQuery.trim().toLowerCase())), [categories, categoryQuery]);
-  const money = (value: number) => '₹' + value.toLocaleString('en-IN');
+  
 
   useEffect(() => {
     let active = true;
@@ -53,6 +54,18 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
     return () => clearTimeout(handle);
   }, [draft, draftLoaded]);
 
+  const useCurrentLocation = async () => {
+    try {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) { Alert.alert('Location permission required', 'Allow location access to use your current position.'); return; }
+      }
+      Geolocation.getCurrentPosition(position => {
+        setDraft(old => ({ ...old, latitude: position.coords.latitude, longitude: position.coords.longitude }));
+        Alert.alert('Location confirmed', 'Your current coordinates have been saved. Please enter or verify the address.');
+      }, error => Alert.alert('Unable to get location', error.message || 'Check location services and try again.'), { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 });
+    } catch (error) { Alert.alert('Location unavailable', error instanceof Error ? error.message : 'Please try again.'); }
+  };
   const addPhotos = async () => {
     if (draft.photos.length >= 5) { Alert.alert('Photo limit', 'You can attach up to 5 photos.'); return; }
     const result = await launchImageLibrary({ mediaType: 'photo', selectionLimit: 5 - draft.photos.length, quality: 0.8 });
@@ -63,8 +76,8 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
   };
   const next = () => {
     if (step === 0 && !draft.categoryId) { Alert.alert('Choose a category', 'Select the service category to continue.'); return; }
-    if (step === 1 && (draft.title.trim().length < 4 || draft.description.trim().length < 10)) { Alert.alert('Add work details', 'Enter a title (at least 4 characters) and description (at least 10 characters).'); return; }
-    if (step === 2 && draft.address.trim().length < 5) { Alert.alert('Add a location', 'Enter the address where the work needs to be done.'); return; }
+    if (step === 1 && (draft.title.trim().length < 1 || draft.description.trim().length < 1)) { Alert.alert('Add work details', 'Enter both a title and a detailed description.'); return; }
+    if (step === 2 && (draft.address.trim().length < 5 || draft.latitude === null || draft.longitude === null)) { Alert.alert('Confirm your location', 'Enter the address and use Current location to confirm its map coordinates.'); return; }
     if (step === 3 && draft.scheduleType === 'LATER' && new Date(draft.scheduledAt).getTime() <= Date.now()) { Alert.alert('Choose a future time', 'The scheduled date and time must be in the future.'); return; }
     setStep(current => Math.min(4, current + 1));
   };
@@ -76,7 +89,7 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
         categoryId: draft.categoryId, title: draft.title.trim(), description: draft.description.trim(),
         address: [draft.address.trim(), draft.building.trim(), draft.floor.trim(), draft.landmark.trim() ? `Near ${draft.landmark.trim()}` : ''].filter(Boolean).join(', '),
         latitude: draft.latitude, longitude: draft.longitude, scheduledAt: draft.scheduleType === 'ASAP' ? null : draft.scheduledAt,
-        budget: ESTIMATES[draft.duration][0], photos: draft.photos, preferences: { verifiedOnly: draft.verifiedOnly, experiencedOnly: draft.experiencedOnly, duration: draft.duration, instructions: draft.instructions.trim() },
+        budget: null, photos: draft.photos, preferences: { verifiedOnly: draft.verifiedOnly, experiencedOnly: draft.experiencedOnly, duration: draft.duration, instructions: draft.instructions.trim() },
       }) });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.message || 'Could not submit your requirement.');
@@ -116,6 +129,8 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
       </>}
       {step === 2 && <>
         {field('Search or enter address *', draft.address, v => update('address',v), 'Address, area, or landmark')}
+        <Pressable onPress={useCurrentLocation} style={[styles.pill, { borderColor: theme.primary, alignSelf: 'flex-start', marginBottom: 12 }]}><Text style={{ color: ORANGE, fontWeight: '800' }}>◎ Use current location</Text></Pressable>
+        <Text style={{ color: theme.secondaryText, marginBottom: 12 }}>{draft.latitude !== null && draft.longitude !== null ? `Coordinates confirmed: ${draft.latitude.toFixed(5)}, ${draft.longitude.toFixed(5)}` : 'Confirm your coordinates with current location before continuing.'}</Text>
         <Text style={{ color: theme.secondaryText, marginBottom: 14 }}>Enter a complete address. You can adjust the map coordinates in a future map-picker enhancement; the address is used for this request.</Text>
         {field('Flat / house / building', draft.building, v => update('building',v), 'Flat / House / Building name')}
         {field('Floor / house number', draft.floor, v => update('floor',v), 'Floor / House no.')}
@@ -134,7 +149,7 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
         {card(<><Text style={{ color: theme.secondaryText }}>Work location</Text><Text style={[styles.cardTitle, { color: theme.text }]}>{[draft.address,draft.building,draft.floor,draft.landmark].filter(Boolean).join(', ')}</Text><Pressable onPress={() => setStep(2)}><Text style={{ color: ORANGE, marginTop: 8 }}>Edit location ›</Text></Pressable></>)}
         {card(<><Text style={{ color: theme.secondaryText }}>Schedule</Text><Text style={[styles.cardTitle, { color: theme.text }]}>{draft.scheduleType === 'ASAP' ? 'As soon as possible' : new Date(draft.scheduledAt).toLocaleString()}</Text><Text style={{ color: theme.secondaryText }}>Estimated duration: {draft.duration}</Text><Pressable onPress={() => setStep(3)}><Text style={{ color: ORANGE, marginTop: 8 }}>Edit schedule ›</Text></Pressable></>)}
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Estimated pricing</Text>
-        {card(<><Text style={{ color: theme.secondaryText }}>Estimated service cost</Text><Text style={[styles.price, { color: theme.text }]}>{money(ESTIMATES[draft.duration][0])} – {money(ESTIMATES[draft.duration][1])}</Text><Text style={{ color: theme.secondaryText }}>Illustrative estimate based on duration. Final price depends on task scope, materials, and worker confirmation.</Text></>)}
+        {card(<><Text style={{ color: theme.secondaryText }}>Estimated service cost</Text><Text style={[styles.price, { color: theme.text }]}>Quote pending</Text><Text style={{ color: theme.secondaryText }}>A verified estimate will be shown when configured pricing rules are available. No price has been invented for this request.</Text></>)}
         {card(<><Text style={{ color: theme.text, fontWeight: '800' }}>Secure payment to start matching</Text><Text style={{ color: theme.secondaryText, marginTop: 6 }}>Payment is handled separately. Worker matching must not begin until payment is confirmed.</Text></>)}
       </>}
       <Text style={[styles.saveStatus, { color: theme.secondaryText }]}>{saving ? 'Saving draft…' : 'Draft saved automatically'}</Text>
