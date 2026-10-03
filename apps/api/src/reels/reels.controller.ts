@@ -1,5 +1,6 @@
 import { Controller, Get, Param, Post, Delete, UseGuards } from '@nestjs/common';
-import { CurrentUser, AuthenticatedUser } from '../auth/current-user.decorator';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ReelsService } from './reels.service';
 
