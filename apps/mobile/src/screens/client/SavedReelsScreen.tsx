@@ -43,7 +43,7 @@ export function SavedReelsScreen({ accessToken }: { accessToken: string }) {
   const unsave = async (id: string) => {
     setBusyId(id);
     try {
-      const response = await apiRequest('/reels/${encodeURIComponent(id)}/save', { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } });
+      const response = await apiRequest(`/reels/${encodeURIComponent(id)}/save`, { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.message || 'Could not remove saved reel.');
       setReels(current => current.filter(reel => reel.id !== id));
