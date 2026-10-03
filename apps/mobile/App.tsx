@@ -108,7 +108,7 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
       const response = await apiRequest('/auth/login/password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: loginIdentifier.trim(), password: loginPassword }) });
       const session = await response.json(); if (!response.ok) throw new Error(session.message || 'Login failed.');
       const meResponse = await apiRequest('/auth/me', { headers: { Authorization: `Bearer ${session.accessToken}` } }); const me = await meResponse.json(); if (!meResponse.ok) throw new Error(me.message || 'Could not load your account.');
-      await AsyncStorage.multiSet([['worko.accessToken', session.accessToken], ['worko.refreshToken', session.refreshToken], ['worko.role', me.role], ['worko.onboarding.complete', 'true']]);
+      await Promise.all([AsyncStorage.setItem('worko.accessToken', session.accessToken), AsyncStorage.setItem('worko.refreshToken', session.refreshToken), AsyncStorage.setItem('worko.role', me.role), AsyncStorage.setItem('worko.onboarding.complete', 'true')]);
       if (me.role === 'CLIENT') navigation.replace('Client', { accessToken: session.accessToken }); else if (me.role === 'WORKER') navigation.replace('Worker'); else throw new Error('This account role is not supported in the mobile app.');
     } catch (error) { showToast('Login failed', error instanceof Error ? error.message : 'Please try again.', 'error'); } finally { setAuthBusy(false); }
   };
