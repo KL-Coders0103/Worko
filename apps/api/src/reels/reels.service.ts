@@ -25,12 +25,13 @@ export class ReelsService {
       where: { id: creatorId, status: 'ACTIVE', role: 'WORKER' },
       select: {
         id: true,
+        clientProfile: { select: { fullName: true } },
         workerProfile: { select: { verificationStatus: true, availabilityStatus: true, categories: { select: { category: { select: { id: true, name: true, slug: true } } } } } },
         reels: { where: { moderationStatus: ReelModerationStatus.APPROVED, publishedAt: { not: null } }, orderBy: { publishedAt: 'desc' }, select: { id: true, caption: true, mediaUrl: true, publishedAt: true } },
       },
     });
     if (!creator) throw new NotFoundException('Creator not found');
-    return { data: { id: creator.id, displayName: 'Worko worker', verified: creator.workerProfile?.verificationStatus === 'VERIFIED', availability: creator.workerProfile?.availabilityStatus ?? 'OFFLINE', categories: creator.workerProfile?.categories.map(x => x.category) ?? [], reels: creator.reels } };
+    return { data: { id: creator.id, displayName: creator.clientProfile?.fullName ?? 'Worko worker', verified: creator.workerProfile?.verificationStatus === 'VERIFIED', availability: creator.workerProfile?.availabilityStatus ?? 'OFFLINE', categories: creator.workerProfile?.categories.map(x => x.category) ?? [], reels: creator.reels } };
   }
 
   async listComments(reelId: string) {
@@ -40,7 +41,7 @@ export class ReelsService {
       where: { reelId }, orderBy: { createdAt: 'asc' }, take: 100,
       select: { id: true, content: true, createdAt: true, user: { select: { id: true, role: true } } },
     });
-    return { data: comments.map(c => ({ ...c, author: { id: c.user.id, displayName: 'Worko community member', role: c.user.role }, user: undefined })) };
+    return { data: comments.map(c => ({ ...c, author: { id: c.user.id, displayName: c.user.clientProfile?.fullName ?? 'Worko community member', role: c.user.role }, user: undefined })) };
   }
 
   async addComment(reelId: string, userId: string, content: string) {
