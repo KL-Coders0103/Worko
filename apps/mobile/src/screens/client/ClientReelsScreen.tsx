@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useWorkoTheme } from '../../design-system/ThemeProvider';
+import { apiRequest } from '../../services/api/client';
 import { WebView } from 'react-native-webview';
 
-declare const process: { env: { EXPO_PUBLIC_API_URL?: string } };
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000/api/v1';
 
 type Reel = { id: string; caption?: string; mediaUrl?: string; publishedAt?: string; creator?: { id?: string; role?: string }; savedCount?: number };
 
@@ -35,12 +34,12 @@ export function ClientReelsScreen({ accessToken }: { accessToken: string }) {
   const load = useCallback(async () => {
     setError('');
     try {
-      const response = await fetch(`${API_BASE_URL}/reels`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const response = await apiRequest('/reels', { headers: { Authorization: `Bearer ${accessToken}` } });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Reels are temporarily unavailable.');
       const rows = Array.isArray(payload) ? payload : payload.data ?? payload.reels ?? [];
       setReels(rows.filter((item: Reel) => item?.id));
-      const savedResponse = await fetch(`${API_BASE_URL}/reels/saved`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const savedResponse = await apiRequest('/reels/saved', { headers: { Authorization: `Bearer ${accessToken}` } });
       if (savedResponse.ok) { const savedPayload = await savedResponse.json(); const savedRows = Array.isArray(savedPayload) ? savedPayload : savedPayload.data ?? savedPayload.reels ?? []; setSavedIds(savedRows.map((item: Reel) => item.id).filter(Boolean)); }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load reels.');
@@ -52,7 +51,7 @@ export function ClientReelsScreen({ accessToken }: { accessToken: string }) {
     setSaving(true); setActionError('');
     const isSaved = savedIds.includes(reel.id);
     try {
-      const response = await fetch(`${API_BASE_URL}/reels/${encodeURIComponent(reel.id)}/save`, { method: isSaved ? 'DELETE' : 'POST', headers: { Authorization: `Bearer ${accessToken}` } });
+      const response = await apiRequest('/reels/${encodeURIComponent(reel.id)}/save', { method: isSaved ? 'DELETE' : 'POST', headers: { Authorization: `Bearer ${accessToken}` } });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.message || 'Could not update saved reels.');
       setSavedIds(current => isSaved ? current.filter(id => id !== reel.id) : [...current, reel.id]);
