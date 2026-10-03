@@ -26,6 +26,8 @@ export function ClientReelsScreen({ accessToken }: { accessToken: string }) {
       if (!response.ok) throw new Error(payload.message || 'Reels are temporarily unavailable.');
       const rows = Array.isArray(payload) ? payload : payload.data ?? payload.reels ?? [];
       setReels(rows.filter((item: Reel) => item?.id));
+      const savedResponse = await fetch(`${API_BASE_URL}/reels/saved`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (savedResponse.ok) { const savedPayload = await savedResponse.json(); const savedRows = Array.isArray(savedPayload) ? savedPayload : savedPayload.data ?? savedPayload.reels ?? []; setSavedIds(savedRows.map((item: Reel) => item.id).filter(Boolean)); }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load reels.');
       setReels([]);
