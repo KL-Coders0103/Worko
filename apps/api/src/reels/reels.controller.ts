@@ -27,6 +27,12 @@ export class ReelsController {
   @UseGuards(JwtAuthGuard)
   saved(@CurrentUser() user: AuthenticatedUser) { return this.reels.savedByUser(user.id); }
 
+  @Post(':id/report')
+  @UseGuards(JwtAuthGuard)
+  report(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.reels.report(id, user.id);
+  }
+
   @Post(':id/save')
   @UseGuards(JwtAuthGuard)
   save(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) { return this.reels.save(id, user.id); }
