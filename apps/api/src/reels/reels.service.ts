@@ -53,6 +53,20 @@ export class ReelsService {
     return { data: comment };
   }
 
+  async report(reelId: string, userId: string) {
+    const reel = await this.prisma.reel.findFirst({
+      where: { id: reelId, moderationStatus: ReelModerationStatus.APPROVED, publishedAt: { not: null } },
+      select: { id: true },
+    });
+    if (!reel) throw new NotFoundException('Reel not found');
+    await this.prisma.reelEngagement.upsert({
+      where: { reelId_userId_type: { reelId, userId, type: EngagementType.REPORT } },
+      create: { reelId, userId, type: EngagementType.REPORT },
+      update: {},
+    });
+    return { reported: true };
+  }
+
   async save(reelId: string, userId: string) {
     const reel = await this.prisma.reel.findFirst({
       where: { id: reelId, moderationStatus: ReelModerationStatus.APPROVED, publishedAt: { not: null } },
