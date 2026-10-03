@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Delete, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Delete, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -10,6 +10,18 @@ export class ReelsController {
 
   @Get()
   list() { return this.reels.listPublished(); }
+
+  @Get('creators/:id')
+  creatorProfile(@Param('id') id: string) { return this.reels.creatorProfile(id); }
+
+  @Get(':id/comments')
+  comments(@Param('id') id: string) { return this.reels.listComments(id); }
+
+  @Post(':id/comments')
+  @UseGuards(JwtAuthGuard)
+  addComment(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: { content?: string }) {
+    return this.reels.addComment(id, user.id, typeof body?.content === 'string' ? body.content : '');
+  }
 
   @Get('saved')
   @UseGuards(JwtAuthGuard)
