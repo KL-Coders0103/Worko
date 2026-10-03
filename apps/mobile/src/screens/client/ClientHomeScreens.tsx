@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useWorkoTheme } from '../design-system/ThemeProvider';
+import { useWorkoTheme } from '../../design-system/ThemeProvider';
 
 declare const process: { env: { EXPO_PUBLIC_API_URL?: string } };
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000/api/v1';
@@ -36,11 +36,6 @@ function EmptyState({ title, body, retry }: { title: string; body: string; retry
   const { theme } = useWorkoTheme();
   return <View style={[styles.empty, { backgroundColor: theme.surface, borderColor: theme.border }]}><Text style={[styles.emptyTitle, { color: theme.text }]}>{title}</Text><Text style={[styles.body, { color: theme.secondaryText }]}>{body}</Text>{retry ? <Pressable onPress={retry} accessibilityRole="button"><Text style={[styles.link, { color: theme.primary }]}>Try again</Text></Pressable> : null}</View>;
 }
-function CategoryChip({ item, selected, onPress }: { item: Category; selected?: boolean; onPress: () => void }) {
-  const { theme } = useWorkoTheme();
-  return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.categoryChip, { backgroundColor: selected ? theme.primary : theme.surface, borderColor: selected ? theme.primary : theme.border }]}><Text style={{ color: selected ? '#FFF' : theme.text, fontWeight: '700' }}>{item.name}</Text></Pressable>;
-}
-
 export function ClientHomeScreen({ navigation }: { navigation: any }) {
   const { theme } = useWorkoTheme();
   const { categories, loading, error, reload } = useCategories();
