@@ -13,12 +13,11 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './src/navigation/types';
 import { ClientAppNavigator, WorkerAppNavigator } from './src/navigation/AuthenticatedNavigators';
+import { apiRequest } from './src/services/api/client';
 
 const ORANGE = '#FF6B00';
 const INK = '#101010';
 const MUTED = '#777777';
-declare const process: { env: { EXPO_PUBLIC_API_URL?: string } };
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:3000/api/v1';
 const slides = [
   { title: 'Get your work done', accent: 'easily', body: 'Just describe what you need, and Worko will find an eligible worker near you.', symbol: '✓' },
   { title: 'One request.', accent: 'The right help.', body: 'Tell us what needs to be done. We coordinate with available, verified workers.', symbol: '⌕' },
@@ -120,7 +119,7 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
   const registerClient = async () => {
     setAuthBusy(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      const response = await apiRequest('/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim().toLowerCase(), phone: phone.replace(/[\\s()-]/g, ''), password, role: 'CLIENT' }),
@@ -140,20 +139,20 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
     if (!/^\d{6}$/.test(cleanOtp)) { showToast('Invalid OTP', 'Enter the 6-digit code.', 'error'); return; }
     setAuthBusy(true);
     try {
-      const verify = await fetch(`${API_BASE_URL}/auth/otp/verify`, {
+      const verify = await apiRequest('/auth/otp/verify', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: pendingUserId, code: cleanOtp }),
       });
       const verified = await verify.json();
       if (!verify.ok) throw new Error(verified.message || 'OTP verification failed.');
-      const login = await fetch(`${API_BASE_URL}/auth/login/password`, {
+      const login = await apiRequest('/auth/login/password', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier: email.trim().toLowerCase(), password }),
       });
       const session = await login.json();
       if (!login.ok) throw new Error(session.message || 'Login failed after verification.');
       setAccessToken(session.accessToken);
-      const profile = await fetch(`${API_BASE_URL}/auth/client/profile`, {
+      const profile = await apiRequest('/auth/client/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.accessToken}` },
         body: JSON.stringify({
@@ -173,7 +172,7 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
     if (resendBusy || resendSeconds > 0) return;
     setResendBusy(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/otp/request`, {
+      const response = await apiRequest('/auth/otp/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier: email.trim().toLowerCase(), purpose: 'REGISTRATION' }),
@@ -298,7 +297,7 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
     if (!accessToken) { showToast('Session expired', 'Please register and verify your account again.'); return; }
     setAuthBusy(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/client/profile`, {
+      const response = await apiRequest('/auth/client/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ fullName: name.trim(), dateOfBirth: dateOfBirth?.toISOString(), gender: gender === 'Prefer not to say' ? 'PREFER_NOT_TO_SAY' : gender.toUpperCase(), photoUrl: photoUri || undefined, address: address.trim(), latitude: coordinate.latitude, longitude: coordinate.longitude }),
