@@ -8,6 +8,7 @@ import Geolocation from 'react-native-geolocation-service';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { launchImageLibrary, type Asset } from 'react-native-image-picker';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { ThemeProvider } from './src/design-system/ThemeProvider';
 
 const ORANGE = '#FF6B00';
 const INK = '#101010';
@@ -433,7 +434,7 @@ function Feature({ symbol, title, body }: { symbol: string; title: string; body:
 function Header({ onBack, step, progress }: { onBack: () => void; step: string; progress: number }) {
   return <><View style={s.header}><Pressable onPress={onBack}><Text style={s.back}>‹</Text></Pressable><Brand small/><Text style={s.muted}>{step}</Text></View><View style={s.progress}>{[0, 1, 2].map((n) => <View key={n} style={[s.progressSegment, n <= progress && s.progressOn]} />)}</View></>;
 }
-export default function App() { return <AppContent />; }
+export default function App() { return <ThemeProvider><AppContent /></ThemeProvider>; }
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FFF' },
