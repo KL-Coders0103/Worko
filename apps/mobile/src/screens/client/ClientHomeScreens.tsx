@@ -40,17 +40,18 @@ export function ClientHomeScreen({ navigation, accessToken }: { navigation: any;
   const { categories, loading, error, reload } = useCategories();
   const [requests, setRequests] = useState<RequestSummary[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [requestsError, setRequestsError] = useState('');
   const refresh = useCallback(async () => {
     setRefreshing(true);
+    setRequestsError('');
     await reload();
     try {
       const response = await apiRequest('/requirements/my', { headers: { Authorization: `Bearer ${accessToken}` } });
-      if (response.ok) {
-        const payload = await response.json();
-        setRequests(Array.isArray(payload) ? payload : payload.data ?? payload.requirements ?? []);
-      }
-    } catch { /* The request list has its own empty state when unavailable. */ }
-    setRefreshing(false);
+      if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new Error(payload.message || 'Could not load your requests.'); }
+      const payload = await response.json();
+      setRequests(Array.isArray(payload) ? payload : payload.data ?? payload.requirements ?? []);
+    } catch (err) { setRequestsError(err instanceof Error ? err.message : 'Could not load your requests.'); }
+    finally { setRefreshing(false); }
   }, [reload, accessToken]);
   useEffect(() => { void refresh(); }, [refresh]);
   const activeRequest = requests.find(item => !['COMPLETED', 'CANCELLED', 'EXPIRED'].includes(item.status));
@@ -61,7 +62,7 @@ export function ClientHomeScreen({ navigation, accessToken }: { navigation: any;
     <SectionHeading title="Popular categories" onPress={() => navigation.navigate('Discover')} />
     {loading ? <ActivityIndicator color={theme.primary} /> : error ? <EmptyState title="Categories unavailable" body={error} retry={reload} /> : categories.length === 0 ? <EmptyState title="No categories yet" body="Active service categories will appear here once they are available." /> : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>{categories.slice(0, 8).map(category => <Pressable key={category.id} accessibilityRole="button" onPress={() => navigation.navigate('Discover', { categoryId: category.id })} style={[styles.categoryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}><View style={[styles.categoryIcon, { backgroundColor: theme.primary + '18' }]}><Text style={{ color: theme.primary, fontSize: 22 }}>⌁</Text></View><Text numberOfLines={2} style={[styles.categoryName, { color: theme.text }]}>{category.name}</Text></Pressable>)}</ScrollView>}
     <SectionHeading title="Active request" onPress={() => navigation.navigate('Requests')} />
-    {activeRequest ? <View style={[styles.requestCard, { backgroundColor: theme.surface, borderColor: theme.border }]}><Text style={[styles.requestStatus, { color: theme.primary }]}>{activeRequest.status.replace(/_/g, ' ')}</Text><Text style={[styles.cardTitle, { color: theme.text }]}>{activeRequest.title}</Text><Text style={[styles.body, { color: theme.secondaryText }]}>{activeRequest.category?.name ?? 'Work request'} · Tap to view progress</Text></View> : <View style={[styles.requestCard, { backgroundColor: theme.surface, borderColor: theme.border }]}><Text style={[styles.cardTitle, { color: theme.text }]}>No active requests</Text><Text style={[styles.body, { color: theme.secondaryText }]}>Your submitted requirements and their matching status will appear here.</Text></View>}
+    {requestsError ? <EmptyState title="Requests unavailable" body={requestsError} retry={refresh} /> : activeRequest ? <View style={[styles.requestCard, { backgroundColor: theme.surface, borderColor: theme.border }]}><Text style={[styles.requestStatus, { color: theme.primary }]}>{activeRequest.status.replace(/_/g, ' ')}</Text><Text style={[styles.cardTitle, { color: theme.text }]}>{activeRequest.title}</Text><Text style={[styles.body, { color: theme.secondaryText }]}>{activeRequest.category?.name ?? 'Work request'} · Tap to view progress</Text></View> : <View style={[styles.requestCard, { backgroundColor: theme.surface, borderColor: theme.border }]}><Text style={[styles.cardTitle, { color: theme.text }]}>No active requests</Text><Text style={[styles.body, { color: theme.secondaryText }]}>Your submitted requirements and their matching status will appear here.</Text></View>}
     <SectionHeading title="Worko Reels" onPress={() => navigation.navigate('Reels')} action="Explore" />
     <View style={[styles.reelsPlaceholder, { backgroundColor: theme.surface, borderColor: theme.border }]}><Text style={[styles.cardTitle, { color: theme.text }]}>Discover real work and useful ideas</Text><Text style={[styles.body, { color: theme.secondaryText }]}>Explore approved videos from workers across the Worko community. Reels help you discover skills; they do not directly book a worker.</Text><Pressable accessibilityRole="button" onPress={() => navigation.navigate('Reels')} style={{ marginTop: 14 }}><Text style={[styles.link, { color: theme.primary }]}>Explore reels →</Text></Pressable></View>
   </ScrollView>;
