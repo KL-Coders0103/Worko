@@ -8,6 +8,18 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000/ap
 
 type Reel = { id: string; caption?: string; mediaUrl?: string; publishedAt?: string; creator?: { id?: string; role?: string }; savedCount?: number };
 
+/** Accept only web URLs and escape them before embedding in a WebView HTML attribute. */
+function safeVideoUrl(value?: string): string | null {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+    return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;');
+  } catch {
+    return null;
+  }
+}
+
 export function ClientReelsScreen({ accessToken }: { accessToken: string }) {
   const { theme } = useWorkoTheme();
   const [reels, setReels] = useState<Reel[]>([]);
@@ -55,7 +67,7 @@ export function ClientReelsScreen({ accessToken }: { accessToken: string }) {
 
   const creatorName = (_reel: Reel) => 'Worko creator';
   const reelText = (reel: Reel) => reel.caption ?? 'A look at this creator’s work.';
-  const videoUrl = (reel: Reel) => reel.mediaUrl;
+  const videoUrl = (reel: Reel) => safeVideoUrl(reel.mediaUrl);
 
   return <View style={[styles.root, { backgroundColor: theme.background }]}>
     <View style={styles.header}><Text style={[styles.title, { color: theme.text }]}>Worko <Text style={{ color: theme.primary }}>Reels</Text></Text><Text style={[styles.subtitle, { color: theme.secondaryText }]}>Discover work, skills and inspiration from the community.</Text></View>
