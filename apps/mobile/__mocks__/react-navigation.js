@@ -5,6 +5,12 @@ function NavigationContainer({ children }) {
   return React.createElement(View, { testID: 'mock-navigation-container' }, children);
 }
 
+function createBottomTabNavigator() {
+  const Screen = () => null;
+  const Navigator = () => null;
+  return { Navigator, Screen };
+}
+
 function createNativeStackNavigator() {
   const Screen = () => null;
   const Navigator = ({ children }) => {
@@ -22,4 +28,5 @@ module.exports = {
   NavigationContainer,
   DefaultTheme: {},
   createNativeStackNavigator,
+  createBottomTabNavigator,
 };
