@@ -79,7 +79,13 @@ export function ClientReelsScreen({ accessToken }: { accessToken: string }) {
     finally { setCommentsLoading(false); }
   }, [accessToken]);
 
-  useEffect(() => { if (selected) { setComments([]); setCommentText(''); void loadComments(selected.id); } }, [selected?.id, loadComments]);
+  const selectedReelId = selected?.id;
+  useEffect(() => {
+    if (!selectedReelId) return;
+    setComments([]);
+    setCommentText('');
+    void loadComments(selectedReelId);
+  }, [selectedReelId, loadComments]);
 
   const submitComment = async () => {
     if (!selected || !commentText.trim() || commentSubmitting) return;
