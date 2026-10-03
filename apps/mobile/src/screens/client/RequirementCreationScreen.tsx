@@ -76,13 +76,13 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
   };
   const next = () => {
     if (step === 0 && !draft.categoryId) { Alert.alert('Choose a category', 'Select the service category to continue.'); return; }
-    if (step === 1 && (draft.title.trim().length < 1 || draft.description.trim().length < 1)) { Alert.alert('Add work details', 'Enter both a title and a detailed description.'); return; }
+    if (step === 1 && (draft.title.trim().length < 4 || draft.title.trim().length > 80 || draft.description.trim().length < 10 || draft.description.trim().length > 500)) { Alert.alert('Check work details', 'Enter a title between 4 and 80 characters and a description between 10 and 500 characters.'); return; }
     if (step === 2 && (draft.address.trim().length < 5 || draft.latitude === null || draft.longitude === null)) { Alert.alert('Confirm your location', 'Enter the address and use Current location to confirm its map coordinates.'); return; }
-    if (step === 3 && draft.scheduleType === 'LATER' && new Date(draft.scheduledAt).getTime() <= Date.now()) { Alert.alert('Choose a future time', 'The scheduled date and time must be in the future.'); return; }
+    if (step === 3 && draft.scheduleType === 'LATER' && (!Number.isFinite(new Date(draft.scheduledAt).getTime()) || new Date(draft.scheduledAt).getTime() <= Date.now())) { Alert.alert('Choose a future time', 'The scheduled date and time must be in the future.'); return; }
     setStep(current => Math.min(4, current + 1));
   };
   const submit = async () => {
-    if (!selectedCategory) { setStep(0); return; }
+    if (!selectedCategory) { setStep(0); Alert.alert('Choose a category', 'Select an active service category before submitting.'); return; }
     setSubmitting(true);
     try {
       const response = await apiRequest('/requirements', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({
