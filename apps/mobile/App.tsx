@@ -306,7 +306,7 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Could not save your location.');
       showToast('Onboarding complete', 'Your profile and location have been saved successfully.');
-      navigation.replace('Client');
+      navigation.replace('Client', { accessToken });
     } catch (error) {
       showToast('Could not save location', error instanceof Error ? error.message : 'Please try again.');
     } finally { setAuthBusy(false); }
