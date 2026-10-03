@@ -1,8 +1,8 @@
-/** Centralized HTTP client for all Worko API requests. */
-declare const process: { env: { EXPO_PUBLIC_API_URL?: string } };
+/** Centralized HTTP client for the Worko mobile app. */
 
-const configuredBaseUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
-export const API_BASE_URL = (configuredBaseUrl || 'http://127.0.0.1:3000/api/v1').replace(/\/+$/, '');
+// Development default for a physical Android device connected with:
+// adb reverse tcp:3000 tcp:3000
+export const API_BASE_URL = 'http://127.0.0.1:3000/api/v1';
 
 export function apiRequest(path: string, init?: RequestInit): Promise<Response> {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
