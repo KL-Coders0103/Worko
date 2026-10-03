@@ -21,6 +21,34 @@ export class RequirementsService {
     return { data: requirements };
   }
 
+  async getDraft(clientId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: clientId }, select: { role: true } });
+    if (!user || user.role !== UserRole.CLIENT) throw new ForbiddenException('Only client accounts can access requirement drafts.');
+    const draft = await this.prisma.requirementDraft.findUnique({ where: { clientId }, select: { id: true, payload: true, createdAt: true, updatedAt: true } });
+    return { data: draft };
+  }
+
+  async saveDraft(clientId: string, payload: Record<string, unknown>) {
+    const user = await this.prisma.user.findUnique({ where: { id: clientId }, select: { role: true } });
+    if (!user || user.role !== UserRole.CLIENT) throw new ForbiddenException('Only client accounts can save requirement drafts.');
+    const serialized = JSON.stringify(payload);
+    if (serialized.length > 100_000) throw new BadRequestException('Draft is too large.');
+    const draft = await this.prisma.requirementDraft.upsert({
+      where: { clientId },
+      create: { clientId, payload: payload as object },
+      update: { payload: payload as object },
+      select: { id: true, createdAt: true, updatedAt: true },
+    });
+    return { data: draft };
+  }
+
+  async deleteDraft(clientId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: clientId }, select: { role: true } });
+    if (!user || user.role !== UserRole.CLIENT) throw new ForbiddenException('Only client accounts can delete requirement drafts.');
+    await this.prisma.requirementDraft.deleteMany({ where: { clientId } });
+    return { data: { deleted: true } };
+  }
+
   async createForClient(clientId: string, input: Record<string, unknown>) {
     const user = await this.prisma.user.findUnique({ where: { id: clientId }, select: { role: true } });
     if (!user || user.role !== UserRole.CLIENT) throw new ForbiddenException('Only client accounts can create requirements.');
