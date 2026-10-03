@@ -14,6 +14,24 @@ export class RequirementsController {
     return this.requirements.listForClient(user.id);
   }
 
+  @Get('draft')
+  getDraft(@CurrentUser() user: AuthenticatedUser) {
+    return this.requirements.getDraft(user.id);
+  }
+
+  @Put('draft')
+  saveDraft(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      throw new BadRequestException('A draft payload is required.');
+    }
+    return this.requirements.saveDraft(user.id, body as Record<string, unknown>);
+  }
+
+  @Delete('draft')
+  deleteDraft(@CurrentUser() user: AuthenticatedUser) {
+    return this.requirements.deleteDraft(user.id);
+  }
+
   @Post()
   create(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
