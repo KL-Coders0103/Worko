@@ -10,12 +10,7 @@ import { RolesGuard } from './roles.guard';
 @Module({
   imports: [JwtModule.register({})],
   controllers: [AuthController],
-  providers: [
-    AuthService,
-    OtpDeliveryService,
-    JwtAuthGuard,
-    RolesGuard,
-  ],
-  exports: [AuthService, JwtAuthGuard, RolesGuard],
+  providers: [AuthService, OtpDeliveryService, JwtAuthGuard, RolesGuard],
+  exports: [AuthService, JwtAuthGuard, RolesGuard, JwtModule],
 })
 export class AuthModule {}
