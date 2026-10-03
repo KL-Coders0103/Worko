@@ -12,6 +12,7 @@ import { ThemeProvider, useWorkoTheme } from './src/design-system/ThemeProvider'
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './src/navigation/types';
+import { ClientAppNavigator, WorkerAppNavigator } from './src/navigation/AuthenticatedNavigators';
 
 const ORANGE = '#FF6B00';
 const INK = '#101010';
@@ -34,7 +35,7 @@ function Field({ label, value, onChangeText, placeholder, keyboardType = 'defaul
   return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput accessibilityLabel={label} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor="#999" keyboardType={keyboardType} autoCapitalize={keyboardType === 'email-address' ? 'none' : 'sentences'} style={s.input} returnKeyType="next" /></View>;
 }
 function formatDate(date: Date) { return `${String(date.getDate()).padStart(2, '0')} ${date.toLocaleString('en-US', { month: 'short' })} ${date.getFullYear()}`; }
-function AppContent() {
+function AppContent({ navigation }: { navigation: any }) {
   const [page, setPage] = useState(0);
   const [slide, setSlide] = useState(0);
   const [name, setName] = useState('');
@@ -305,6 +306,7 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Could not save your location.');
       showToast('Onboarding complete', 'Your profile and location have been saved successfully.');
+      navigation.replace('Client');
     } catch (error) {
       showToast('Could not save location', error instanceof Error ? error.message : 'Please try again.');
     } finally { setAuthBusy(false); }
@@ -458,6 +460,8 @@ function ThemedNavigation() {
     <NavigationContainer theme={navigationTheme}>
       <RootStack.Navigator initialRouteName="Auth" screenOptions={{ headerShown: false, animation: 'fade', gestureEnabled: true, contentStyle: { backgroundColor: theme.background } }}>
         <RootStack.Screen name="Auth" component={AppContent} options={{ title: 'Worko onboarding' }} />
+        <RootStack.Screen name="Client" component={ClientAppNavigator} options={{ title: 'Worko client' }} />
+        <RootStack.Screen name="Worker" component={WorkerAppNavigator} options={{ title: 'Worko worker' }} />
       </RootStack.Navigator>
     </NavigationContainer>
   );
