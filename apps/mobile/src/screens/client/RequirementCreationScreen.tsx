@@ -53,7 +53,7 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
       if (restored && typeof restored === 'object') setDraft({ ...EMPTY, ...restored });
     }).catch(error => Alert.alert('Unable to load', error instanceof Error ? error.message : 'Please try again.')).finally(() => { if (active) { setLoading(false); setDraftLoaded(true); } });
     return () => { active = false; };
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
     if (!draftLoaded) return;
@@ -67,7 +67,7 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
       }).finally(() => setSaving(false));
     }, 700);
     return () => clearTimeout(handle);
-  }, [draft, draftLoaded]);
+  }, [draft, draftLoaded, accessToken]);
 
   const useCurrentLocation = async () => {
     try {
