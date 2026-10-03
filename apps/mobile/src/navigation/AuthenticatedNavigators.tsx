@@ -5,6 +5,7 @@ import { useWorkoTheme } from '../design-system/ThemeProvider';
 import { ClientHomeScreen, ClientCategoriesScreen } from '../screens/client/ClientHomeScreens';
 import { ClientReelsScreen } from '../screens/client/ClientReelsScreen';
 import { SavedReelsScreen } from '../screens/client/SavedReelsScreen';
+import { RequirementCreationScreen } from '../screens/client/RequirementCreationScreen';
 import type { ClientTabParamList, WorkerTabParamList } from './types';
 
 const ClientTabs = createBottomTabNavigator<ClientTabParamList>();
@@ -25,7 +26,7 @@ function ActionCard({ title, description }: { title: string; description: string
     <Text style={[styles.subtitle, { color: theme.secondaryText }]}>{description}</Text>
   </View>;
 }
-function ClientRequests() { return <ScreenShell title="Your requests" subtitle="Follow the progress of work requests you have created."><ActionCard title="No requests to show yet" description="When you create a request, its status and worker responses will appear here." /></ScreenShell>; }
+function ClientRequests({ accessToken }: { accessToken: string }) { return <RequirementCreationScreen accessToken={accessToken} />; }
 function ProfileScreen({ navigation, showSaved = false }: { navigation?: any; showSaved?: boolean }) {
   const { theme, mode, toggleMode } = useWorkoTheme();
   return <ScreenShell title="Profile" subtitle="Manage your Worko preferences.">
@@ -53,7 +54,7 @@ export function ClientAppNavigator({ route }: { route: { params: { accessToken: 
     <ClientTabs.Screen name="Discover" component={ClientCategoriesScreen} options={{ tabBarLabel: 'Discover', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>⌕</Text> }} />
     <ClientTabs.Screen name="Reels" options={{ tabBarLabel: 'Reels', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>▷</Text> }}>{() => <ClientReelsScreen accessToken={route.params.accessToken} />}</ClientTabs.Screen>
     <ClientTabs.Screen name="Saved" options={{ tabBarLabel: "Saved", tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>♡</Text> }}>{() => <SavedReelsScreen accessToken={route.params.accessToken} />}</ClientTabs.Screen>
-    <ClientTabs.Screen name="Requests" component={ClientRequests} options={{ tabBarLabel: 'Requests', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>▤</Text> }} />
+    <ClientTabs.Screen name="Requests" options={{ tabBarLabel: 'Create', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>＋</Text> }}>{() => <ClientRequests accessToken={route.params.accessToken} />}</ClientTabs.Screen>
     <ClientTabs.Screen name="Profile" options={{ tabBarLabel: "Profile", tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>○</Text> }}>{props => <ProfileScreen navigation={props.navigation} showSaved />}</ClientTabs.Screen>
   </ClientTabs.Navigator>;
 }
