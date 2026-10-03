@@ -9,6 +9,9 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { launchImageLibrary, type Asset } from 'react-native-image-picker';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ThemeProvider } from './src/design-system/ThemeProvider';
+import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import type { RootStackParamList } from './src/navigation/types';
 
 const ORANGE = '#FF6B00';
 const INK = '#101010';
@@ -434,7 +437,19 @@ function Feature({ symbol, title, body }: { symbol: string; title: string; body:
 function Header({ onBack, step, progress }: { onBack: () => void; step: string; progress: number }) {
   return <><View style={s.header}><Pressable onPress={onBack}><Text style={s.back}>‹</Text></Pressable><Brand small/><Text style={s.muted}>{step}</Text></View><View style={s.progress}>{[0, 1, 2].map((n) => <View key={n} style={[s.progressSegment, n <= progress && s.progressOn]} />)}</View></>;
 }
-export default function App() { return <ThemeProvider><AppContent /></ThemeProvider>; }
+const RootStack = createNativeStackNavigator<RootStackParamList>();
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <NavigationContainer theme={DefaultTheme}>
+        <RootStack.Navigator initialRouteName="Auth" screenOptions={{ headerShown: false, animation: 'fade', gestureEnabled: true, contentStyle: { backgroundColor: '#FFFFFF' } }}>
+          <RootStack.Screen name="Auth" component={AppContent} options={{ title: 'Worko onboarding' }} />
+        </RootStack.Navigator>
+      </NavigationContainer>
+    </ThemeProvider>
+  );
+}
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FFF' },
