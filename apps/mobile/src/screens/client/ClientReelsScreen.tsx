@@ -16,7 +16,10 @@ export function ClientReelsScreen({ accessToken }: { accessToken: string }) {
   const [error, setError] = useState('');
   const [selected, setSelected] = useState<Reel | null>(null);
   const [following, setFollowing] = useState(false);
-  const [profileCreatorId, setProfileCreatorId] = useState<string | null>(null);\n  const [savedIds, setSavedIds] = useState<string[]>([]);\n  const [saving, setSaving] = useState(false);\n  const [actionError, setActionError] = useState('');
+  const [profileCreatorId, setProfileCreatorId] = useState<string | null>(null);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const load = useCallback(async () => {
     setError('');
