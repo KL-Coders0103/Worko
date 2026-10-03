@@ -39,7 +39,7 @@ export class ReelsService {
     if (!reel) throw new NotFoundException('Reel not found');
     const comments = await this.prisma.reelComment.findMany({
       where: { reelId }, orderBy: { createdAt: 'asc' }, take: 100,
-      select: { id: true, content: true, createdAt: true, user: { select: { id: true, role: true } } },
+      select: { id: true, content: true, createdAt: true, user: { select: { id: true, role: true, clientProfile: { select: { fullName: true } } } } },
     });
     return { data: comments.map(c => ({ ...c, author: { id: c.user.id, displayName: c.user.clientProfile?.fullName ?? 'Worko community member', role: c.user.role }, user: undefined })) };
   }
