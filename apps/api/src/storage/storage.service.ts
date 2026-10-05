@@ -43,7 +43,7 @@ export class StorageService {
         'Cache-Control': input.cacheControl ?? 'public, max-age=31536000, immutable',
         'x-upsert': 'false',
       },
-      body: input.body,
+      body: input.body as unknown as BodyInit,
     });
 
     if (!response.ok) {
