@@ -1,0 +1,13 @@
+import React,{useEffect,useState} from 'react';
+import {ActivityIndicator,ScrollView,StyleSheet,Text,View} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {apiRequest} from '../../services/api/client';
+import {useWorkoTheme} from '../../design-system/ThemeProvider';
+
+export function ClientWalletScreen(){
+ const {theme}=useWorkoTheme(); const [data,setData]=useState<any>(null); const [loading,setLoading]=useState(true);
+ useEffect(()=>{void(async()=>{const t=await AsyncStorage.getItem('worko.accessToken');if(!t){setLoading(false);return;}try{const r=await apiRequest('/bookings/wallet/me',{headers:{Authorization:'Bearer '+t}});const p=await r.json();if(r.ok)setData(p?.data);}finally{setLoading(false);}})()},[]);
+ if(loading)return <View style={[styles.center,{backgroundColor:theme.background}]}><ActivityIndicator color="#FF6B00"/></View>;
+ return <ScrollView style={{flex:1,backgroundColor:theme.background}} contentContainerStyle={styles.container}><Text style={[styles.brand,{color:theme.text}]}>Worker Wallet</Text><Text style={{color:theme.secondaryText,marginBottom:18}}>Ledger-backed earnings and booking credits.</Text><View style={[styles.balance,{backgroundColor:'#FF6B00'}]}><Text style={styles.label}>Available balance</Text><Text style={styles.amount}>{data?.currency??'INR'} {Number(data?.balance??0).toFixed(2)}</Text><Text style={styles.note}>No bank withdrawals are enabled in this scope.</Text></View><Text style={[styles.heading,{color:theme.text}]}>Transaction history</Text>{(data?.transactions??[]).map((t:any)=><View key={t.id} style={[styles.row,{backgroundColor:theme.surface,borderColor:theme.border}]}><View style={{flex:1}}><Text style={[styles.desc,{color:theme.text}]}>{t.description}</Text><Text style={styles.small}>{new Date(t.createdAt).toLocaleString()}</Text></View><Text style={{fontWeight:'900',color:t.type==='CREDIT'?'#138A4B':'#D14343'}}>{t.type==='CREDIT'?'+':'-'}₹{Number(t.amount).toFixed(2)}</Text></View>)}{!(data?.transactions?.length)?<Text style={{color:theme.secondaryText}}>No wallet transactions yet.</Text>:null}</ScrollView>
+}
+const styles=StyleSheet.create({container:{padding:20,paddingBottom:40},center:{flex:1,alignItems:'center',justifyContent:'center'},brand:{fontSize:28,fontWeight:'900'},balance:{borderRadius:22,padding:22,marginBottom:25},label:{color:'#FFF',fontSize:13,fontWeight:'700'},amount:{color:'#FFF',fontSize:34,fontWeight:'900',marginTop:8},note:{color:'#FFF',opacity:.9,marginTop:8,fontSize:12},heading:{fontSize:19,fontWeight:'900',marginBottom:12},row:{borderWidth:1,borderRadius:15,padding:14,marginBottom:10,flexDirection:'row',alignItems:'center'},desc:{fontWeight:'800'},small:{fontSize:11,color:'#98A2B3',marginTop:4}});
