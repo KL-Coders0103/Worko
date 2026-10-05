@@ -27,6 +27,12 @@ export class PaymentsController {
     return this.payments.createIntent(user.id, requirementId);
   }
 
+  @Post('requirements/:requirementId/dummy-confirm')
+  @UseGuards(JwtAuthGuard)
+  dummyConfirm(@CurrentUser() user: AuthenticatedUser, @Param('requirementId') requirementId: string) {
+    return this.payments.dummyConfirm(user.id, requirementId);
+  }
+
   @Post('requirements/:requirementId/verify')
   @UseGuards(JwtAuthGuard)
   verify(
