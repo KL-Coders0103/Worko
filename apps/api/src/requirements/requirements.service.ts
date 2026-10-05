@@ -68,8 +68,16 @@ export class RequirementsService {
     const category = await this.prisma.category.findFirst({ where: { id: categoryId, isActive: true }, select: { id: true } });
     if (!category) throw new NotFoundException('The selected category is unavailable.');
     const photos = Array.isArray(input.photos) ? input.photos : [];
-    if (photos.length > 5 || photos.some((photo) => typeof photo !== 'string' || photo.length > 2048)) {
-      throw new BadRequestException('A maximum of five valid photo references is allowed.');
+    if (
+      photos.length > 5 ||
+      photos.some(
+        (photo) =>
+          typeof photo !== 'string' ||
+          photo.length > 2048 ||
+          (!photo.startsWith('/uploads/requirements/') && !/^https?:\\/\\//i.test(photo)),
+      )
+    ) {
+      throw new BadRequestException('A maximum of five uploaded photo references is allowed.');
     }
     const preferences = input.preferences && typeof input.preferences === 'object' && !Array.isArray(input.preferences)
       ? input.preferences as object : undefined;
