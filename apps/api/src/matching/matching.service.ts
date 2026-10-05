@@ -480,6 +480,13 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
             data: { status: OfferStatus.REJECTED, respondedAt: new Date() },
           });
 
+          await tx.notification.createMany({
+            data: [
+              { userId: offer.requirement.clientId, bookingId: booking.id, type: 'BOOKING', title: 'Worker found', body: 'Your Worko request has been accepted by a worker.' },
+              { userId: workerUserId, bookingId: booking.id, type: 'BOOKING', title: 'Booking confirmed', body: 'Your accepted offer is now a confirmed booking.' },
+            ],
+          });
+
           await tx.requirement.updateMany({
             where: { id: offer.requirementId, status: RequirementStatus.MATCHING },
             data: { status: RequirementStatus.MATCHED },
