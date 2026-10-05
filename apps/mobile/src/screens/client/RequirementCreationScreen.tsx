@@ -92,6 +92,44 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
       }, error => Alert.alert('Unable to get location', error.message || 'Check location services and try again.'), { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 });
     } catch (error) { Alert.alert('Location unavailable', error instanceof Error ? error.message : 'Please try again.'); }
   };
+  const openSchedulePicker = () => {
+    const initial = new Date(draft.scheduledAt);
+    const minimum = new Date(Date.now() + 60_000);
+
+    if (Platform.OS !== 'android') {
+      setDatePicker(true);
+      return;
+    }
+
+    DateTimePickerAndroid.open({
+      value: initial.getTime() > minimum.getTime() ? initial : minimum,
+      minimumDate: minimum,
+      mode: 'date',
+      onValueChange: (_event, selectedDate) => {
+        if (!selectedDate) return;
+        const selected = new Date(selectedDate);
+        selected.setHours(initial.getHours(), initial.getMinutes(), 0, 0);
+
+        setTimeout(() => {
+          DateTimePickerAndroid.open({
+            value: selected,
+            mode: 'time',
+            is24Hour: true,
+            onValueChange: (_timeEvent, selectedTime) => {
+              if (!selectedTime) return;
+              const result = new Date(selected);
+              result.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
+              if (result.getTime() <= Date.now() + 60_000) {
+                Alert.alert('Choose a future time', 'Please choose a time at least one minute from now.');
+                return;
+              }
+              update('scheduledAt', result.toISOString());
+            },
+          });
+        }, 150);
+      },
+    });
+  };
   const addPhotos = async () => {
     if (draft.photos.length >= 5) { Alert.alert('Photo limit', 'You can attach up to 5 photos.'); return; }
     const result = await launchImageLibrary({ mediaType: 'photo', selectionLimit: 5 - draft.photos.length, quality: 0.8 });
@@ -181,7 +219,7 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
       </>}
       {step === 3 && <>
         <Text style={[styles.label, { color: theme.text }]}>When should work happen?</Text><View style={styles.row}>{pill('As soon as possible', draft.scheduleType === 'ASAP', () => update('scheduleType','ASAP'))}{pill('Schedule for later', draft.scheduleType === 'LATER', () => update('scheduleType','LATER'))}{pill('Flexible date', draft.scheduleType === 'FLEXIBLE', () => update('scheduleType','FLEXIBLE'))}</View>
-        {draft.scheduleType === 'LATER' && <>{card(<Pressable onPress={() => setDatePicker(true)}><Text style={{ color: theme.secondaryText }}>Selected date & time</Text><Text style={[styles.cardTitle, { color: theme.text }]}>{new Date(draft.scheduledAt).toLocaleString()}</Text><Text style={{ color: ORANGE, marginTop: 8 }}>Change date and time ›</Text></Pressable>)}{datePicker && <DateTimePicker value={new Date(draft.scheduledAt)} minimumDate={new Date(Date.now()+60000)} mode="datetime" onChange={(_, date) => { setDatePicker(false); if (date) update('scheduledAt',date.toISOString()); }}/>}</>}
+        {draft.scheduleType === 'LATER' && <>{card(<Pressable onPress={openSchedulePicker}><Text style={{ color: theme.secondaryText }}>Selected date & time</Text><Text style={[styles.cardTitle, { color: theme.text }]}>{new Date(draft.scheduledAt).toLocaleString()}</Text><Text style={{ color: ORANGE, marginTop: 8 }}>Change date and time ›</Text></Pressable>)}{datePicker && Platform.OS !== 'android' && <DateTimePicker value={new Date(draft.scheduledAt)} minimumDate={new Date(Date.now()+60000)} mode="datetime" onValueChange={(_, date) => { setDatePicker(false); if (date) update('scheduledAt',date.toISOString()); }} onDismiss={() => setDatePicker(false)} />}</>}
         <Text style={[styles.label, { color: theme.text, marginTop: 20 }]}>Estimated duration</Text><View style={styles.row}>{(['1-2 hours','2-4 hours','Full day'] as Draft['duration'][]).map(d => pill(d, draft.duration === d, () => update('duration',d), d))}</View>
         {card(<><Text style={{ color: theme.text, fontWeight: '800' }}>ⓘ Estimated time only</Text><Text style={{ color: theme.secondaryText, marginTop: 5 }}>Final duration may vary depending on the work and worker assessment.</Text></>)}
       </>}
