@@ -132,6 +132,7 @@ model User {
   requirementDrafts RequirementDraft[]
   clientBookings  Booking[]        @relation("BookingClient")
   reels           Reel[]
+  challengeParticipations ChallengeParticipation[]
   authOtps        AuthOtp[]
   refreshTokens   RefreshToken[]
   wallets         Wallet[]
@@ -511,11 +512,19 @@ model Reel {
   publishedAt      DateTime?            @map("published_at") @db.Timestamptz(3)
   createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
   creator          User                 @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  categoryId       String?              @map("category_id") @db.Uuid
+  category         Category?            @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  viewCount        Int                  @default(0) @map("view_count")
+  likeCount        Int                  @default(0) @map("like_count")
+  shareCount       Int                  @default(0) @map("share_count")
+  durationSeconds  Int?                 @map("duration_seconds")
+  rejectionReason  String?              @map("rejection_reason") @db.VarChar(500)
   engagements      ReelEngagement[]
   comments         ReelComment[]
 
   @@index([moderationStatus, publishedAt])
   @@index([creatorId, createdAt])
+  @@index([categoryId, moderationStatus, publishedAt])
   @@map("reels")
 }
 
@@ -692,8 +701,26 @@ model Challenge {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdBy User? @relation("ChallengeCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  participations ChallengeParticipation[]
   @@index([status, startsAt, endsAt])
   @@map("challenges")
+}
+
+model ChallengeParticipation {
+  id          String   @id @default(uuid()) @db.Uuid
+  challengeId String   @map("challenge_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  reelId      String?  @map("reel_id") @db.Uuid
+  status      String   @default("JOINED") @db.VarChar(30)
+  pointsAwarded Int    @default(0) @map("points_awarded")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([challengeId, userId])
+  @@index([userId, createdAt])
+  @@index([challengeId, status, createdAt])
+  @@map("challenge_participations")
 }
 
 model SystemConfig {
