@@ -106,7 +106,6 @@ export function WorkerDashboardScreen() {
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [availabilityBusy, setAvailabilityBusy] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     const token = await AsyncStorage.getItem('worko.accessToken');
@@ -158,40 +157,6 @@ export function WorkerDashboardScreen() {
     };
   }, [loadDashboard]);
 
-  const setAvailability = async (available: boolean) => {
-    if (availabilityBusy || !dashboard) return;
-    const token = await AsyncStorage.getItem('worko.accessToken');
-    if (!token) return;
-
-    setAvailabilityBusy(true);
-    try {
-      const response = await apiRequest('/worker/availability', {
-        method: 'PATCH',
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ available }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (response.ok) {
-        setDashboard(current =>
-          current
-            ? {
-                ...current,
-                worker: {
-                  ...current.worker,
-                  availabilityStatus: payload?.data?.availabilityStatus ?? (available ? 'AVAILABLE' : 'OFFLINE'),
-                },
-              }
-            : current,
-        );
-        void loadDashboard();
-      }
-    } finally {
-      setAvailabilityBusy(false);
-    }
-  };
 
   const isAvailable = dashboard?.worker.availabilityStatus === 'AVAILABLE';
   const isBusy = dashboard?.worker.availabilityStatus === 'BUSY';
@@ -267,9 +232,9 @@ export function WorkerDashboardScreen() {
         <Pressable
           accessibilityRole="switch"
           accessibilityState={{ checked: isAvailable }}
-          disabled={availabilityBusy || isBusy}
-          onPress={() => void setAvailability(!isAvailable)}
-          style={[styles.switch, isAvailable && styles.switchOn, availabilityBusy && { opacity: 0.6 }]}
+          disabled={isBusy}
+          onPress={() => navigation.navigate('Availability')}
+          style={[styles.switch, isAvailable && styles.switchOn, isBusy && { opacity: 0.55 }]}
         >
           <View style={[styles.switchKnob, isAvailable && styles.switchKnobOn]} />
         </Pressable>
@@ -363,7 +328,7 @@ export function WorkerDashboardScreen() {
       {!isAvailable && !isBusy ? (
         <View style={styles.goAvailableCard}>
           <Text style={[styles.goAvailableTitle, { color: theme.text }]}>Turn on availability to start receiving work offers.</Text>
-          <Pressable onPress={() => void setAvailability(true)} style={styles.goAvailableButton}>
+          <Pressable onPress={() => navigation.navigate('Availability')} style={styles.goAvailableButton}>
             <Text style={styles.goAvailableText}>Go Available</Text>
           </Pressable>
         </View>
