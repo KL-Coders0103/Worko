@@ -545,6 +545,82 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
     return { data: offers };
   }
 
+  async getWorkerPreferences(workerUserId: string) {
+    const worker = await this.prisma.workerProfile.findUnique({
+      where: { userId: workerUserId },
+      select: {
+        preferredRadiusKm: true,
+        serviceAreaAddress: true,
+        serviceAreaLatitude: true,
+        serviceAreaLongitude: true,
+        minimumPayment: true,
+        workSchedule: true,
+        categories: { select: { categoryId: true } },
+      },
+    });
+    if (!worker) throw new NotFoundException('Worker profile not found.');
+    return {
+      data: {
+        categoryIds: worker.categories.map((x) => x.categoryId),
+        serviceArea: {
+          address: worker.serviceAreaAddress,
+          latitude: worker.serviceAreaLatitude === null ? null : Number(worker.serviceAreaLatitude),
+          longitude: worker.serviceAreaLongitude === null ? null : Number(worker.serviceAreaLongitude),
+        },
+        preferredRadiusKm: Number(worker.preferredRadiusKm),
+        workSchedule: worker.workSchedule ?? {
+          monday:{enabled:true,start:'09:00',end:'18:00'},tuesday:{enabled:true,start:'09:00',end:'18:00'},
+          wednesday:{enabled:true,start:'09:00',end:'18:00'},thursday:{enabled:true,start:'09:00',end:'18:00'},
+          friday:{enabled:true,start:'09:00',end:'18:00'},saturday:{enabled:true,start:'09:00',end:'18:00'},
+          sunday:{enabled:false,start:'09:00',end:'18:00'},
+        },
+        minimumPayment: worker.minimumPayment === null ? 500 : Number(worker.minimumPayment),
+      },
+    };
+  }
+
+  async updateWorkerPreferences(workerUserId: string, body: {
+    categoryIds?: string[];
+    serviceArea?: { address?: string; latitude?: number; longitude?: number };
+    preferredRadiusKm?: number;
+    workSchedule?: Record<string, { enabled: boolean; start: string; end: string }>;
+    minimumPayment?: number;
+  }) {
+    const worker = await this.prisma.workerProfile.findUnique({ where: { userId: workerUserId }, select: { id: true } });
+    if (!worker) throw new NotFoundException('Worker profile not found.');
+    if (body.preferredRadiusKm !== undefined && ![5,10,25].includes(Number(body.preferredRadiusKm))) {
+      throw new ConflictException('Preferred radius must be 5, 10, or 25 km.');
+    }
+    if (body.minimumPayment !== undefined && (!Number.isFinite(body.minimumPayment) || body.minimumPayment < 0)) {
+      throw new ConflictException('Minimum payment must be a valid non-negative amount.');
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.workerProfile.update({
+        where: { id: worker.id },
+        data: {
+          ...(body.preferredRadiusKm !== undefined ? { preferredRadiusKm: body.preferredRadiusKm } : {}),
+          ...(body.serviceArea ? {
+            serviceAreaAddress: body.serviceArea.address ?? null,
+            serviceAreaLatitude: body.serviceArea.latitude ?? null,
+            serviceAreaLongitude: body.serviceArea.longitude ?? null,
+          } : {}),
+          ...(body.minimumPayment !== undefined ? { minimumPayment: body.minimumPayment } : {}),
+          ...(body.workSchedule !== undefined ? { workSchedule: body.workSchedule } : {}),
+        },
+      });
+      if (body.categoryIds) {
+        await tx.workerCategory.deleteMany({ where: { workerId: worker.id } });
+        if (body.categoryIds.length) {
+          await tx.workerCategory.createMany({
+            data: body.categoryIds.map((categoryId) => ({ workerId: worker.id, categoryId })),
+            skipDuplicates: true,
+          });
+        }
+      }
+    });
+    return this.getWorkerPreferences(workerUserId);
+  }
+
   async getWorkerDashboard(workerUserId: string) {
     const worker = await this.prisma.workerProfile.findUnique({
       where: { userId: workerUserId },
