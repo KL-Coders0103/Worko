@@ -40,6 +40,7 @@ export class AdminService {
   }
   async matching(){return {data:await this.prisma.matchingRound.findMany({orderBy:{startedAt:'desc'},take:100,include:{requirement:{select:{id:true,title:true,status:true}},offers:{select:{id:true,status:true,workerId:true}}}})};}
   async bookings(){return {data:await this.prisma.booking.findMany({orderBy:{createdAt:'desc'},take:100,include:{requirement:{select:{id:true,title:true,status:true}},client:{select:{id:true,email:true,phone:true}},worker:{select:{id:true,userId:true,displayName:true}}}})};}
+  async wallets(){return {data:await this.prisma.wallet.findMany({orderBy:{updatedAt:'desc'},take:100,include:{user:{select:{id:true,email:true,phone:true,role:true}},transactions:{orderBy:{createdAt:'desc'},take:5}}})};}
   async payments(){return {data:await this.prisma.bookingPayment.findMany({orderBy:{createdAt:'desc'},take:100,include:{booking:{select:{id:true,status:true}}}})};}
   async disputes(){return {data:await this.prisma.dispute.findMany({orderBy:{createdAt:'desc'},take:100,include:{reporter:{select:{id:true,email:true,phone:true}},booking:{select:{id:true,status:true}}}})};}
   async resolveDispute(actorId:string,id:string,status:string,resolution?:string){
