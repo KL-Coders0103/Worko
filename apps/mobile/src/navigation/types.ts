@@ -11,5 +11,6 @@ export type WorkerTabParamList = {
   Preferences: undefined;
   NoOffers: { updated?: boolean } | undefined;
   IncomingOffer: { offerId: string };
+  OfferDetail: { offerId: string };
 };
 export type RootStackParamList = { Auth: NavigatorScreenParams<AuthStackParamList>; Client: { accessToken: string }; Worker: NavigatorScreenParams<WorkerTabParamList> };
