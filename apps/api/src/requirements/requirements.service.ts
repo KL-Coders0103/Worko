@@ -68,7 +68,7 @@ export class RequirementsService {
     const category = await this.prisma.category.findFirst({ where: { id: categoryId, isActive: true }, select: { id: true } });
     if (!category) throw new NotFoundException('The selected category is unavailable.');
     const photos = Array.isArray(input.photos) ? input.photos : [];
-    const publicStorageBaseUrl = (process.env.R2_PUBLIC_BASE_URL ?? '').replace(/\\/$/, '');
+    const publicStorageBaseUrl = `${(process.env.SUPABASE_URL ?? '').replace(/\/$/, '')}/storage/v1/object/public/${process.env.SUPABASE_STORAGE_BUCKET ?? 'worko-media'}`;
     if (
       photos.length > 5 ||
       !publicStorageBaseUrl ||
