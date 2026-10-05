@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { createHash, createHmac, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 
 interface UploadObjectInput {
   key: string;
@@ -10,25 +10,14 @@ interface UploadObjectInput {
 
 @Injectable()
 export class StorageService {
-  private readonly accountId = process.env.R2_ACCOUNT_ID ?? '';
-  private readonly accessKeyId = process.env.R2_ACCESS_KEY_ID ?? '';
-  private readonly secretAccessKey = process.env.R2_SECRET_ACCESS_KEY ?? '';
-  private readonly bucketName = process.env.R2_BUCKET_NAME ?? '';
-  private readonly publicBaseUrl = (process.env.R2_PUBLIC_BASE_URL ?? '').replace(/\/$/, '');
-  private readonly endpoint = this.accountId
-    ? `https://${this.accountId}.r2.cloudflarestorage.com`
-    : '';
+  private readonly supabaseUrl = (process.env.SUPABASE_URL ?? '').replace(/\/$/, '');
+  private readonly serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+  private readonly bucketName = process.env.SUPABASE_STORAGE_BUCKET ?? 'worko-media';
 
   private ensureConfigured(): void {
-    if (
-      !this.accountId ||
-      !this.accessKeyId ||
-      !this.secretAccessKey ||
-      !this.bucketName ||
-      !this.publicBaseUrl
-    ) {
+    if (!this.supabaseUrl || !this.serviceRoleKey || !this.bucketName) {
       throw new ServiceUnavailableException(
-        'Cloud storage is not configured. Set the R2 environment variables before uploading files.',
+        'Supabase Storage is not configured. Set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and SUPABASE_STORAGE_BUCKET.',
       );
     }
   }
@@ -40,50 +29,19 @@ export class StorageService {
       throw new BadRequestException('Invalid storage object key.');
     }
 
-    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}/${input.key
+    const url = `${this.supabaseUrl}/storage/v1/object/${encodeURIComponent(this.bucketName)}/${input.key
       .split('/')
       .map((segment) => encodeURIComponent(segment))
       .join('/')}`;
-    const bodyHash = createHash('sha256').update(input.body).digest('hex');
-    const now = new Date();
-    const amzDate = now.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
-    const dateStamp = amzDate.slice(0, 8);
-    const parsed = new URL(url);
-    const canonicalUri = parsed.pathname;
-    const canonicalQueryString = '';
-    const canonicalHeaders =
-      `host:${parsed.host}\ncontent-type:${input.contentType}\nx-amz-content-sha256:${bodyHash}\nx-amz-date:${amzDate}\n`;
-    const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
-    const canonicalRequest = [
-      'PUT',
-      canonicalUri,
-      canonicalQueryString,
-      canonicalHeaders,
-      signedHeaders,
-      bodyHash,
-    ].join('\n');
-
-    const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
-    const stringToSign = [
-      'AWS4-HMAC-SHA256',
-      amzDate,
-      credentialScope,
-      createHash('sha256').update(canonicalRequest).digest('hex'),
-    ].join('\n');
-
-    const signingKey = this.getSignatureKey(this.secretAccessKey, dateStamp, 'auto', 's3');
-    const signature = createHmac('sha256', signingKey).update(stringToSign).digest('hex');
 
     const response = await fetch(url, {
-      method: 'PUT',
+      method: 'POST',
       headers: {
-        Host: parsed.host,
+        Authorization: `Bearer ${this.serviceRoleKey}`,
+        apikey: this.serviceRoleKey,
         'Content-Type': input.contentType,
-        'Content-Length': String(input.body.byteLength),
-        'x-amz-content-sha256': bodyHash,
-        'x-amz-date': amzDate,
-        Authorization: `AWS4-HMAC-SHA256 Credential=${this.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
-        ...(input.cacheControl ? { 'Cache-Control': input.cacheControl } : {}),
+        'Cache-Control': input.cacheControl ?? 'public, max-age=31536000, immutable',
+        'x-upsert': 'false',
       },
       body: input.body,
     });
@@ -91,13 +49,16 @@ export class StorageService {
     if (!response.ok) {
       const responseText = await response.text().catch(() => '');
       throw new ServiceUnavailableException(
-        `Cloud storage upload failed (${response.status}).${responseText ? ` ${responseText.slice(0, 300)}` : ''}`,
+        `Supabase Storage upload failed (${response.status}).${responseText ? ` ${responseText.slice(0, 300)}` : ''}`,
       );
     }
 
     return {
       key: input.key,
-      url: `${this.publicBaseUrl}/${input.key}`,
+      url: `${this.supabaseUrl}/storage/v1/object/public/${encodeURIComponent(this.bucketName)}/${input.key
+        .split('/')
+        .map((segment) => encodeURIComponent(segment))
+        .join('/')}`,
     };
   }
 
@@ -111,7 +72,6 @@ export class StorageService {
       key,
       body: file.buffer,
       contentType: file.mimetype,
-      cacheControl: 'public, max-age=31536000, immutable',
     });
 
     return {
@@ -124,47 +84,25 @@ export class StorageService {
   async deleteObject(key: string): Promise<void> {
     this.ensureConfigured();
 
-    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}/${key
+    if (!key || key.includes('..') || key.startsWith('/')) {
+      throw new BadRequestException('Invalid storage object key.');
+    }
+
+    const url = `${this.supabaseUrl}/storage/v1/object/${encodeURIComponent(this.bucketName)}/${key
       .split('/')
       .map((segment) => encodeURIComponent(segment))
       .join('/')}`;
-    const bodyHash = createHash('sha256').update('').digest('hex');
-    const now = new Date();
-    const amzDate = now.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
-    const dateStamp = amzDate.slice(0, 8);
-    const parsed = new URL(url);
-    const canonicalHeaders = `host:${parsed.host}\nx-amz-content-sha256:${bodyHash}\nx-amz-date:${amzDate}\n`;
-    const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
-    const canonicalRequest = [
-      'DELETE',
-      parsed.pathname,
-      '',
-      canonicalHeaders,
-      signedHeaders,
-      bodyHash,
-    ].join('\n');
-    const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
-    const stringToSign = [
-      'AWS4-HMAC-SHA256',
-      amzDate,
-      credentialScope,
-      createHash('sha256').update(canonicalRequest).digest('hex'),
-    ].join('\n');
-    const signingKey = this.getSignatureKey(this.secretAccessKey, dateStamp, 'auto', 's3');
-    const signature = createHmac('sha256', signingKey).update(stringToSign).digest('hex');
 
     const response = await fetch(url, {
       method: 'DELETE',
       headers: {
-        Host: parsed.host,
-        'x-amz-content-sha256': bodyHash,
-        'x-amz-date': amzDate,
-        Authorization: `AWS4-HMAC-SHA256 Credential=${this.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
+        Authorization: `Bearer ${this.serviceRoleKey}`,
+        apikey: this.serviceRoleKey,
       },
     });
 
     if (!response.ok && response.status !== 404) {
-      throw new ServiceUnavailableException(`Cloud storage delete failed (${response.status}).`);
+      throw new ServiceUnavailableException(`Supabase Storage delete failed (${response.status}).`);
     }
   }
 
@@ -176,12 +114,5 @@ export class StorageService {
     if (mimeType === 'image/png') return 'png';
     if (mimeType === 'image/webp') return 'webp';
     return 'jpg';
-  }
-
-  private getSignatureKey(secret: string, date: string, region: string, service: string): Buffer {
-    const kDate = createHmac('sha256', `AWS4${secret}`).update(date).digest();
-    const kRegion = createHmac('sha256', kDate).update(region).digest();
-    const kService = createHmac('sha256', kRegion).update(service).digest();
-    return createHmac('sha256', kService).update('aws4_request').digest();
   }
 }
