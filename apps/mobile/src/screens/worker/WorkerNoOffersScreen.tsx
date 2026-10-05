@@ -1,7 +1,7 @@
 import React,{useCallback,useEffect,useState}from'react';
 import{ActivityIndicator,Pressable,ScrollView,StyleSheet,Text,View}from'react-native';
 import AsyncStorage from'@react-native-async-storage/async-storage';
-import{useNavigation}from'@react-navigation/native';
+import{useNavigation,useRoute}from'@react-navigation/native';
 import type{BottomTabNavigationProp}from'@react-navigation/bottom-tabs';
 import{useWorkoTheme}from'../../design-system/ThemeProvider';
 import type{WorkerTabParamList}from'../../navigation/types';
@@ -11,8 +11,8 @@ type State={available:boolean;offerCount:number;categoryCount:number;profileComp
 const ORANGE='#FF5A00';const GREEN='#10A63B';const PURPLE='#7A3FF2';
 
 export function WorkerNoOffersScreen(){
- const{theme}=useWorkoTheme();const navigation=useNavigation<BottomTabNavigationProp<WorkerTabParamList>>();
- const[state,setState]=useState<State|null>(null);const[loading,setLoading]=useState(true);const[refreshing,setRefreshing]=useState(false);
+ const{theme}=useWorkoTheme();const route=useRoute<any>();const navigation=useNavigation<BottomTabNavigationProp<WorkerTabParamList>>();
+ const[state,setState]=useState<State|null>(route.params?.updated?{available:true,offerCount:0,categoryCount:1,profileCompletion:100,radius:10,updated:true}:null);const[loading,setLoading]=useState(true);const[refreshing,setRefreshing]=useState(false);
  const load=useCallback(async()=>{const token=await AsyncStorage.getItem('worko.accessToken');if(!token){setLoading(false);return}try{const r=await apiRequest('/worker/dashboard',{headers:{Authorization:'Bearer '+token}});const p=await r.json().catch(()=>({}));if(r.ok&&p?.data){const d=p.data;setState({available:d.worker.availabilityStatus==='AVAILABLE',offerCount:d.counts.newOffers,categoryCount:d.worker.categoryCount,profileCompletion:d.worker.profileCompletion,radius:d.worker.preferredRadiusKm,updated:false})}}finally{setLoading(false);setRefreshing(false)}},[]);
  useEffect(()=>{void load();const t=setInterval(()=>void load(),8000);return()=>clearInterval(t)},[load]);
  if(loading)return<View style={[s.center,{backgroundColor:theme.background}]}><ActivityIndicator color={ORANGE}/><Text style={{color:theme.secondaryText,marginTop:10}}>Checking for offers…</Text></View>;
