@@ -14,6 +14,7 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './src/navigation/types';
 import { ClientAppNavigator, WorkerAppNavigator } from './src/navigation/AuthenticatedNavigators';
+import { AdminExperienceScreen } from './src/screens/admin/AdminExperienceScreen';
 import { apiRequest } from './src/services/api/client';
 
 const ORANGE = '#FF6B00';
@@ -56,6 +57,7 @@ function AppContent({ navigation }: { navigation: any }) {
           if (response.ok && me.role === savedRole) {
             if (me.role === 'CLIENT') navigation.replace('Client', { accessToken });
             else if (me.role === 'WORKER') navigation.replace('Worker');
+            else if (me.role === 'ADMIN') navigation.replace('Admin');
             else setPage(onboardingComplete === 'true' ? 5 : 0);
             return;
           }
@@ -141,7 +143,7 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
       const session = await response.json(); if (!response.ok) throw new Error(session.message || 'Login failed.');
       const meResponse = await apiRequest('/auth/me', { headers: { Authorization: `Bearer ${session.accessToken}` } }); const me = await meResponse.json(); if (!meResponse.ok) throw new Error(me.message || 'Could not load your account.');
       await Promise.all([AsyncStorage.setItem('worko.accessToken', session.accessToken), AsyncStorage.setItem('worko.refreshToken', session.refreshToken), AsyncStorage.setItem('worko.role', me.role), AsyncStorage.setItem('worko.onboarding.complete', 'true')]);
-      if (me.role === 'CLIENT') navigation.replace('Client', { accessToken: session.accessToken }); else if (me.role === 'WORKER') navigation.replace('Worker'); else throw new Error('This account role is not supported in the mobile app.');
+      if (me.role === 'CLIENT') navigation.replace('Client', { accessToken: session.accessToken }); else if (me.role === 'WORKER') navigation.replace('Worker'); else if (me.role === 'ADMIN') navigation.replace('Admin'); else throw new Error('This account role is not supported in the mobile app.');
     } catch (error) { showToast('Login failed', error instanceof Error ? error.message : 'Please try again.', 'error'); } finally { setAuthBusy(false); }
   };
   const nextProfile = () => {
@@ -511,6 +513,7 @@ function ThemedNavigation() {
         <RootStack.Screen name="Auth" component={AppContent} options={{ title: 'Worko onboarding' }} />
         <RootStack.Screen name="Client" component={ClientAppNavigator} options={{ title: 'Worko client' }} />
         <RootStack.Screen name="Worker" component={WorkerAppNavigator} options={{ title: 'Worko worker' }} />
+        <RootStack.Screen name="Admin" component={AdminExperienceScreen} options={{ title: 'Worko admin' }} />
       </RootStack.Navigator>
     </NavigationContainer>
   );
