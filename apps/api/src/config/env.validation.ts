@@ -40,9 +40,7 @@ export const envValidationSchema = Joi.object({
     .max(10)
     .default(5),
 
-  R2_ACCOUNT_ID: Joi.string().trim().required(),
-  R2_ACCESS_KEY_ID: Joi.string().trim().required(),
-  R2_SECRET_ACCESS_KEY: Joi.string().trim().required(),
-  R2_BUCKET_NAME: Joi.string().trim().min(3).max(64).required(),
-  R2_PUBLIC_BASE_URL: Joi.string().uri({ scheme: ['http', 'https'] }).required(),
+  SUPABASE_URL: Joi.string().uri({ scheme: ['http', 'https'] }).required(),
+  SUPABASE_SERVICE_ROLE_KEY: Joi.string().trim().required(),
+  SUPABASE_STORAGE_BUCKET: Joi.string().trim().min(1).max(100).default('worko-media'),
 });
