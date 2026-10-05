@@ -97,10 +97,107 @@ export class ReelsService {
     });
     return { data: rows.map(row => row.reel) };
   }
-}
+  async create(
+    userId: string,
+    file: { buffer: Buffer; mimetype: string; originalname: string } | undefined,
+    body: { caption?: string; categoryId?: string; durationSeconds?: string },
+  ) {
+    if (!file) throw new BadRequestException('Video file is required.');
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, role: 'WORKER', status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!user) throw new BadRequestException('Only active workers can publish reels.');
 
-async create(userId:string,file:any,body:any){if(!file)throw new BadRequestException('Video file is required.');const u=await this.prisma.user.findFirst({where:{id:userId,role:'WORKER',status:'ACTIVE'},select:{id:true}});if(!u)throw new BadRequestException('Only active workers can publish reels.');const caption=body.caption?.trim()||null;if(caption&&caption.length>2200)throw new BadRequestException('Caption is too long.');if(body.categoryId){const cat=await this.prisma.category.findFirst({where:{id:body.categoryId,isActive:true},select:{id:true}});if(!cat)throw new BadRequestException('Invalid category.');}const up=await this.storage.uploadReelVideo(userId,file);const reel=await this.prisma.reel.create({data:{creatorId:userId,mediaUrl:up.url,caption,categoryId:body.categoryId||null,durationSeconds:body.durationSeconds?Math.max(0,Number(body.durationSeconds)):null}});return{data:reel};}
-async publish(id:string,userId:string){const reel=await this.prisma.reel.findFirst({where:{id,creatorId:userId}});if(!reel)throw new NotFoundException('Reel not found.');if(['REJECTED','REMOVED'].includes(reel.moderationStatus))throw new BadRequestException('This reel cannot be published.');return{data:await this.prisma.reel.update({where:{id},data:{publishedAt:reel.moderationStatus==='APPROVED'?new Date():null}})};}
-async myReels(userId:string){return{data:await this.prisma.reel.findMany({where:{creatorId:userId},orderBy:{createdAt:'desc'},take:100,select:{id:true,mediaUrl:true,caption:true,categoryId:true,moderationStatus:true,publishedAt:true,viewCount:true,likeCount:true,shareCount:true,createdAt:true,rejectionReason:true}})};}
-async analytics(userId:string){const [s,reels]=await Promise.all([this.prisma.reel.aggregate({where:{creatorId:userId},_sum:{viewCount:true,likeCount:true,shareCount:true},_count:{_all:true}}),this.prisma.reel.findMany({where:{creatorId:userId},orderBy:{createdAt:'desc'},take:100,select:{id:true,caption:true,moderationStatus:true,publishedAt:true,viewCount:true,likeCount:true,shareCount:true}})]);return{data:{totalReels:s._count._all,views:s._sum.viewCount??0,likes:s._sum.likeCount??0,shares:s._sum.shareCount??0,reels}};}
-async view(id:string,userId:string){const r=await this.prisma.reel.findFirst({where:{id,moderationStatus:'APPROVED',publishedAt:{not:null}},select:{id:true}});if(!r)throw new NotFoundException('Reel not found.');await this.prisma.reel.update({where:{id},data:{viewCount:{increment:1}}});return{viewed:true};}
+    const caption = body.caption?.trim() || null;
+    if (caption && caption.length > 2200) throw new BadRequestException('Caption is too long.');
+
+    if (body.categoryId) {
+      const category = await this.prisma.category.findFirst({
+        where: { id: body.categoryId, isActive: true },
+        select: { id: true },
+      });
+      if (!category) throw new BadRequestException('Invalid category.');
+    }
+
+    const uploaded = await this.storage.uploadReelVideo(userId, file);
+    const reel = await this.prisma.reel.create({
+      data: {
+        creatorId: userId,
+        mediaUrl: uploaded.url,
+        caption,
+        categoryId: body.categoryId || null,
+        durationSeconds: body.durationSeconds ? Math.max(0, Number(body.durationSeconds)) : null,
+      },
+    });
+    return { data: reel };
+  }
+
+  async publish(id: string, userId: string) {
+    const reel = await this.prisma.reel.findFirst({ where: { id, creatorId: userId } });
+    if (!reel) throw new NotFoundException('Reel not found.');
+    if (['REJECTED', 'REMOVED'].includes(reel.moderationStatus)) {
+      throw new BadRequestException('This reel cannot be published.');
+    }
+    return {
+      data: await this.prisma.reel.update({
+        where: { id },
+        data: { publishedAt: reel.moderationStatus === 'APPROVED' ? new Date() : null },
+      }),
+    };
+  }
+
+  async myReels(userId: string) {
+    return {
+      data: await this.prisma.reel.findMany({
+        where: { creatorId: userId },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+        select: {
+          id: true, mediaUrl: true, caption: true, categoryId: true,
+          moderationStatus: true, publishedAt: true, viewCount: true,
+          likeCount: true, shareCount: true, createdAt: true, rejectionReason: true,
+        },
+      }),
+    };
+  }
+
+  async analytics(userId: string) {
+    const [summary, reels] = await Promise.all([
+      this.prisma.reel.aggregate({
+        where: { creatorId: userId },
+        _sum: { viewCount: true, likeCount: true, shareCount: true },
+        _count: { _all: true },
+      }),
+      this.prisma.reel.findMany({
+        where: { creatorId: userId },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+        select: {
+          id: true, caption: true, moderationStatus: true, publishedAt: true,
+          viewCount: true, likeCount: true, shareCount: true,
+        },
+      }),
+    ]);
+    return {
+      data: {
+        totalReels: summary._count._all,
+        views: summary._sum.viewCount ?? 0,
+        likes: summary._sum.likeCount ?? 0,
+        shares: summary._sum.shareCount ?? 0,
+        reels,
+      },
+    };
+  }
+
+  async view(id: string, _userId: string) {
+    const reel = await this.prisma.reel.findFirst({
+      where: { id, moderationStatus: 'APPROVED', publishedAt: { not: null } },
+      select: { id: true },
+    });
+    if (!reel) throw new NotFoundException('Reel not found.');
+    await this.prisma.reel.update({ where: { id }, data: { viewCount: { increment: 1 } } });
+    return { viewed: true };
+  }
+
+}
