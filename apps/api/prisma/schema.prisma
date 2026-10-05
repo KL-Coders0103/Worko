@@ -210,6 +210,7 @@ model Category {
   createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   workers      WorkerCategory[]
   requirements Requirement[]
+  reels        Reel[]
 
   @@index([isActive, name])
   @@map("categories")
