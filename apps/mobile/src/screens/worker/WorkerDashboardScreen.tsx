@@ -320,9 +320,9 @@ export function WorkerDashboardScreen() {
       <SectionHeader title="Quick Actions" theme={theme} />
       <View style={styles.quickGrid}>
         <QuickAction icon="▶" label="Create Reel" onPress={() => navigation.navigate('Reels')} />
-        <QuickAction icon="✎" label="Edit Profile" onPress={() => navigation.navigate('WorkerAccount', {stage: 'profile'})} />
+        <QuickAction icon="✎" label="Edit Profile" onPress={() => navigation.navigate('WorkerAccount', {stage: 'editProfile'})} />
         <QuickAction icon="▣" label="My Earnings" onPress={() => navigation.navigate('WorkerAccount', {stage: 'profile'})} />
-        <QuickAction icon="?" label="Help & Support" onPress={() => navigation.navigate('WorkerAccount', {stage: 'profile'})} />
+        <QuickAction icon="?" label="Help & Support" onPress={() => navigation.navigate('WorkerAccount', {stage: 'support'})} />
       </View>
 
       {!isAvailable && !isBusy ? (
