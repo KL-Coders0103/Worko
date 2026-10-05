@@ -10,6 +10,7 @@ import { RequirementCreationScreen } from '../screens/client/RequirementCreation
 import type { ClientTabParamList, WorkerTabParamList } from './types';
 import { apiRequest } from '../services/api/client';
 import { createMatchingSocket, subscribeToMatchingSocket, type MatchingOfferEvent } from '../services/matching/matchingSocket';
+import { WorkerDashboardScreen } from '../screens/worker/WorkerDashboardScreen';
 
 const ClientTabs = createBottomTabNavigator<ClientTabParamList>();
 const WorkerTabs = createBottomTabNavigator<WorkerTabParamList>();
@@ -63,12 +64,6 @@ function ProfileScreen({ navigation, showSaved = false }: { navigation?: any; sh
       <Text style={{ color: theme.text, fontWeight: '800' }}>Saved reels  →</Text>
     </Pressable> : null}
     <ActionCard title="Account" description="Your profile and saved location are managed securely with your Worko account." />
-  </ScreenShell>;
-}
-
-function WorkerDashboard() {
-  return <ScreenShell title="Worker dashboard" subtitle="Your work activity at a glance.">
-    <ActionCard title="You're all set" description="Stay available to receive eligible Worko opportunities in real time." />
   </ScreenShell>;
 }
 
@@ -249,7 +244,7 @@ export function WorkerAppNavigator() {
   return <View style={{ flex: 1, backgroundColor: theme.background }}>
     <WorkerMatchingBridge />
     <WorkerTabs.Navigator screenOptions={tabOptions(theme)}>
-      <WorkerTabs.Screen name="Dashboard" component={WorkerDashboard} options={{ tabBarLabel: 'Home' }} />
+      <WorkerTabs.Screen name="Dashboard" component={WorkerDashboardScreen} options={{ tabBarLabel: 'Home' }} />
       <WorkerTabs.Screen name="Requests" component={WorkerRequests} options={{ tabBarLabel: 'Requests' }} />
       <WorkerTabs.Screen name="Reels" component={WorkerReels} options={{ tabBarLabel: 'Reels' }} />
       <WorkerTabs.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
