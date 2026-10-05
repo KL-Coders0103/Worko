@@ -2,8 +2,6 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { join } from 'node:path';
-import express from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
@@ -23,7 +21,6 @@ async function bootstrap(): Promise<void> {
     .filter(Boolean);
 
   app.use(helmet());
-  app.getHttpAdapter().getInstance().use('/uploads', express.static(join(process.cwd(), 'uploads')));
 
   app.enableCors({
     origin: corsOrigins,
