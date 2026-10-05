@@ -56,7 +56,7 @@ type Offer = {
 type ActiveJob = {
   id: string;
   status: string;
-  requirement: {title: string; address: string; scheduledAt: string | null; budget: number | string | null; currency: string};
+  requirement: {title: string; address: string; scheduledAt: string | null; budget: number | string | null; currency: string; client?: {phone: string | null}};
 };
 
 const ORANGE = '#FF6B00';
@@ -141,7 +141,7 @@ export function WorkerAccountFlowScreen() {
       Alert.alert('No active job', 'Chat becomes available when you have an active booking.');
       return;
     }
-    const phone = (activeJob as any).clientPhone as string | undefined;
+    const phone = activeJob?.requirement.client?.phone ?? undefined;
     if (phone) {
       void Linking.openURL('sms:' + phone + '?body=' + encodeURIComponent(chatText || 'Hi, I am your Worko service worker.'));
     } else {
@@ -206,7 +206,7 @@ export function WorkerAccountFlowScreen() {
   if (stage === 'chat') return (
     <Page>
       <Header title="Chat" subtitle="Contact the client for your active booking."/>
-      {activeJob ? <Card><Text style={[styles.cardTitle, {color: theme.text}]}>{activeJob.requirement.title}</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>{activeJob.requirement.address}</Text><TextInput value={chatText} onChangeText={setChatText} placeholder="Write a message…" placeholderTextColor="#98A2B3" style={[styles.input, {color: theme.text, borderColor: theme.border}]}/><Pressable style={styles.primary} onPress={openChat}><Text style={styles.primaryText}>Open Messages</Text></Pressable><Text style={[styles.small, {color: theme.secondaryText}]}>Messages are sent through the phone's SMS app for this current implementation.</Text></Card> : <Card><Text style={[styles.cardTitle, {color: theme.text}]}>No active conversation</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>Accept a work offer to contact a client.</Text></Card>}
+      {activeJob ? <Card><Text style={[styles.cardTitle, {color: theme.text}]}>{activeJob.requirement.title}</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>{activeJob.requirement.address}</Text><TextInput value={chatText} onChangeText={setChatText} placeholder="Write a message…" placeholderTextColor="#98A2B3" style={[styles.input, {color: theme.text, borderColor: theme.border}]}/><Pressable style={styles.primary} onPress={openChat}><Text style={styles.primaryText}>Open Messages</Text></Pressable><Text style={[styles.small, {color: theme.secondaryText}]}>The current Worko chat action opens your phone's SMS composer with the client contact.</Text></Card> : <Card><Text style={[styles.cardTitle, {color: theme.text}]}>No active conversation</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>Accept a work offer to contact a client.</Text></Card>}
     </Page>
   );
 
