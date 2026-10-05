@@ -23,6 +23,7 @@ import { WorkerOfferDetailScreen } from '../screens/worker/WorkerOfferDetailScre
 import { WorkerJobFlowScreen } from '../screens/worker/WorkerJobFlowScreen';
 import { WorkerAccountFlowScreen } from '../screens/worker/WorkerAccountFlowScreen';
 import { AccountManagementScreen } from '../screens/client/AccountManagementScreen';
+import { WorkerReelStudioScreen } from '../screens/worker/WorkerReelStudioScreen';
 
 const ClientTabs = createBottomTabNavigator<ClientTabParamList>();
 const WorkerTabs = createBottomTabNavigator<WorkerTabParamList>();
@@ -171,9 +172,7 @@ function WorkerRequests() {
 }
 
 function WorkerReels() {
-  return <ScreenShell title="Your reels" subtitle="Share examples of your work with the Worko community.">
-    <ActionCard title="Create your portfolio" description="Reel publishing will be available when media upload and moderation are connected." />
-  </ScreenShell>;
+  return <WorkerReelStudioScreen />;
 }
 
 function WorkerMatchingBridge() {
