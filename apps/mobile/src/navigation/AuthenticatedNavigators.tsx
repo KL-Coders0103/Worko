@@ -238,7 +238,7 @@ export function WorkerAppNavigator() {
       <WorkerTabs.Screen name="WorkerAccount" component={WorkerAccountFlowScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
       <WorkerTabs.Screen name="Requests" component={WorkerRequests} options={{ tabBarLabel: 'Requests' }} />
       <WorkerTabs.Screen name="Reels" component={WorkerReels} options={{ tabBarLabel: 'Reels' }} />
-      <WorkerTabs.Screen name="Profile" component={props => <WorkerAccountFlowScreen {...props} route={{...props.route, params: {stage: 'profile'}} as any} />} options={{ tabBarLabel: 'Profile' }} />
+      <WorkerTabs.Screen name="Profile" component={WorkerAccountFlowScreen} options={{ tabBarLabel: 'Profile' }} />
     </WorkerTabs.Navigator>
   </View>;
 }
