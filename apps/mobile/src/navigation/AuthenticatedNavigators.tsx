@@ -8,6 +8,8 @@ import { ClientHomeScreen, ClientCategoriesScreen } from '../screens/client/Clie
 import { ClientReelsScreen } from '../screens/client/ClientReelsScreen';
 import { SavedReelsScreen } from '../screens/client/SavedReelsScreen';
 import { RequirementCreationScreen } from '../screens/client/RequirementCreationScreen';
+import { ClientBookingFlowScreen } from '../screens/client/ClientBookingFlowScreen';
+import { ClientWalletScreen } from '../screens/client/ClientWalletScreen';
 import type { ClientTabParamList, WorkerTabParamList } from './types';
 import { apiRequest } from '../services/api/client';
 import { createMatchingSocket, subscribeToMatchingSocket, type MatchingOfferEvent } from '../services/matching/matchingSocket';
@@ -71,6 +73,12 @@ function ProfileScreen({ navigation, showSaved = false }: { navigation?: any; sh
     {showSaved ? <Pressable accessibilityRole="button" onPress={() => navigation.navigate('Saved')} style={[styles.toggle, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }]}>
       <Text style={{ color: theme.text, fontWeight: '800' }}>Saved reels  →</Text>
     </Pressable> : null}
+    <Pressable accessibilityRole="button" onPress={() => navigation.navigate('Bookings', { stage: 'list' })} style={[styles.toggle, { backgroundColor: theme.primary }]}>
+      <Text style={styles.toggleText}>My bookings  →</Text>
+    </Pressable>
+    <Pressable accessibilityRole="button" onPress={() => navigation.navigate('Bookings', { stage: 'notifications' })} style={[styles.toggle, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }]}>
+      <Text style={{ color: theme.text, fontWeight: '800' }}>Notifications  →</Text>
+    </Pressable>
     <ActionCard title="Account" description="Your profile and saved location are managed securely with your Worko account." />
   </ScreenShell>;
 }
@@ -220,6 +228,7 @@ export function ClientAppNavigator({ route }: { route: { params: { accessToken: 
     <ClientTabs.Screen name="Profile" options={{ tabBarLabel: 'Profile', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>○</Text> }}>
       {props => <ProfileScreen navigation={props.navigation} showSaved />}
     </ClientTabs.Screen>
+    <ClientTabs.Screen name="Bookings" component={ClientBookingFlowScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
   </ClientTabs.Navigator>;
 }
 
@@ -236,6 +245,7 @@ export function WorkerAppNavigator() {
       <WorkerTabs.Screen name="OfferDetail" component={WorkerOfferDetailScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
       <WorkerTabs.Screen name="JobFlow" component={WorkerJobFlowScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
       <WorkerTabs.Screen name="WorkerAccount" component={WorkerAccountFlowScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
+      <WorkerTabs.Screen name="WorkerWallet" component={ClientWalletScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
       <WorkerTabs.Screen name="Requests" component={WorkerRequests} options={{ tabBarLabel: 'Requests' }} />
       <WorkerTabs.Screen name="Reels" component={WorkerReels} options={{ tabBarLabel: 'Reels' }} />
       <WorkerTabs.Screen name="Profile" component={WorkerAccountFlowScreen} options={{ tabBarLabel: 'Profile' }} />
