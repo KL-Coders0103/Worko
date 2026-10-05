@@ -16,6 +16,7 @@ import { AvailabilityControlScreen } from '../screens/worker/AvailabilityControl
 import { WorkPreferencesScreen } from '../screens/worker/WorkPreferencesScreen';
 import { WorkerNoOffersScreen } from '../screens/worker/WorkerNoOffersScreen';
 import { WorkerIncomingOfferScreen } from '../screens/worker/WorkerIncomingOfferScreen';
+import { WorkerOfferDetailScreen } from '../screens/worker/WorkerOfferDetailScreen';
 
 const ClientTabs = createBottomTabNavigator<ClientTabParamList>();
 const WorkerTabs = createBottomTabNavigator<WorkerTabParamList>();
@@ -230,6 +231,7 @@ export function WorkerAppNavigator() {
       <WorkerTabs.Screen name="Preferences" component={WorkPreferencesScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
       <WorkerTabs.Screen name="NoOffers" component={WorkerNoOffersScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
       <WorkerTabs.Screen name="IncomingOffer" component={WorkerIncomingOfferScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
+      <WorkerTabs.Screen name="OfferDetail" component={WorkerOfferDetailScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
       <WorkerTabs.Screen name="Requests" component={WorkerRequests} options={{ tabBarLabel: 'Requests' }} />
       <WorkerTabs.Screen name="Reels" component={WorkerReels} options={{ tabBarLabel: 'Reels' }} />
       <WorkerTabs.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
