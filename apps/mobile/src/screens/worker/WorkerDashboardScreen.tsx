@@ -307,10 +307,10 @@ export function WorkerDashboardScreen() {
             </View>
           </View>
           <View style={styles.activeActions}>
-            <Pressable onPress={() => navigation.navigate('Requests')} style={styles.secondaryAction}>
+            <Pressable onPress={() => activeJob && navigation.navigate('JobFlow',{bookingId:activeJob.id,stage:'navigate'})} style={styles.secondaryAction}>
               <Text style={styles.secondaryActionText}>View Details</Text>
             </Pressable>
-            <Pressable onPress={() => navigation.navigate('Requests')} style={styles.primaryAction}>
+            <Pressable onPress={() => activeJob && navigation.navigate('JobFlow',{bookingId:activeJob.id,stage:activeJob.status === 'IN_PROGRESS' ? 'progress' : 'navigate'})} style={styles.primaryAction}>
               <Text style={styles.primaryActionText}>Open Job</Text>
             </Pressable>
           </View>
