@@ -57,6 +57,11 @@ enum OfferStatus {
   WITHDRAWN
 }
 
+enum MatchingRoundStatus {
+  ACTIVE
+  COMPLETED
+}
+
 enum PaymentStatus {
   PENDING
   AUTHORIZED
@@ -197,6 +202,7 @@ model Requirement {
   client      User                @relation("RequirementClient", fields: [clientId], references: [id], onDelete: Restrict)
   category    Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   offers      MatchingOffer[]
+  matchingRounds MatchingRound[]
   payment     RequirementPayment?
   booking     Booking?
 
@@ -218,16 +224,35 @@ model RequirementDraft {
   @@map("requirement_drafts")
 }
 
+model MatchingRound {
+  id            String              @id @default(uuid()) @db.Uuid
+  requirementId String              @map("requirement_id") @db.Uuid
+  roundNumber   Int                 @map("round_number")
+  radiusKm      Int                 @map("radius_km")
+  status        MatchingRoundStatus @default(ACTIVE)
+  startedAt     DateTime            @default(now()) @map("started_at") @db.Timestamptz(3)
+  expiresAt     DateTime            @map("expires_at") @db.Timestamptz(3)
+  completedAt   DateTime?           @map("completed_at") @db.Timestamptz(3)
+  requirement   Requirement         @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  offers        MatchingOffer[]
+
+  @@unique([requirementId, roundNumber])
+  @@index([status, expiresAt])
+  @@map("matching_rounds")
+}
+
 model MatchingOffer {
   id            String        @id @default(uuid()) @db.Uuid
   requirementId String        @map("requirement_id") @db.Uuid
   workerId      String        @map("worker_id") @db.Uuid
+  roundId       String?       @map("round_id") @db.Uuid
   status        OfferStatus   @default(PENDING)
   offeredAt     DateTime      @default(now()) @map("offered_at") @db.Timestamptz(3)
   expiresAt     DateTime      @map("expires_at") @db.Timestamptz(3)
   respondedAt   DateTime?     @map("responded_at") @db.Timestamptz(3)
   requirement   Requirement   @relation(fields: [requirementId], references: [id], onDelete: Cascade)
   worker        WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Restrict)
+  round         MatchingRound? @relation(fields: [roundId], references: [id], onDelete: SetNull)
 
   @@unique([requirementId, workerId])
   @@index([workerId, status, expiresAt])
