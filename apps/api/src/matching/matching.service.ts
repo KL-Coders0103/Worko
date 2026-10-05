@@ -566,6 +566,7 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
   async startJob(workerUserId: string, bookingId: string) {
     const { booking, workflow } = await this.getOwnedBooking(workerUserId, bookingId);
     if (!workflow.checkedInAt) throw new ConflictException('Complete check-in before starting the job.');
+    if (!Array.isArray(workflow.beforePhotos) || workflow.beforePhotos.length === 0) throw new ConflictException('Submit before-work photos before starting the job.');
     if (booking.status === 'IN_PROGRESS') return { data: this.serializeWorkerJob(booking, workflow) };
     if (booking.status !== 'CONFIRMED') throw new ConflictException('This job cannot be started.');
     const now = new Date();
@@ -604,6 +605,7 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
     const tasks = Array.isArray(workflow.tasks) ? workflow.tasks : [];
     if (booking.status !== 'IN_PROGRESS') throw new ConflictException('The job is not in progress.');
     if (tasks.some(task => !(task as Record<string, unknown>).completed)) throw new ConflictException('Complete all job tasks before ending the job.');
+    if (!Array.isArray(workflow.beforePhotos) || workflow.beforePhotos.length === 0) throw new ConflictException('Before-work evidence is required.');
     if (!Array.isArray(workflow.afterPhotos) || workflow.afterPhotos.length === 0) throw new ConflictException('Submit at least one after-work photo before completing the job.');
     workflow.finalNotes = (finalNotes ?? '').trim();
     workflow.completedAt = new Date().toISOString();
