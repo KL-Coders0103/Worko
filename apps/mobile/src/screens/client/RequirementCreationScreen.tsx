@@ -31,7 +31,6 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [datePicker, setDatePicker] = useState(false);
-  const [draftLoaded, setDraftLoaded] = useState(false);
   const [submittedRequirementId, setSubmittedRequirementId] = useState<string | null>(null);
   const update = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft(old => ({ ...old, [key]: value }));
 
@@ -77,7 +76,7 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
       const localDraft = saved ? (() => { try { return JSON.parse(saved); } catch { void AsyncStorage.removeItem(STORAGE_KEY); return null; } })() : null;
       const restored = remoteDraft ?? localDraft;
       if (restored && typeof restored === 'object') setDraft({ ...EMPTY, ...restored });
-    }).catch(error => Alert.alert('Unable to load', error instanceof Error ? error.message : 'Please try again.')).finally(() => { if (active) { setLoading(false); setDraftLoaded(true); } });
+    }).catch(error => Alert.alert('Unable to load', error instanceof Error ? error.message : 'Please try again.')).finally(() => { if (active) { setLoading(false);  } });
     return () => { active = false; };
   }, [accessToken]);
 
