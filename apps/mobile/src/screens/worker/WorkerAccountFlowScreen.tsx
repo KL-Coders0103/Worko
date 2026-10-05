@@ -84,7 +84,7 @@ export function WorkerAccountFlowScreen() {
     if (!accessToken) { setLoading(false); return; }
     try {
       const [meResponse, dashboardResponse] = await Promise.all([
-        apiRequest('/worker/profile', {headers: {Authorization: 'Bearer ' + accessToken}}),
+        apiRequest('/worker/offers/profile', {headers: {Authorization: 'Bearer ' + accessToken}}),
         apiRequest('/worker/offers/dashboard', {headers: {Authorization: 'Bearer ' + accessToken}}),
       ]);
       const mePayload = await meResponse.json().catch(() => ({}));
@@ -115,7 +115,7 @@ export function WorkerAccountFlowScreen() {
     }
     setBusy(true);
     try {
-      const response = await apiRequest('/worker/profile', {
+      const response = await apiRequest('/worker/offers/profile', {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken},
         body: JSON.stringify({displayName: displayName.trim()}),
