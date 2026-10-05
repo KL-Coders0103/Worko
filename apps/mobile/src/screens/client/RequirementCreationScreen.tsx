@@ -5,7 +5,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { launchImageLibrary, type Asset } from 'react-native-image-picker';
 import Geolocation from 'react-native-geolocation-service';
 import { useWorkoTheme } from '../../design-system/ThemeProvider';
-import { apiRequest } from '../../services/api/client';
+import { apiAssetUrl, apiRequest, uploadRequirementPhotos } from '../../services/api/client';
 
 type Category = { id: string; name: string; slug: string; isActive?: boolean };
 type Draft = {
@@ -28,6 +28,7 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [datePicker, setDatePicker] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const update = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft(old => ({ ...old, [key]: value }));
@@ -98,20 +99,34 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
   };
   const submit = async () => {
     if (!selectedCategory) { setStep(0); Alert.alert('Choose a category', 'Select an active service category before submitting.'); return; }
+    if (draft.address.trim().length < 5 || draft.latitude === null || draft.longitude === null) { setStep(2); Alert.alert('Confirm your location', 'A complete address and coordinates are required.'); return; }
+    if (draft.title.trim().length < 4 || draft.description.trim().length < 10) { setStep(1); Alert.alert('Check work details', 'Add a valid title and detailed description.'); return; }
+
     setSubmitting(true);
+    setUploadProgress(0);
     try {
+      const localPhotos = draft.photos.filter(uri => !uri.startsWith('/uploads/requirements/') && !/^https?:\\/\\//i.test(uri));
+      const uploadedPhotos = localPhotos.length
+        ? await uploadRequirementPhotos(localPhotos, accessToken, setUploadProgress)
+        : [];
+      const existingRemotePhotos = draft.photos.filter(uri => !localPhotos.includes(uri));
+      const photos = [...existingRemotePhotos, ...uploadedPhotos].slice(0, 5);
+
       const response = await apiRequest('/requirements', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({
         categoryId: draft.categoryId, title: draft.title.trim(), description: draft.description.trim(),
         address: [draft.address.trim(), draft.building.trim(), draft.floor.trim(), draft.landmark.trim() ? `Near ${draft.landmark.trim()}` : ''].filter(Boolean).join(', '),
         latitude: draft.latitude, longitude: draft.longitude, scheduledAt: draft.scheduleType === 'LATER' ? draft.scheduledAt : null,
-        budget: null, photos: draft.photos, preferences: { verifiedOnly: draft.verifiedOnly, experiencedOnly: draft.experiencedOnly, duration: draft.duration, instructions: draft.instructions.trim() },
+        budget: null, photos, preferences: { verifiedOnly: draft.verifiedOnly, experiencedOnly: draft.experiencedOnly, duration: draft.duration, instructions: draft.instructions.trim() },
       }) });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.message || 'Could not submit your requirement.');
+
       await AsyncStorage.removeItem(STORAGE_KEY);
-      Alert.alert('Requirement submitted', 'Your requirement is saved. Complete secure payment from your requests to start worker matching.', [{ text: 'Done', onPress: () => { setDraft(EMPTY); setStep(0); } }]);
-    } catch (error) { Alert.alert('Submission failed', error instanceof Error ? error.message : 'Please try again.'); }
-    finally { setSubmitting(false); }
+      await apiRequest('/requirements/draft', { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }).catch(() => undefined);
+      Alert.alert('Requirement submitted', 'Your requirement is saved as payment pending. Complete secure payment from your requests to start worker matching.', [{ text: 'Done', onPress: () => { setDraft(EMPTY); setStep(0); setUploadProgress(0); } }]);
+    } catch (error) {
+      Alert.alert('Submission failed', error instanceof Error ? error.message : 'Please try again. Your draft is still saved.');
+    } finally { setSubmitting(false); }
   };
   const card = (children: React.ReactNode, selected = false) => <View style={[styles.card, { backgroundColor: theme.surface, borderColor: selected ? theme.primary : theme.border }]}>{children}</View>;
   const field = (label: string, value: string, onChangeText: (value: string) => void, placeholder: string, multiline = false, maxLength?: number) => <View style={styles.field}><Text style={[styles.label, { color: theme.text }]}>{label}</Text><TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={theme.secondaryText} maxLength={maxLength} multiline={multiline} textAlignVertical={multiline ? 'top' : 'center'} style={[styles.input, { color: theme.text, backgroundColor: theme.surface, borderColor: theme.border }, multiline && styles.multiline]} /></View>;
@@ -135,7 +150,7 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
         {field('Description *', draft.description, v => update('description', v), 'Describe the work in detail, special requirements, and other information.', true, 500)}
         <Text style={[styles.counter, { color: theme.secondaryText }]}>{draft.description.length}/500</Text>
         <Text style={[styles.label, { color: theme.text, marginTop: 16 }]}>Add photos (optional) · {draft.photos.length}/5</Text><Text style={{ color: theme.secondaryText, marginBottom: 10 }}>Clear photos help workers understand your requirement.</Text>
-        <View style={styles.photos}><Pressable onPress={addPhotos} style={[styles.addPhoto, { borderColor: theme.border }]}><Text style={{ fontSize: 30, color: theme.primary }}>＋</Text><Text style={{ color: theme.secondaryText }}>Add photo</Text></Pressable>{draft.photos.map((uri, index) => <View key={uri + index} style={styles.photo}><Image source={{ uri }} style={styles.photoImage}/><Pressable onPress={() => update('photos', draft.photos.filter((_, i) => i !== index))} style={styles.removePhoto}><Text style={{ color: '#FFF', fontWeight: '900' }}>×</Text></Pressable></View>)}</View>
+        <View style={styles.photos}><Pressable onPress={addPhotos} style={[styles.addPhoto, { borderColor: theme.border }]}><Text style={{ fontSize: 30, color: theme.primary }}>＋</Text><Text style={{ color: theme.secondaryText }}>Add photo</Text></Pressable>{draft.photos.map((uri, index) => <View key={uri + index} style={styles.photo}><Image source={{ uri: apiAssetUrl(uri) }} style={styles.photoImage}/><Pressable onPress={() => update('photos', draft.photos.filter((_, i) => i !== index))} style={styles.removePhoto}><Text style={{ color: '#FFF', fontWeight: '900' }}>×</Text></Pressable></View>)}</View>
         <Text style={[styles.label, { color: theme.text, marginTop: 20 }]}>When do you need this done?</Text><View style={styles.row}>{pill('As soon as possible', draft.scheduleType === 'ASAP', () => update('scheduleType','ASAP'))}{pill('Within 1 week', draft.scheduleType === 'LATER', () => { update('scheduleType','LATER'); update('scheduledAt', new Date(Date.now()+86400000).toISOString()); })}</View>
         <Text style={[styles.label, { color: theme.text, marginTop: 18 }]}>Additional preferences</Text>
         <View style={styles.switchRow}><Text style={{ color: theme.text, flex: 1 }}>Prefer verified workers only</Text><Switch value={draft.verifiedOnly} onValueChange={v => update('verifiedOnly',v)} trackColor={{ true: ORANGE }}/></View>
@@ -160,7 +175,7 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
       </>}
       {step === 4 && <>
         {card(<><Text style={{ color: theme.secondaryText }}>Service category</Text><Text style={[styles.cardTitle, { color: theme.text }]}>{selectedCategory?.name}</Text><Pressable onPress={() => setStep(0)}><Text style={{ color: ORANGE, marginTop: 8 }}>Edit category ›</Text></Pressable></>)}
-        {card(<><Text style={{ color: theme.secondaryText }}>Work details</Text><Text style={[styles.cardTitle, { color: theme.text }]}>{draft.title}</Text><Text style={{ color: theme.secondaryText }}>{draft.description}</Text><View style={styles.photos}>{draft.photos.map((uri,i)=><Image key={uri+i} source={{ uri }} style={styles.reviewPhoto}/>)}</View><Pressable onPress={() => setStep(1)}><Text style={{ color: ORANGE, marginTop: 8 }}>Edit details ›</Text></Pressable></>)}
+        {card(<><Text style={{ color: theme.secondaryText }}>Work details</Text><Text style={[styles.cardTitle, { color: theme.text }]}>{draft.title}</Text><Text style={{ color: theme.secondaryText }}>{draft.description}</Text><View style={styles.photos}>{draft.photos.map((uri,i)=><Image key={uri+i} source={{ uri: apiAssetUrl(uri) }} style={styles.reviewPhoto}/>)}</View><Pressable onPress={() => setStep(1)}><Text style={{ color: ORANGE, marginTop: 8 }}>Edit details ›</Text></Pressable></>)}
         {card(<><Text style={{ color: theme.secondaryText }}>Work location</Text><Text style={[styles.cardTitle, { color: theme.text }]}>{[draft.address,draft.building,draft.floor,draft.landmark].filter(Boolean).join(', ')}</Text><Pressable onPress={() => setStep(2)}><Text style={{ color: ORANGE, marginTop: 8 }}>Edit location ›</Text></Pressable></>)}
         {card(<><Text style={{ color: theme.secondaryText }}>Schedule</Text><Text style={[styles.cardTitle, { color: theme.text }]}>{draft.scheduleType === 'ASAP' ? 'As soon as possible' : draft.scheduleType === 'FLEXIBLE' ? 'Flexible date' : new Date(draft.scheduledAt).toLocaleString()}</Text><Text style={{ color: theme.secondaryText }}>Estimated duration: {draft.duration}</Text><Pressable onPress={() => setStep(3)}><Text style={{ color: ORANGE, marginTop: 8 }}>Edit schedule ›</Text></Pressable></>)}
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Estimated pricing</Text>
@@ -169,9 +184,9 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
       </>}
       <Text style={[styles.saveStatus, { color: theme.secondaryText }]}>{saving ? 'Saving draft…' : 'Draft saved automatically'}</Text>
     </ScrollView>
-    <View style={[styles.footer, { backgroundColor: theme.surface, borderTopColor: theme.border }]}><Pressable onPress={() => { void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(draft)); Alert.alert('Draft saved','You can resume this requirement later.'); }}><Text style={{ color: theme.secondaryText, fontWeight: '700' }}>Save draft</Text></Pressable><Pressable disabled={submitting} onPress={step === 4 ? submit : next} style={[styles.next, submitting && { opacity: 0.65 }]}>{submitting ? <ActivityIndicator color="#FFF"/> : <Text style={styles.nextText}>{step === 4 ? 'Proceed to payment →' : 'Next →'}</Text>}</Pressable></View>
+    <View style={[styles.footer, { backgroundColor: theme.surface, borderTopColor: theme.border }]}><Pressable onPress={() => { void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(draft)); Alert.alert('Draft saved','You can resume this requirement later.'); }}><Text style={{ color: theme.secondaryText, fontWeight: '700' }}>Save draft</Text></Pressable><Pressable disabled={submitting} onPress={step === 4 ? submit : next} style={[styles.next, submitting && { opacity: 0.65 }]}>{submitting ? <View style={styles.submitProgress}><ActivityIndicator color="#FFF"/><Text style={styles.nextText}>{uploadProgress > 0 && uploadProgress < 100 ? `Uploading photos ${uploadProgress}%` : 'Submitting…'}</Text></View> : <Text style={styles.nextText}>{step === 4 ? 'Proceed to payment →' : 'Next →'}</Text>}</Pressable></View>
   </KeyboardAvoidingView>;
 }
 const styles = StyleSheet.create({
-  center:{flex:1,alignItems:'center',justifyContent:'center'}, header:{height:58,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:StyleSheet.hairlineWidth},back:{fontSize:36,width:35},brand:{fontSize:26,fontWeight:'900',letterSpacing:-1.2},progress:{flexDirection:'row',gap:6,paddingHorizontal:20,paddingTop:12},segment:{height:6,flex:1,borderRadius:5},content:{padding:20,paddingBottom:30},title:{fontSize:29,lineHeight:35,fontWeight:'900'},subtitle:{fontSize:15,lineHeight:22,marginTop:7,marginBottom:20},categoryGrid:{flexDirection:'row',flexWrap:'wrap',gap:10},category:{width:'48%',minHeight:110,borderRadius:14,padding:12,justifyContent:'space-between'},categoryIcon:{fontSize:26,fontWeight:'900'},card:{borderWidth:1,borderRadius:15,padding:15,marginTop:12},cardTitle:{fontSize:17,fontWeight:'800',marginTop:5},field:{marginTop:13},label:{fontSize:15,fontWeight:'800',marginBottom:8},input:{minHeight:52,borderWidth:1,borderRadius:12,paddingHorizontal:14,fontSize:15},multiline:{height:120,paddingTop:13},counter:{textAlign:'right',fontSize:12,marginTop:4},photos:{flexDirection:'row',flexWrap:'wrap',gap:9,marginTop:10},addPhoto:{width:104,height:104,borderWidth:1,borderStyle:'dashed',borderRadius:12,alignItems:'center',justifyContent:'center'},photo:{width:104,height:104},photoImage:{width:'100%',height:'100%',borderRadius:12},removePhoto:{position:'absolute',right:4,top:4,backgroundColor:'#222',width:24,height:24,borderRadius:12,alignItems:'center',justifyContent:'center'},row:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:10},pill:{borderWidth:1,borderRadius:12,paddingVertical:13,paddingHorizontal:12},switchRow:{flexDirection:'row',alignItems:'center',paddingVertical:10,borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:'#DDD'},reviewPhoto:{width:75,height:75,borderRadius:8},sectionTitle:{fontSize:20,fontWeight:'900',marginTop:20},price:{fontSize:28,fontWeight:'900',marginVertical:8},saveStatus:{textAlign:'center',fontSize:12,marginTop:18},footer:{paddingHorizontal:18,paddingVertical:12,borderTopWidth:StyleSheet.hairlineWidth,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:15},next:{backgroundColor:ORANGE,borderRadius:14,minHeight:54,flex:1,alignItems:'center',justifyContent:'center'},nextText:{color:'#FFF',fontWeight:'900',fontSize:17},
+  center:{flex:1,alignItems:'center',justifyContent:'center'}, header:{height:58,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:StyleSheet.hairlineWidth},back:{fontSize:36,width:35},brand:{fontSize:26,fontWeight:'900',letterSpacing:-1.2},progress:{flexDirection:'row',gap:6,paddingHorizontal:20,paddingTop:12},segment:{height:6,flex:1,borderRadius:5},content:{padding:20,paddingBottom:30},title:{fontSize:29,lineHeight:35,fontWeight:'900'},subtitle:{fontSize:15,lineHeight:22,marginTop:7,marginBottom:20},categoryGrid:{flexDirection:'row',flexWrap:'wrap',gap:10},category:{width:'48%',minHeight:110,borderRadius:14,padding:12,justifyContent:'space-between'},categoryIcon:{fontSize:26,fontWeight:'900'},card:{borderWidth:1,borderRadius:15,padding:15,marginTop:12},cardTitle:{fontSize:17,fontWeight:'800',marginTop:5},field:{marginTop:13},label:{fontSize:15,fontWeight:'800',marginBottom:8},input:{minHeight:52,borderWidth:1,borderRadius:12,paddingHorizontal:14,fontSize:15},multiline:{height:120,paddingTop:13},counter:{textAlign:'right',fontSize:12,marginTop:4},photos:{flexDirection:'row',flexWrap:'wrap',gap:9,marginTop:10},addPhoto:{width:104,height:104,borderWidth:1,borderStyle:'dashed',borderRadius:12,alignItems:'center',justifyContent:'center'},photo:{width:104,height:104},photoImage:{width:'100%',height:'100%',borderRadius:12},removePhoto:{position:'absolute',right:4,top:4,backgroundColor:'#222',width:24,height:24,borderRadius:12,alignItems:'center',justifyContent:'center'},row:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:10},pill:{borderWidth:1,borderRadius:12,paddingVertical:13,paddingHorizontal:12},switchRow:{flexDirection:'row',alignItems:'center',paddingVertical:10,borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:'#DDD'},reviewPhoto:{width:75,height:75,borderRadius:8},sectionTitle:{fontSize:20,fontWeight:'900',marginTop:20},price:{fontSize:28,fontWeight:'900',marginVertical:8},saveStatus:{textAlign:'center',fontSize:12,marginTop:18},footer:{paddingHorizontal:18,paddingVertical:12,borderTopWidth:StyleSheet.hairlineWidth,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:15},next:{backgroundColor:ORANGE,borderRadius:14,minHeight:54,flex:1,alignItems:'center',justifyContent:'center'},nextText:{color:'#FFF',fontWeight:'900',fontSize:17},submitProgress:{flexDirection:'row',alignItems:'center',gap:8},
 });
