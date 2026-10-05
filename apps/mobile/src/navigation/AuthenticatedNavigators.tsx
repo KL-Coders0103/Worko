@@ -18,6 +18,7 @@ import { WorkerNoOffersScreen } from '../screens/worker/WorkerNoOffersScreen';
 import { WorkerIncomingOfferScreen } from '../screens/worker/WorkerIncomingOfferScreen';
 import { WorkerOfferDetailScreen } from '../screens/worker/WorkerOfferDetailScreen';
 import { WorkerJobFlowScreen } from '../screens/worker/WorkerJobFlowScreen';
+import { WorkerAccountFlowScreen } from '../screens/worker/WorkerAccountFlowScreen';
 
 const ClientTabs = createBottomTabNavigator<ClientTabParamList>();
 const WorkerTabs = createBottomTabNavigator<WorkerTabParamList>();
@@ -234,9 +235,10 @@ export function WorkerAppNavigator() {
       <WorkerTabs.Screen name="IncomingOffer" component={WorkerIncomingOfferScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
       <WorkerTabs.Screen name="OfferDetail" component={WorkerOfferDetailScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
       <WorkerTabs.Screen name="JobFlow" component={WorkerJobFlowScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
+      <WorkerTabs.Screen name="WorkerAccount" component={WorkerAccountFlowScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
       <WorkerTabs.Screen name="Requests" component={WorkerRequests} options={{ tabBarLabel: 'Requests' }} />
       <WorkerTabs.Screen name="Reels" component={WorkerReels} options={{ tabBarLabel: 'Reels' }} />
-      <WorkerTabs.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
+      <WorkerTabs.Screen name="Profile" component={props => <WorkerAccountFlowScreen {...props} route={{...props.route, params: {stage: 'profile'}} as any} />} options={{ tabBarLabel: 'Profile' }} />
     </WorkerTabs.Navigator>
   </View>;
 }
