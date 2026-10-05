@@ -28,6 +28,15 @@ const MAX_DISTINCT_OFFERS = 20;
 const OFFER_TTL_MS = 2 * 60_000;
 const MATCHING_TICK_MS = 5_000;
 
+type MatchingResult = {
+  matched: boolean;
+  reason: string;
+  round?: number;
+  radiusKm?: number;
+  workerCount?: number;
+  workers?: Array<{ workerId: string; distanceKm: number }>;
+};
+
 @Injectable()
 export class MatchingService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MatchingService.name);
@@ -82,7 +91,7 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
     latitude: Prisma.Decimal;
     longitude: Prisma.Decimal;
     preferences: Prisma.JsonValue | null;
-  }) {
+  }): Promise<MatchingResult> {
     const distinctOfferCount = await this.prisma.matchingOffer.count({
       where: { requirementId: requirement.id },
     });
@@ -155,7 +164,7 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
     roundNumber: number,
     radiusKm: number,
     roundId: string,
-  ) {
+  ): Promise<MatchingResult> {
     const preferences =
       requirement.preferences &&
       typeof requirement.preferences === 'object' &&
