@@ -62,7 +62,7 @@ export class PaymentsService {
           },
         });
 
-    if (payment.providerOrderId) {
+    if (payment.providerOrderId && (!dummyMode || payment.providerOrderId.startsWith('dummy_order_'))) {
       return {
         data: {
           requirementId,
