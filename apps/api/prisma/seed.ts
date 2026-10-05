@@ -34,6 +34,12 @@ async function main() {
     });
   }
 
+  await prisma.user.upsert({
+    where: { email: 'demo.admin@worko.local' },
+    update: { role: UserRole.ADMIN, status: UserStatus.ACTIVE, passwordHash },
+    create: { email: 'demo.admin@worko.local', role: UserRole.ADMIN, status: UserStatus.ACTIVE, passwordHash },
+  });
+
   const client = await prisma.user.upsert({
     where: { email: 'demo.client@worko.local' },
     update: { role: UserRole.CLIENT, status: UserStatus.ACTIVE, passwordHash },
