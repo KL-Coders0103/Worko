@@ -16,6 +16,8 @@ import { BookingModule } from './booking/booking.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
+import { AdminModule } from './admin/admin.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { RequestLoggingInterceptor } from './common/interceptors/request-logging
     ReelsModule,
     CategoriesModule,
     RequirementsModule,
+    AdminModule,
+    NotificationsModule,
   ],
   providers: [
     {
