@@ -51,6 +51,25 @@ export class WorkerOffersController {
     return { data: await this.matching.setWorkerAvailability(user.id, body.available) };
   }
 
+  @Get('preferences')
+  async preferences(@CurrentUser() user: AuthenticatedUser) {
+    return this.matching.getWorkerPreferences(user.id);
+  }
+
+  @Patch('preferences')
+  async updatePreferences(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: {
+      categoryIds?: string[];
+      serviceArea?: { address?: string; latitude?: number; longitude?: number };
+      preferredRadiusKm?: number;
+      workSchedule?: Record<string, { enabled: boolean; start: string; end: string }>;
+      minimumPayment?: number;
+    },
+  ) {
+    return this.matching.updateWorkerPreferences(user.id, body);
+  }
+
   @Get()
   async list(@CurrentUser() user: AuthenticatedUser) {
     return this.matching.getWorkerOffers(user.id);
