@@ -1,8 +1,15 @@
 /** Centralized HTTP client for the Worko mobile app. */
+import {Platform} from 'react-native';
 
-// Development default for a physical Android device connected with:
-// adb reverse tcp:3000 tcp:3000
-export const API_BASE_URL = 'http://127.0.0.1:3000/api/v1';
+const isAndroidEmulator =
+  Platform.OS === 'android' &&
+  /sdk_gphone|emulator/i.test(Platform.constants?.Model ?? '');
+
+// Physical Android devices use adb reverse; Android Studio emulators reach
+// the host machine through 10.0.2.2.
+export const API_BASE_URL = isAndroidEmulator
+  ? 'http://10.0.2.2:3000/api/v1'
+  : 'http://127.0.0.1:3000/api/v1';
 
 export function apiRequest(path: string, init?: RequestInit): Promise<Response> {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
