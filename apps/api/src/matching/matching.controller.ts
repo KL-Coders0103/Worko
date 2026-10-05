@@ -19,7 +19,7 @@ export class MatchingController {
   async retry(@CurrentUser() user: AuthenticatedUser, @Param('id') requirementId: string) {
     const state = await this.matching.getClientState(user.id, requirementId);
     if (!state?.data) return { data: null };
-    const result = await this.matching.startMatching(requirementId);
+    const result = await this.matching.retryMatching(user.id, requirementId);
     return { data: { ...result, ...(await this.matching.getClientState(user.id, requirementId))?.data } };
   }
 }
