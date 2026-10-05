@@ -288,6 +288,7 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
 
     return {
       matched: true,
+      reason: 'OFFERS_CREATED',
       round: roundNumber,
       radiusKm,
       workerCount: createdOffers.length,
