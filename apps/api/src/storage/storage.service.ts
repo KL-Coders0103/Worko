@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { createHash, createHmac } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 
 interface UploadObjectInput {
   key: string;
@@ -106,7 +106,7 @@ export class StorageService {
     file: { buffer: Buffer; mimetype: string; originalname: string },
   ): Promise<{ key: string; url: string; mimeType: string; size: number }> {
     const extension = this.getExtension(file.originalname, file.mimetype);
-    const key = `requirements/${userId}/${cryptoRandomId()}.${extension}`;
+    const key = `requirements/${userId}/${randomUUID()}.${extension}`;
     const uploaded = await this.uploadObject({
       key,
       body: file.buffer,
@@ -184,8 +184,4 @@ export class StorageService {
     const kService = createHmac('sha256', kRegion).update(service).digest();
     return createHmac('sha256', kService).update('aws4_request').digest();
   }
-}
-
-function cryptoRandomId(): string {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
