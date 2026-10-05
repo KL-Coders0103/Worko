@@ -296,6 +296,18 @@ function ProgressScreen({ theme, amount, subtitle, onHome }: any) {
 }
 
 function NoWorkerScreen({ theme, matching, onRetry, onHome }: any) {
+  const [retrying, setRetrying] = useState(false);
+
+  const handleRetry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    try {
+      await onRetry();
+    } finally {
+      setRetrying(false);
+    }
+  };
+
   return <View style={{ flex: 1, backgroundColor: theme.background }}><ScrollView contentContainerStyle={styles.content}>
     <Text style={[styles.step, { color: theme.secondaryText }]}>Step 8 of 8</Text>
     <Text style={[styles.title, { color: theme.text }]}>No worker <Text style={{ color: ORANGE }}>found yet</Text></Text>
@@ -303,7 +315,7 @@ function NoWorkerScreen({ theme, matching, onRetry, onHome }: any) {
     <View style={styles.searchIcon}><Text style={{ fontSize: 52, color: ORANGE }}>⌕</Text></View>
     <View style={[styles.info, { backgroundColor: theme.surface, borderColor: theme.border }]}><Text style={{ color: ORANGE, fontSize: 28 }}>◷</Text><View style={{ flex: 1 }}><Text style={[styles.cardTitle, { color: theme.text }]}>Still searching</Text><Text style={{ color: theme.secondaryText }}>The server keeps the requirement in MATCHING and can retry as workers become available.</Text></View></View>
     <View style={[styles.summary, { backgroundColor: theme.surface, borderColor: theme.border }]}><Text style={[styles.section, { color: theme.text }]}>Matching status</Text><Text style={{ color: theme.secondaryText }}>{matching?.status ?? 'MATCHING'}</Text><Text style={{ color: theme.secondaryText, marginTop: 8 }}>Payment remains secured while matching is active.</Text></View>
-    <Pressable onPress={onRetry} style={styles.primary}><Text style={styles.primaryText}>Keep Searching ↻</Text></Pressable>
+    <Pressable disabled={retrying} onPress={() => { void handleRetry(); }} style={[styles.primary, retrying && { opacity: 0.65 }]}>{retrying ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primaryText}>Keep Searching ↻</Text>}</Pressable>
     <Pressable onPress={onHome} style={styles.secondary}><Text style={styles.secondaryText}>Go to Home</Text></Pressable>
   </ScrollView></View>;
 }
