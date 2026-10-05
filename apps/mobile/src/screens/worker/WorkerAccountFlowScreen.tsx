@@ -132,7 +132,7 @@ export function WorkerAccountFlowScreen() {
 
   const sendSupportMail = (subject: string, body: string) => {
     void Linking.openURL(
-      'mailto:support@worko.app?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body),
+      'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body),
     ).catch(() => Alert.alert('Support', 'No email app is configured on this device.'));
   };
 
