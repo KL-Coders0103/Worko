@@ -881,6 +881,8 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
         verificationStatus: true,
         availabilityStatus: true,
         preferredRadiusKm: true,
+        displayName: true,
+        photoUrl: true,
         latitude: true,
         longitude: true,
         user: {
@@ -971,9 +973,9 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
       data: {
         worker: {
           id: worker.id,
-          displayName: worker.user.email
+          displayName: worker.displayName ?? (worker.user.email
             ? worker.user.email.split('@')[0].replace(/[._-]+/g, ' ')
-            : 'Worker',
+            : 'Worker'),
           verificationStatus: worker.verificationStatus,
           availabilityStatus: worker.availabilityStatus,
           preferredRadiusKm: Number(worker.preferredRadiusKm),
@@ -994,6 +996,67 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
         activeJob: activeBooking,
       },
     };
+  }
+
+  async getWorkerProfile(workerUserId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: workerUserId },
+      select: {
+        id: true,
+        email: true,
+        phone: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        workerProfile: {
+          select: {
+            id: true,
+            displayName: true,
+            photoUrl: true,
+            verificationStatus: true,
+            availabilityStatus: true,
+            preferredRadiusKm: true,
+            serviceAreaAddress: true,
+            minimumPayment: true,
+            workSchedule: true,
+            categories: { select: { category: { select: { id: true, name: true, slug: true } } } },
+          },
+        },
+      },
+    });
+    if (!user?.workerProfile) throw new NotFoundException('Worker profile not found.');
+    return {
+      data: {
+        ...user,
+        workerProfile: {
+          ...user.workerProfile,
+          preferredRadiusKm: Number(user.workerProfile.preferredRadiusKm),
+          minimumPayment: user.workerProfile.minimumPayment == null ? null : Number(user.workerProfile.minimumPayment),
+          categories: user.workerProfile.categories.map(item => item.category),
+        },
+      },
+    };
+  }
+
+  async updateWorkerProfile(workerUserId: string, input: { displayName?: string; photoUrl?: string }) {
+    const worker = await this.prisma.workerProfile.findUnique({
+      where: { userId: workerUserId },
+      select: { id: true },
+    });
+    if (!worker) throw new NotFoundException('Worker profile not found.');
+    const displayName = input.displayName?.trim();
+    if (displayName !== undefined && (displayName.length < 2 || displayName.length > 160)) {
+      throw new BadRequestException('Display name must be between 2 and 160 characters.');
+    }
+    const updated = await this.prisma.workerProfile.update({
+      where: { id: worker.id },
+      data: {
+        ...(displayName !== undefined ? { displayName } : {}),
+        ...(input.photoUrl !== undefined ? { photoUrl: input.photoUrl || null } : {}),
+      },
+      select: { displayName: true, photoUrl: true },
+    });
+    return { data: updated };
   }
 
   async setWorkerAvailability(workerUserId: string, available: boolean) {
