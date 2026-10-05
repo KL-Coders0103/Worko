@@ -28,6 +28,8 @@ export class AdminController{
  @Get('challenges') challenges(){return this.service.challenges();}
  @Post('challenges') createChallenge(@CurrentUser() u:{id:string},@Body() b:any){return this.service.upsertChallenge(u.id,undefined,b);}
  @Patch('challenges/:id') updateChallenge(@CurrentUser() u:{id:string},@Param('id') id:string,@Body() b:any){return this.service.upsertChallenge(u.id,id,b);}
+ @Get('support') support(){return this.service.support();}
+ @Patch('support/:id') supportResolve(@CurrentUser() u:{id:string},@Param('id') id:string,@Body() b:{status:string;resolution?:string}){return this.service.resolveSupport(u.id,id,b.status,b.resolution);}
  @Get('analytics') analytics(){return this.service.analytics();}
  @Get('audit-logs') audit(){return this.service.auditLogs();}
  @Get('health') health(){return this.service.health();}
