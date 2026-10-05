@@ -141,6 +141,8 @@ model WorkerProfile {
   id                 String                   @id @default(uuid()) @db.Uuid
   userId             String                   @unique @map("user_id") @db.Uuid
   verificationStatus WorkerVerificationStatus @default(PENDING) @map("verification_status")
+  displayName         String?                  @map("display_name") @db.VarChar(160)
+  photoUrl            String?                  @map("photo_url") @db.VarChar(2048)
   availabilityStatus WorkerAvailabilityStatus @default(OFFLINE) @map("availability_status")
   preferredRadiusKm  Decimal                  @default(10) @map("preferred_radius_km") @db.Decimal(6, 2)
   serviceAreaAddress String?                  @map("service_area_address") @db.VarChar(500)
