@@ -51,6 +51,19 @@ export class WorkerOffersController {
     return { data: await this.matching.setWorkerAvailability(user.id, body.available) };
   }
 
+  @Get('profile')
+  async profile(@CurrentUser() user: AuthenticatedUser) {
+    return this.matching.getWorkerProfile(user.id);
+  }
+
+  @Patch('profile')
+  async updateProfile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: { displayName?: string; photoUrl?: string },
+  ) {
+    return this.matching.updateWorkerProfile(user.id, body);
+  }
+
   @Get('preferences')
   async preferences(@CurrentUser() user: AuthenticatedUser) {
     return this.matching.getWorkerPreferences(user.id);
