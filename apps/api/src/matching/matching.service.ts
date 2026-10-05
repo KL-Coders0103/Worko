@@ -545,6 +545,153 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
     return { data: offers };
   }
 
+  async getWorkerDashboard(workerUserId: string) {
+    const worker = await this.prisma.workerProfile.findUnique({
+      where: { userId: workerUserId },
+      select: {
+        id: true,
+        verificationStatus: true,
+        availabilityStatus: true,
+        preferredRadiusKm: true,
+        latitude: true,
+        longitude: true,
+        user: {
+          select: {
+            email: true,
+          },
+        },
+        categories: {
+          select: { categoryId: true },
+        },
+      },
+    });
+
+    if (!worker) return { data: null };
+
+    await this.expireWorkerOffers(worker.id);
+
+    const now = new Date();
+    const [offers, activeBooking, completedJobs] = await Promise.all([
+      this.prisma.matchingOffer.findMany({
+        where: {
+          workerId: worker.id,
+          status: OfferStatus.PENDING,
+          expiresAt: { gt: now },
+        },
+        orderBy: { offeredAt: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          offeredAt: true,
+          expiresAt: true,
+          requirement: {
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              address: true,
+              scheduledAt: true,
+              budget: true,
+              currency: true,
+              category: { select: { name: true, slug: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.booking.findFirst({
+        where: {
+          workerId: worker.id,
+          status: { in: ['CONFIRMED', 'IN_PROGRESS'] },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          startedAt: true,
+          requirement: {
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              address: true,
+              scheduledAt: true,
+              budget: true,
+              currency: true,
+              category: { select: { name: true, slug: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.booking.count({
+        where: { workerId: worker.id, status: 'COMPLETED' },
+      }),
+    ]);
+
+    const profileSignals = [
+      worker.verificationStatus === WorkerVerificationStatus.VERIFIED,
+      worker.categories.length > 0,
+      worker.latitude !== null && worker.longitude !== null,
+      Number(worker.preferredRadiusKm) > 0,
+      Boolean(worker.user.email),
+    ];
+    const profileCompletion = Math.round(
+      (profileSignals.filter(Boolean).length / profileSignals.length) * 100,
+    );
+
+    return {
+      data: {
+        worker: {
+          id: worker.id,
+          displayName: worker.user.email
+            ? worker.user.email.split('@')[0].replace(/[._-]+/g, ' ')
+            : 'Worker',
+          verificationStatus: worker.verificationStatus,
+          availabilityStatus: worker.availabilityStatus,
+          preferredRadiusKm: Number(worker.preferredRadiusKm),
+          profileCompletion,
+          categoryCount: worker.categories.length,
+        },
+        counts: {
+          newOffers: offers.length,
+          activeJobs: activeBooking ? 1 : 0,
+          completedJobs,
+        },
+        wallet: {
+          balance: null,
+          currency: 'INR',
+          available: false,
+        },
+        offers,
+        activeJob: activeBooking,
+      },
+    };
+  }
+
+  async setWorkerAvailability(workerUserId: string, available: boolean) {
+    const worker = await this.prisma.workerProfile.findUnique({
+      where: { userId: workerUserId },
+      select: { id: true, verificationStatus: true, availabilityStatus: true },
+    });
+
+    if (!worker) throw new NotFoundException('Worker profile not found.');
+    if (worker.verificationStatus !== WorkerVerificationStatus.VERIFIED) {
+      throw new ConflictException('Worker verification is required before going available.');
+    }
+
+    const availabilityStatus = available
+      ? WorkerAvailabilityStatus.AVAILABLE
+      : WorkerAvailabilityStatus.OFFLINE;
+
+    const updated = await this.prisma.workerProfile.update({
+      where: { id: worker.id },
+      data: { availabilityStatus },
+      select: { availabilityStatus: true },
+    });
+
+    return { availabilityStatus: updated.availabilityStatus };
+  }
+
   private async expireWorkerOffers(workerId: string) {
     await this.prisma.matchingOffer.updateMany({
       where: { workerId, status: OfferStatus.PENDING, expiresAt: { lte: new Date() } },
