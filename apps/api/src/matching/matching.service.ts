@@ -488,6 +488,90 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  async getAcceptedOfferDetails(workerUserId: string, offerId: string) {
+    const offer = await this.prisma.matchingOffer.findFirst({
+      where: {
+        id: offerId,
+        worker: { userId: workerUserId },
+        status: OfferStatus.ACCEPTED,
+      },
+      select: {
+        id: true,
+        status: true,
+        offeredAt: true,
+        expiresAt: true,
+        requirement: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            photos: true,
+            address: true,
+            latitude: true,
+            longitude: true,
+            scheduledAt: true,
+            budget: true,
+            currency: true,
+            category: { select: { id: true, name: true, slug: true } },
+            client: {
+              select: {
+                id: true,
+                phone: true,
+                clientProfile: {
+                  select: { fullName: true, photoUrl: true, address: true },
+                },
+              },
+            },
+            payment: {
+              select: { status: true, amount: true, currency: true },
+            },
+            booking: {
+              select: {
+                id: true,
+                status: true,
+                createdAt: true,
+                startedAt: true,
+                completedAt: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!offer) throw new NotFoundException('Accepted offer not found.');
+
+    return {
+      data: {
+        offerId: offer.id,
+        status: offer.status,
+        offeredAt: offer.offeredAt,
+        expiresAt: offer.expiresAt,
+        requirement: {
+          ...offer.requirement,
+          latitude: Number(offer.requirement.latitude),
+          longitude: Number(offer.requirement.longitude),
+          budget: offer.requirement.budget === null ? null : Number(offer.requirement.budget),
+          client: {
+            id: offer.requirement.client.id,
+            name: offer.requirement.client.clientProfile?.fullName ?? 'Client',
+            phone: offer.requirement.client.phone,
+            photoUrl: offer.requirement.client.clientProfile?.photoUrl ?? null,
+            address: offer.requirement.client.clientProfile?.address ?? null,
+          },
+          payment: offer.requirement.payment
+            ? {
+                status: offer.requirement.payment.status,
+                amount: Number(offer.requirement.payment.amount),
+                currency: offer.requirement.payment.currency,
+              }
+            : null,
+          booking: offer.requirement.booking,
+        },
+      },
+    };
+  }
+
   async rejectOffer(workerUserId: string, offerId: string) {
     const offer = await this.prisma.matchingOffer.findUnique({
       where: { id: offerId },
