@@ -4,7 +4,7 @@ import {apiRequest} from '../../services/api/client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useWorkoTheme} from '../../design-system/ThemeProvider';
 
-type Section='dashboard'|'users'|'verification'|'matching'|'bookings'|'payments'|'disputes'|'safety'|'reels'|'challenges'|'analytics'|'audit'|'health'|'config'|'notifications';
+type Section='dashboard'|'users'|'verification'|'matching'|'bookings'|'payments'|'disputes'|'safety'|'reels'|'challenges'|'analytics'|'audit'|'health'|'config'|'wallets'|'support'|'notifications';
 const sections: Array<{id:Section;label:string}>=[
  {id:'dashboard',label:'Overview'},{id:'users',label:'Users'},{id:'verification',label:'Verification'},{id:'matching',label:'Matching'},{id:'bookings',label:'Bookings'},{id:'payments',label:'Payments'},{id:'wallets',label:'Wallets'},{id:'disputes',label:'Disputes'},{id:'safety',label:'Safety'},{id:'reels',label:'Reel moderation'},{id:'challenges',label:'Challenges'},{id:'analytics',label:'Analytics'},{id:'audit',label:'Audit logs'},{id:'health',label:'System health'},{id:'config',label:'Configuration'},{id:'support',label:'Support'},{id:'notifications',label:'Notification ops'},
 ];
