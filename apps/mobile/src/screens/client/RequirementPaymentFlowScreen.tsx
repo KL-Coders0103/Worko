@@ -146,7 +146,7 @@ export function RequirementPaymentFlowScreen({
         if (!response.ok) throw new Error(payload?.message || 'Dummy payment could not be confirmed.');
         if (payload?.data?.status !== 'CAPTURED') throw new Error('Dummy payment was not captured.');
         setFlow('MATCHING');
-        setPollCount(0);
+        pollCount.current = 0;
         await loadMatching();
         return;
       }
