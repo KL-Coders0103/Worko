@@ -75,6 +75,11 @@ export class WorkerOffersController {
     return this.matching.getWorkerOffers(user.id);
   }
 
+  @Get(':id/details')
+  async details(@CurrentUser() user: AuthenticatedUser, @Param('id') offerId: string) {
+    return this.matching.getAcceptedOfferDetails(user.id, offerId);
+  }
+
   @Post(':id/accept')
   async accept(@CurrentUser() user: AuthenticatedUser, @Param('id') offerId: string) {
     return { data: await this.matching.acceptOffer(user.id, offerId) };
