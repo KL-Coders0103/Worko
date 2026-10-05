@@ -113,6 +113,25 @@ export class MatchingService {
     };
   }
 
+  async retryMatching(clientId: string, requirementId: string) {
+    const requirement = await this.prisma.requirement.findFirst({
+      where: { id: requirementId, clientId },
+      select: {
+        id: true,
+        status: true,
+        offers: { where: { status: { in: [OfferStatus.PENDING, OfferStatus.ACCEPTED] }, expiresAt: { gt: new Date() } }, select: { id: true }, take: 1 },
+      },
+    });
+    if (!requirement) return null;
+    if (requirement.offers.length === 0 && requirement.status === RequirementStatus.MATCHED) {
+      await this.prisma.requirement.updateMany({
+        where: { id: requirementId, clientId, status: RequirementStatus.MATCHED },
+        data: { status: RequirementStatus.MATCHING },
+      });
+    }
+    return this.startMatching(requirementId);
+  }
+
   async getClientState(clientId: string, requirementId: string) {
     const requirement = await this.prisma.requirement.findFirst({
       where: { id: requirementId, clientId },
