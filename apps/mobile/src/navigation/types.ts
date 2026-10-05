@@ -12,5 +12,6 @@ export type WorkerTabParamList = {
   NoOffers: { updated?: boolean } | undefined;
   IncomingOffer: { offerId: string };
   OfferDetail: { offerId: string };
+  JobFlow: { bookingId: string; stage?: 'navigate'|'start'|'checkin'|'before'|'startwork'|'progress'|'complete'|'summary'|'return' };
 };
 export type RootStackParamList = { Auth: NavigatorScreenParams<AuthStackParamList>; Client: { accessToken: string }; Worker: NavigatorScreenParams<WorkerTabParamList> };
