@@ -19,6 +19,7 @@ export class AdminController{
  @Get('matching') matching(){return this.service.matching();}
  @Get('bookings') bookings(){return this.service.bookings();}
  @Get('payments') payments(){return this.service.payments();}
+ @Get('wallets') wallets(){return this.service.wallets();}
  @Get('disputes') disputes(){return this.service.disputes();}
  @Patch('disputes/:id') dispute(@CurrentUser() u:{id:string},@Param('id') id:string,@Body() b:{status:string;resolution?:string}){return this.service.resolveDispute(u.id,id,b.status,b.resolution);}
  @Get('safety') safety(){return this.service.safety();}
