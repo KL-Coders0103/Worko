@@ -1,4 +1,4 @@
-import {Body,Controller,Get,Param,Patch,Post,Query,UseGuards} from '@nestjs/common';
+import {Body,Controller,Get,Param,Patch,Post,Put,Query,UseGuards} from '@nestjs/common';
 import {UserRole,UserStatus,WorkerVerificationStatus,ReelModerationStatus} from '@prisma/client';
 import {AdminService} from './admin.service';
 import {JwtAuthGuard} from '../auth/jwt-auth.guard';
