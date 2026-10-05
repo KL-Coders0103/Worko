@@ -3,6 +3,8 @@
  */
 
 import React from 'react';
+
+jest.mock('react-native-razorpay');
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import App from '../App';
 
