@@ -195,7 +195,7 @@ export function RequirementPaymentFlowScreen({
   }
 
   if (flow === 'NO_WORKER') {
-    return <NoWorkerScreen theme={theme} matching={matching} onRetry={() => { setPollCount(0); setFlow('MATCHING'); }} onHome={onDone} />;
+    return <NoWorkerScreen theme={theme} matching={matching} onRetry={() => { pollCount.current = 0; setFlow('MATCHING'); }} onHome={onDone} />;
   }
 
   if (flow === 'WORKER_FOUND') {
