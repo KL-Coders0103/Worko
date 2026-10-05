@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import RazorpayCheckout from 'react-native-razorpay';
 import { useWorkoTheme } from '../../design-system/ThemeProvider';
@@ -46,7 +46,7 @@ export function RequirementPaymentFlowScreen({
   const [selectedMethod, setSelectedMethod] = useState<'UPI' | 'CARD' | 'WALLET' | 'NETBANKING'>('UPI');
   const [busy, setBusy] = useState(false);
   const [loadingIntent, setLoadingIntent] = useState(true);
-  const [pollCount, setPollCount] = useState(0);
+  const pollCount = useRef(0);
 
   const loadIntent = useCallback(async () => {
     setLoadingIntent(true);
@@ -91,11 +91,8 @@ export function RequirementPaymentFlowScreen({
         const data = await loadMatching();
         if (cancelled) return;
         if (data.matchingState === 'WORKER_FOUND' || (data.offers?.length ?? 0) > 0) return;
-        setPollCount(current => {
-          const next = current + 1;
-          if (next >= 5) setFlow('NO_WORKER');
-          return next;
-        });
+        pollCount.current += 1;
+        if (pollCount.current >= 5) setFlow('NO_WORKER');
       } catch {
         // Keep the matching screen resilient to transient network errors.
       }
@@ -123,13 +120,13 @@ export function RequirementPaymentFlowScreen({
     if (!response.ok) throw new Error(payload?.message || 'Server-side payment verification failed.');
     if (payload?.data?.status === 'CAPTURED') {
       setFlow('MATCHING');
-      setPollCount(0);
+      pollCount.current = 0;
       await loadMatching();
       return;
     }
     if (payload?.data?.status === 'AUTHORIZED') {
       setFlow('MATCHING');
-      setPollCount(0);
+      pollCount.current = 0;
       return;
     }
     throw new Error('Payment was not captured by the provider.');
@@ -242,7 +239,7 @@ export function RequirementPaymentFlowScreen({
   );
 }
 
-function ProgressScreen({ theme, amount, title, subtitle, onHome }: any) {
+function ProgressScreen({ theme, amount, subtitle, onHome }: any) {
   return <View style={{ flex: 1, backgroundColor: theme.background }}><ScrollView contentContainerStyle={styles.content}>
     <Text style={[styles.step, { color: theme.secondaryText }]}>Step 7 of 7</Text>
     <Text style={[styles.title, { color: theme.text }]}>Requirement <Text style={{ color: ORANGE }}>created!</Text></Text>
