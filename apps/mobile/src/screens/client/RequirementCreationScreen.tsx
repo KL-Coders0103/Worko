@@ -6,6 +6,7 @@ import { launchImageLibrary, type Asset } from 'react-native-image-picker';
 import Geolocation from 'react-native-geolocation-service';
 import { useWorkoTheme } from '../../design-system/ThemeProvider';
 import { apiAssetUrl, apiRequest, uploadRequirementPhotos } from '../../services/api/client';
+import { RequirementPaymentFlowScreen } from './RequirementPaymentFlowScreen';
 
 type Category = { id: string; name: string; slug: string; isActive?: boolean };
 type Draft = {
@@ -31,6 +32,7 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
   const [uploadProgress, setUploadProgress] = useState(0);
   const [datePicker, setDatePicker] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [submittedRequirementId, setSubmittedRequirementId] = useState<string | null>(null);
   const update = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft(old => ({ ...old, [key]: value }));
 
   const persistDraft = async (showError = false): Promise<boolean> => {
@@ -174,7 +176,12 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
 
       await AsyncStorage.removeItem(STORAGE_KEY);
       await apiRequest('/requirements/draft', { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }).catch(() => undefined);
-      Alert.alert('Requirement submitted', 'Your requirement is saved as payment pending. Complete secure payment from your requests to start worker matching.', [{ text: 'Done', onPress: () => { setDraft(EMPTY); setStep(0); setUploadProgress(0); } }]);
+      const requirementId = payload?.data?.id;
+      if (typeof requirementId !== 'string' || !requirementId) throw new Error('The server did not return the created requirement ID.');
+      setDraft(EMPTY);
+      setStep(0);
+      setUploadProgress(0);
+      setSubmittedRequirementId(requirementId);
     } catch (error) {
       Alert.alert('Submission failed', error instanceof Error ? error.message : 'Please try again. Your draft is still saved.');
     } finally { setSubmitting(false); }
@@ -183,6 +190,15 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
   const field = (label: string, value: string, onChangeText: (value: string) => void, placeholder: string, multiline = false, maxLength?: number) => <View style={styles.field}><Text style={[styles.label, { color: theme.text }]}>{label}</Text><TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={theme.secondaryText} maxLength={maxLength} multiline={multiline} textAlignVertical={multiline ? 'top' : 'center'} style={[styles.input, { color: theme.text, backgroundColor: theme.surface, borderColor: theme.border }, multiline && styles.multiline]} /></View>;
   const pill = (label: string, active: boolean, onPress: () => void, key?: string) => <Pressable key={key} onPress={onPress} style={[styles.pill, { borderColor: active ? theme.primary : theme.border, backgroundColor: active ? '#FFF2E8' : theme.surface }]}><Text style={{ color: active ? ORANGE : theme.text, fontWeight: active ? '800' : '600' }}>{label}</Text></Pressable>;
   if (loading) return <View style={[styles.center, { backgroundColor: theme.background }]}><ActivityIndicator color={theme.primary}/><Text style={{ color: theme.secondaryText, marginTop: 10 }}>Preparing your requirement…</Text></View>;
+  if (submittedRequirementId) {
+    return (
+      <RequirementPaymentFlowScreen
+        accessToken={accessToken}
+        requirementId={submittedRequirementId}
+        onDone={() => setSubmittedRequirementId(null)}
+      />
+    );
+  }
   return <KeyboardAvoidingView style={{ flex: 1, backgroundColor: theme.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <View style={[styles.header, { borderBottomColor: theme.border }]}><Pressable onPress={() => step > 0 ? setStep(step - 1) : Alert.alert('Leave requirement?', 'Your progress is saved as a draft.', [{ text: 'Stay' }, { text: 'Leave', onPress: () => setStep(0) }])}><Text style={[styles.back, { color: theme.text }]}>‹</Text></Pressable><Text style={[styles.brand, { color: theme.text }]}>W<Text style={{ color: ORANGE }}>o</Text>rk<Text style={{ color: ORANGE }}>o</Text></Text><Text style={{ color: theme.secondaryText }}>Step {step + 1} of 5</Text></View>
     <View style={styles.progress}>{[0,1,2,3,4].map(i => <View key={i} style={[styles.segment, { backgroundColor: i <= step ? theme.primary : theme.border }]}/>)}</View>
