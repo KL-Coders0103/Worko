@@ -8,7 +8,7 @@ ALTER TABLE "reels" ADD COLUMN "rejection_reason" VARCHAR(500);
 ALTER TABLE "reels" ADD CONSTRAINT "reels_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 CREATE INDEX "reels_category_id_moderationStatus_publishedAt_idx" ON "reels"("category_id","moderation_status","published_at");
 CREATE TABLE "challenge_participations" (
-  "id" UUID NOT NULL,
+  "id" UUID NOT NULL DEFAULT gen_random_uuid(),
   "challenge_id" UUID NOT NULL,
   "user_id" UUID NOT NULL,
   "reel_id" UUID,
