@@ -32,6 +32,29 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
   const [datePicker, setDatePicker] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const update = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft(old => ({ ...old, [key]: value }));
+
+  const persistDraft = async (showError = false): Promise<boolean> => {
+    const serialized = JSON.stringify(draft);
+    setSaving(true);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, serialized);
+      const response = await apiRequest('/requirements/draft', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: serialized,
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message || 'Unable to save your draft.');
+      }
+      return true;
+    } catch (error) {
+      if (showError) Alert.alert('Draft not saved', error instanceof Error ? error.message : 'Please try again.');
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
   const selectedCategory = categories.find(item => item.id === draft.categoryId);
   const filteredCategories = useMemo(() => categories.filter(item => item.name.toLowerCase().includes(categoryQuery.trim().toLowerCase())), [categories, categoryQuery]);
   
@@ -56,19 +79,6 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
     return () => { active = false; };
   }, [accessToken]);
 
-  useEffect(() => {
-    if (!draftLoaded) return;
-    const handle = setTimeout(() => {
-      setSaving(true);
-      const serialized = JSON.stringify(draft);
-      void AsyncStorage.setItem(STORAGE_KEY, serialized).then(async () => {
-        try {
-          await apiRequest('/requirements/draft', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }, body: serialized });
-        } catch { /* Local draft remains available when offline. */ }
-      }).finally(() => setSaving(false));
-    }, 700);
-    return () => clearTimeout(handle);
-  }, [draft, draftLoaded, accessToken]);
 
   const useCurrentLocation = async () => {
     try {
@@ -90,11 +100,14 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
     const uris = (result.assets ?? []).map((asset: Asset) => asset.uri).filter((uri): uri is string => Boolean(uri));
     update('photos', [...draft.photos, ...uris].slice(0, 5));
   };
-  const next = () => {
+  const next = async () => {
     if (step === 0 && !draft.categoryId) { Alert.alert('Choose a category', 'Select the service category to continue.'); return; }
     if (step === 1 && (draft.title.trim().length < 4 || draft.title.trim().length > 80 || draft.description.trim().length < 10 || draft.description.trim().length > 500)) { Alert.alert('Check work details', 'Enter a title between 4 and 80 characters and a description between 10 and 500 characters.'); return; }
-    if (step === 2 && (draft.address.trim().length < 5 || draft.latitude === null || draft.longitude === null)) { Alert.alert('Confirm your location', 'Enter the address and use Current location to confirm its map coordinates.'); return; }
+    if (step === 2 && (draft.address.trim().length < 5 || draft.latitude === null || draft.longitude === null)) { Alert.alert('Confirm your location', 'Enter the address and use Current location to confirm the service coordinates.'); return; }
     if (step === 3 && draft.scheduleType === 'LATER' && (!Number.isFinite(new Date(draft.scheduledAt).getTime()) || new Date(draft.scheduledAt).getTime() <= Date.now())) { Alert.alert('Choose a future time', 'The scheduled date and time must be in the future.'); return; }
+
+    const saved = await persistDraft(true);
+    if (!saved) return;
     setStep(current => Math.min(4, current + 1));
   };
   const submit = async () => {
@@ -151,7 +164,6 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
         <Text style={[styles.counter, { color: theme.secondaryText }]}>{draft.description.length}/500</Text>
         <Text style={[styles.label, { color: theme.text, marginTop: 16 }]}>Add photos (optional) · {draft.photos.length}/5</Text><Text style={{ color: theme.secondaryText, marginBottom: 10 }}>Clear photos help workers understand your requirement.</Text>
         <View style={styles.photos}><Pressable onPress={addPhotos} style={[styles.addPhoto, { borderColor: theme.border }]}><Text style={{ fontSize: 30, color: theme.primary }}>＋</Text><Text style={{ color: theme.secondaryText }}>Add photo</Text></Pressable>{draft.photos.map((uri, index) => <View key={uri + index} style={styles.photo}><Image source={{ uri: apiAssetUrl(uri) }} style={styles.photoImage}/><Pressable onPress={() => update('photos', draft.photos.filter((_, i) => i !== index))} style={styles.removePhoto}><Text style={{ color: '#FFF', fontWeight: '900' }}>×</Text></Pressable></View>)}</View>
-        <Text style={[styles.label, { color: theme.text, marginTop: 20 }]}>When do you need this done?</Text><View style={styles.row}>{pill('As soon as possible', draft.scheduleType === 'ASAP', () => update('scheduleType','ASAP'))}{pill('Within 1 week', draft.scheduleType === 'LATER', () => { update('scheduleType','LATER'); update('scheduledAt', new Date(Date.now()+86400000).toISOString()); })}</View>
         <Text style={[styles.label, { color: theme.text, marginTop: 18 }]}>Additional preferences</Text>
         <View style={styles.switchRow}><Text style={{ color: theme.text, flex: 1 }}>Prefer verified workers only</Text><Switch value={draft.verifiedOnly} onValueChange={v => update('verifiedOnly',v)} trackColor={{ true: ORANGE }}/></View>
         <View style={styles.switchRow}><Text style={{ color: theme.text, flex: 1 }}>Prefer experienced workers (3+ years)</Text><Switch value={draft.experiencedOnly} onValueChange={v => update('experiencedOnly',v)} trackColor={{ true: ORANGE }}/></View>
@@ -182,9 +194,9 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
         {card(<><Text style={{ color: theme.secondaryText }}>Estimated service cost</Text><Text style={[styles.price, { color: theme.text }]}>Quote pending</Text><Text style={{ color: theme.secondaryText }}>A verified estimate will be shown when configured pricing rules are available. No price has been invented for this request.</Text></>)}
         {card(<><Text style={{ color: theme.text, fontWeight: '800' }}>Secure payment to start matching</Text><Text style={{ color: theme.secondaryText, marginTop: 6 }}>Payment is handled separately. Worker matching must not begin until payment is confirmed.</Text></>)}
       </>}
-      <Text style={[styles.saveStatus, { color: theme.secondaryText }]}>{saving ? 'Saving draft…' : 'Draft saved automatically'}</Text>
+      <Text style={[styles.saveStatus, { color: theme.secondaryText }]}>{saving ? 'Saving draft…' : 'Draft is saved at each step'}</Text>
     </ScrollView>
-    <View style={[styles.footer, { backgroundColor: theme.surface, borderTopColor: theme.border }]}><Pressable onPress={() => { void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(draft)); Alert.alert('Draft saved','You can resume this requirement later.'); }}><Text style={{ color: theme.secondaryText, fontWeight: '700' }}>Save draft</Text></Pressable><Pressable disabled={submitting} onPress={step === 4 ? submit : next} style={[styles.next, submitting && { opacity: 0.65 }]}>{submitting ? <View style={styles.submitProgress}><ActivityIndicator color="#FFF"/><Text style={styles.nextText}>{uploadProgress > 0 && uploadProgress < 100 ? `Uploading photos ${uploadProgress}%` : 'Submitting…'}</Text></View> : <Text style={styles.nextText}>{step === 4 ? 'Proceed to payment →' : 'Next →'}</Text>}</Pressable></View>
+    <View style={[styles.footer, { backgroundColor: theme.surface, borderTopColor: theme.border }]}><Pressable disabled={saving} onPress={() => { void persistDraft(true).then(saved => { if (saved) Alert.alert('Draft saved', 'You can resume this requirement later.'); }); }}><Text style={{ color: theme.secondaryText, fontWeight: '700' }}>Save draft</Text></Pressable><Pressable disabled={submitting} onPress={step === 4 ? submit : next} style={[styles.next, submitting && { opacity: 0.65 }]}>{submitting ? <View style={styles.submitProgress}><ActivityIndicator color="#FFF"/><Text style={styles.nextText}>{uploadProgress > 0 && uploadProgress < 100 ? `Uploading photos ${uploadProgress}%` : 'Submitting…'}</Text></View> : <Text style={styles.nextText}>{step === 4 ? 'Proceed to payment →' : 'Next →'}</Text>}</Pressable></View>
   </KeyboardAvoidingView>;
 }
 const styles = StyleSheet.create({
