@@ -18,7 +18,8 @@ export class PaymentsService {
   ) {}
 
   async createIntent(clientId: string, requirementId: string) {
-    const config = this.getConfig();
+    const dummyMode = process.env.WORKO_DUMMY_PAYMENTS === 'true' && process.env.NODE_ENV !== 'production';
+    const config = dummyMode ? null : this.getConfig();
     const requirement = await this.prisma.requirement.findFirst({
       where: { id: requirementId, clientId },
       select: {
@@ -68,8 +69,9 @@ export class PaymentsService {
           paymentId: payment.id,
           amount: Number(payment.amount),
           currency: payment.currency,
-          provider: 'razorpay',
-          keyId: config.keyId,
+          provider: dummyMode ? 'dummy' : 'razorpay',
+          dummyMode,
+          keyId: config?.keyId ?? 'dummy',
           orderId: payment.providerOrderId,
           status: payment.status,
           category: requirement.category.name,
@@ -78,15 +80,17 @@ export class PaymentsService {
       };
     }
 
-    const order = await this.createRazorpayOrder({
-      amountPaise: Math.round(Number(payment.amount) * 100),
-      currency: payment.currency,
-      receipt: `worko_${requirementId.slice(0, 18)}`,
-    });
+    const orderId = dummyMode
+      ? `dummy_order_${requirementId}_${randomUUID().slice(0, 8)}`
+      : (await this.createRazorpayOrder({
+          amountPaise: Math.round(Number(payment.amount) * 100),
+          currency: payment.currency,
+          receipt: `worko_${requirementId.slice(0, 18)}`,
+        })).id;
 
     const saved = await this.prisma.requirementPayment.update({
       where: { id: payment.id },
-      data: { providerOrderId: order.id, providerReference: order.id },
+      data: { providerOrderId: orderId, providerReference: orderId },
     });
 
     return {
@@ -95,12 +99,42 @@ export class PaymentsService {
         paymentId: saved.id,
         amount: Number(saved.amount),
         currency: saved.currency,
-        provider: 'razorpay',
-        keyId: config.keyId,
-        orderId: order.id,
+        provider: dummyMode ? 'dummy' : 'razorpay',
+        dummyMode,
+        keyId: config?.keyId ?? 'dummy',
+        orderId,
         status: saved.status,
         category: requirement.category.name,
         title: requirement.title,
+      },
+    };
+  }
+
+  async dummyConfirm(clientId: string, requirementId: string) {
+    if (process.env.WORKO_DUMMY_PAYMENTS !== 'true' || process.env.NODE_ENV === 'production') {
+      throw new UnauthorizedException('Dummy payments are disabled.');
+    }
+
+    const payment = await this.prisma.requirementPayment.findFirst({
+      where: { requirementId, requirement: { clientId } },
+      select: { providerOrderId: true, amount: true, status: true },
+    });
+
+    if (!payment?.providerOrderId?.startsWith('dummy_order_')) {
+      throw new ConflictException('Dummy payment intent was not created for this requirement.');
+    }
+
+    await this.finalizeCapturedPayment(
+      payment.providerOrderId,
+      `dummy_payment_${randomUUID()}`,
+      Number(payment.amount),
+    );
+
+    return {
+      data: {
+        verified: true,
+        status: PaymentStatus.CAPTURED,
+        mode: 'dummy',
       },
     };
   }
