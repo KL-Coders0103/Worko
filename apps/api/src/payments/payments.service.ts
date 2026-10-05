@@ -197,18 +197,22 @@ export class PaymentsService {
       if (Number(payment.amount) !== amount) throw new ConflictException('Captured amount does not match the Worko order.');
       if (payment.status === PaymentStatus.CAPTURED) return;
 
-      await tx.requirementPayment.update({
-        where: { id: payment.id },
+      const captured = await tx.requirementPayment.updateMany({
+        where: { id: payment.id, status: { not: PaymentStatus.CAPTURED } },
         data: { status: PaymentStatus.CAPTURED, providerReference: paymentId },
       });
-      await tx.paymentTransaction.create({
-        data: {
+      if (captured.count !== 1) return;
+
+      await tx.paymentTransaction.upsert({
+        where: { idempotencyKey: `captured:${paymentId}` },
+        create: {
           requirementPaymentId: payment.id,
           status: PaymentStatus.CAPTURED,
           amount: payment.amount,
           providerReference: paymentId,
           idempotencyKey: `captured:${paymentId}`,
         },
+        update: {},
       });
       const updated = await tx.requirement.updateMany({
         where: { id: payment.requirementId, status: RequirementStatus.PAYMENT_PENDING },
