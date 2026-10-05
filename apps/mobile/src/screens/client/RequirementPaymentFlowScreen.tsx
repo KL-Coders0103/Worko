@@ -71,13 +71,42 @@ export function RequirementPaymentFlowScreen({
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload?.message || 'Unable to load matching status.');
+
     const data = payload.data as MatchingState;
     setMatching(data);
+
     if (data.matchingState === 'WORKER_FOUND' || (data.offers?.length ?? 0) > 0) {
       setFlow('WORKER_FOUND');
+    } else if (data.noWorkerFound) {
+      setFlow('NO_WORKER');
     }
+
     return data;
   }, [accessToken, requirementId]);
+
+  const retryMatching = useCallback(async () => {
+    const response = await apiRequest(`/requirements/${requirementId}/matching/retry`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.message || 'Unable to retry worker matching.');
+
+    pollCount.current = 0;
+    setFlow('MATCHING');
+
+    const data = payload.data as MatchingState | undefined;
+    if (data) {
+      setMatching(data);
+      if (data.matchingState === 'WORKER_FOUND' || (data.offers?.length ?? 0) > 0) {
+        setFlow('WORKER_FOUND');
+      } else if (data.noWorkerFound) {
+        setFlow('NO_WORKER');
+      }
+    } else {
+      await loadMatching();
+    }
+  }, [accessToken, loadMatching, requirementId]);
 
   useEffect(() => {
     void loadIntent();
@@ -85,21 +114,35 @@ export function RequirementPaymentFlowScreen({
 
   useEffect(() => {
     if (flow !== 'MATCHING') return;
+
     let cancelled = false;
+    let requestInFlight = false;
+
     const poll = async () => {
+      if (cancelled || requestInFlight) return;
+      requestInFlight = true;
+
       try {
         const data = await loadMatching();
         if (cancelled) return;
-        if (data.matchingState === 'WORKER_FOUND' || (data.offers?.length ?? 0) > 0) return;
-        pollCount.current += 1;
-        if (pollCount.current >= 5) setFlow('NO_WORKER');
+
+        if (data.matchingState === 'WORKER_FOUND' || (data.offers?.length ?? 0) > 0 || data.noWorkerFound) {
+          return;
+        }
       } catch {
-        // Keep the matching screen resilient to transient network errors.
+        // Keep polling through transient network errors; the server remains authoritative.
+      } finally {
+        requestInFlight = false;
       }
     };
+
     void poll();
     const timer = setInterval(() => { void poll(); }, 2000);
-    return () => { cancelled = true; clearInterval(timer); };
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [flow, loadMatching]);
 
   const verifyAndContinue = async (payment: {
@@ -195,7 +238,7 @@ export function RequirementPaymentFlowScreen({
   }
 
   if (flow === 'NO_WORKER') {
-    return <NoWorkerScreen theme={theme} matching={matching} onRetry={() => { pollCount.current = 0; setFlow('MATCHING'); }} onHome={onDone} />;
+    return <NoWorkerScreen theme={theme} matching={matching} onRetry={() => { void retryMatching().catch(error => Alert.alert('Matching retry failed', error instanceof Error ? error.message : 'Please try again.')); }} onHome={onDone} />;
   }
 
   if (flow === 'WORKER_FOUND') {
