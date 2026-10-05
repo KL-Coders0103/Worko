@@ -4,6 +4,7 @@ export type AuthStackParamList = { Onboarding: undefined };
 export type ClientTabParamList = {
   Home: undefined; Discover: undefined; Reels: undefined; Saved: undefined; Requests: undefined; Profile: undefined;
   Bookings: { stage?: string; bookingId?: string };
+  Account: undefined;
 };
 export type WorkerTabParamList = {
   Dashboard: undefined;
@@ -18,5 +19,7 @@ export type WorkerTabParamList = {
   JobFlow: { bookingId: string; stage?: 'navigate'|'start'|'checkin'|'before'|'startwork'|'progress'|'complete'|'summary'|'return' };
   WorkerAccount: { stage: 'notifications'|'chat'|'profile'|'editProfile'|'settings'|'support'|'dispute'|'safety'|'logout' };
   WorkerWallet: undefined;
+  Account: undefined;
 };
-export type RootStackParamList = { Auth: NavigatorScreenParams<AuthStackParamList>; Client: { accessToken: string }; Worker: NavigatorScreenParams<WorkerTabParamList> };
+export type AdminTabParamList = { Dashboard: undefined };
+export type RootStackParamList = { Auth: NavigatorScreenParams<AuthStackParamList>; Client: { accessToken: string }; Worker: NavigatorScreenParams<WorkerTabParamList>; Admin: undefined };
