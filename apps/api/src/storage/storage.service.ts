@@ -81,6 +81,7 @@ export class StorageService {
     };
   }
 
+  async uploadReelVideo(userId:string,file:{buffer:Buffer;mimetype:string;originalname:string}){if(!['video/mp4','video/quicktime','video/webm'].includes(file.mimetype))throw new BadRequestException('Only MP4, MOV and WebM videos are supported.');if(file.buffer.byteLength>25*1024*1024)throw new BadRequestException('Video must be 25 MB or smaller.');const ext=file.mimetype==='video/webm'?'webm':file.mimetype==='video/quicktime'?'mov':'mp4';const key=`reels/${userId}/${randomUUID()}.${ext}`;const uploaded=await this.uploadObject({key,body:file.buffer,contentType:file.mimetype});return{...uploaded,mimeType:file.mimetype,size:file.buffer.byteLength};}
   async deleteObject(key: string): Promise<void> {
     this.ensureConfigured();
 
