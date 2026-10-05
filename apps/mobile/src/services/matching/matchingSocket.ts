@@ -42,7 +42,7 @@ export function subscribeToMatchingSocket(
   socket: Socket,
   handlers: Partial<MatchingSocketEvents>,
 ): () => void {
-  const bindings: Array<[string, (...args: any[]) => void]> = [
+  const bindings: Array<[string, ((...args: any[]) => void) | undefined]> = [
     ['matching.connected', handlers.connected],
     ['matching.offer', handlers.offer],
     ['matching.offer.expired', handlers.offerExpired],
