@@ -949,6 +949,7 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
               budget: true,
               currency: true,
               category: { select: { name: true, slug: true } },
+              client: { select: { phone: true } },
             },
           },
         },
