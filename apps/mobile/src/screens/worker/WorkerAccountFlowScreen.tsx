@@ -84,7 +84,7 @@ export function WorkerAccountFlowScreen() {
     if (!accessToken) { setLoading(false); return; }
     try {
       const [meResponse, dashboardResponse] = await Promise.all([
-        apiRequest('/worker/offers/profile', {headers: {Authorization: 'Bearer ' + accessToken}}),
+        apiRequest('/worker/profile', {headers: {Authorization: 'Bearer ' + accessToken}}),
         apiRequest('/worker/offers/dashboard', {headers: {Authorization: 'Bearer ' + accessToken}}),
       ]);
       const mePayload = await meResponse.json().catch(() => ({}));
@@ -217,6 +217,7 @@ export function WorkerAccountFlowScreen() {
       <Card><Text style={[styles.sectionTitle, {color: theme.text}]}>Professional details</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>Categories: {me?.workerProfile.categories.map(x => x.name).join(', ') || 'Not selected'}</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>Service area: {me?.workerProfile.serviceAreaAddress || 'Not set'}</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>Preferred radius: {me?.workerProfile.preferredRadiusKm || 10} km</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>Minimum payment: {me?.workerProfile.minimumPayment == null ? 'Not set' : '₹' + me.workerProfile.minimumPayment}</Text></Card>
       <Action title="Edit Profile" description="Update your worker display name." onPress={() => navigation.navigate('WorkerAccount', {stage: 'editProfile'})}/>
       <Action title="Work Preferences" description="Categories, radius, schedule and minimum payment." onPress={() => navigation.navigate('Preferences')}/>
+      <Action title="Worker Wallet" description="View released booking earnings and ledger transactions." onPress={() => navigation.navigate('WorkerWallet')}/>
       <Action title="Notifications" description="View offers and active job updates." onPress={() => navigation.navigate('WorkerAccount', {stage: 'notifications'})}/>\n      <Action title="Settings" description="Appearance, availability and account controls." onPress={() => navigation.navigate('WorkerAccount', {stage: 'settings'})}/>\n      <Action title="Help & Support" description="Get help with jobs, payments and your account." onPress={() => navigation.navigate('WorkerAccount', {stage: 'support'})}/>\n      <Action title="Safety & SOS" description="Emergency assistance and safety reporting." onPress={() => navigation.navigate('WorkerAccount', {stage: 'safety'})}/>
     </Page>
   );
