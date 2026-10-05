@@ -47,5 +47,5 @@ export const envValidationSchema = Joi.object({
   RAZORPAY_KEY_ID: Joi.string().trim().allow('').default(''),
   RAZORPAY_KEY_SECRET: Joi.string().trim().allow('').default(''),
   RAZORPAY_WEBHOOK_SECRET: Joi.string().trim().allow('').default(''),
-  WORKO_TEST_PAYMENT_AMOUNT: Joi.number().positive().max(10000000).optional(),
+  WORKO_TEST_PAYMENT_AMOUNT: Joi.number().positive().max(10000000).allow('').optional(),
 });
