@@ -118,7 +118,7 @@ export function RequirementCreationScreen({ accessToken }: { accessToken: string
     setSubmitting(true);
     setUploadProgress(0);
     try {
-      const localPhotos = draft.photos.filter(uri => !uri.startsWith('/uploads/requirements/') && !/^https?:\\/\\//i.test(uri));
+      const localPhotos = draft.photos.filter(uri => !uri.startsWith('/uploads/requirements/') && !/^https?:\/\//i.test(uri));
       const uploadedPhotos = localPhotos.length
         ? await uploadRequirementPhotos(localPhotos, accessToken, setUploadProgress)
         : [];
