@@ -161,7 +161,7 @@ export function WorkerAccountFlowScreen() {
         });
       }
     } finally {
-      await AsyncStorage.multiRemove(['worko.accessToken', 'worko.refreshToken', 'worko.role']);
+      await Promise.all(['worko.accessToken', 'worko.refreshToken', 'worko.role'].map((key) => AsyncStorage.removeItem(key)));
       const parent = navigation.getParent();
       if (parent) {
         parent.reset({index: 0, routes: [{name: 'Auth'}] as never});
