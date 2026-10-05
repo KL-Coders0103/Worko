@@ -215,9 +215,9 @@ export function WorkerAccountFlowScreen() {
       <Header title="Worker Profile" subtitle="Your Worko professional profile."/>
       <Card><View style={styles.avatar}><Text style={styles.avatarText}>{(me?.workerProfile.displayName || me?.email || 'W').slice(0, 1).toUpperCase()}</Text></View><Text style={[styles.profileName, {color: theme.text}]}>{me?.workerProfile.displayName || me?.email?.split('@')[0] || 'Worker'}</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>{me?.email || 'Email not provided'}</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>{me?.phone || 'Phone not provided'}</Text><View style={styles.verified}><Text style={styles.verifiedText}>✓ {me?.workerProfile.verificationStatus || 'PENDING'}</Text></View></Card>
       <Card><Text style={[styles.sectionTitle, {color: theme.text}]}>Professional details</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>Categories: {me?.workerProfile.categories.map(x => x.name).join(', ') || 'Not selected'}</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>Service area: {me?.workerProfile.serviceAreaAddress || 'Not set'}</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>Preferred radius: {me?.workerProfile.preferredRadiusKm || 10} km</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>Minimum payment: {me?.workerProfile.minimumPayment == null ? 'Not set' : '₹' + me.workerProfile.minimumPayment}</Text></Card>
-      <Action title="Edit Profile" description="Update your worker display name." onPress={() => navigation.navigate('WorkerAccount', {stage: 'profile'})}/>
+      <Action title="Edit Profile" description="Update your worker display name." onPress={() => navigation.navigate('WorkerAccount', {stage: 'editProfile'})}/>
       <Action title="Work Preferences" description="Categories, radius, schedule and minimum payment." onPress={() => navigation.navigate('Preferences')}/>
-      <Action title="Notifications" description="View offers and active job updates." onPress={() => navigation.navigate('WorkerAccount', {stage: 'editProfile'})}/>
+      <Action title="Notifications" description="View offers and active job updates." onPress={() => navigation.navigate('WorkerAccount', {stage: 'notifications'})}/>
     </Page>
   );
 
