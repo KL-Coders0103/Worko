@@ -9,7 +9,8 @@ type PaymentIntent = {
   paymentId: string;
   amount: number;
   currency: string;
-  provider: 'razorpay';
+  provider: 'razorpay' | 'dummy';
+  dummyMode?: boolean;
   keyId: string;
   orderId: string;
   status: string;
@@ -138,6 +139,21 @@ export function RequirementPaymentFlowScreen({
     if (!intent) return;
     setBusy(true);
     try {
+      if (intent.dummyMode) {
+        await new Promise(resolve => setTimeout(resolve, 700));
+        const response = await apiRequest(`/payments/requirements/${requirementId}/dummy-confirm`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.message || 'Dummy payment could not be confirmed.');
+        if (payload?.data?.status !== 'CAPTURED') throw new Error('Dummy payment was not captured.');
+        setFlow('MATCHING');
+        setPollCount(0);
+        await loadMatching();
+        return;
+      }
+
       const result = await RazorpayCheckout.open({
         description: `Secure Worko payment · ${selectedMethod}`,
         currency: intent.currency,
