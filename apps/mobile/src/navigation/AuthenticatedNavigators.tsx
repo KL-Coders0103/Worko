@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useNavigation } from '@react-navigation/native';
 import { useWorkoTheme } from '../design-system/ThemeProvider';
 import { ClientHomeScreen, ClientCategoriesScreen } from '../screens/client/ClientHomeScreens';
 import { ClientReelsScreen } from '../screens/client/ClientReelsScreen';
@@ -14,6 +15,7 @@ import { WorkerDashboardScreen } from '../screens/worker/WorkerDashboardScreen';
 import { AvailabilityControlScreen } from '../screens/worker/AvailabilityControlScreen';
 import { WorkPreferencesScreen } from '../screens/worker/WorkPreferencesScreen';
 import { WorkerNoOffersScreen } from '../screens/worker/WorkerNoOffersScreen';
+import { WorkerIncomingOfferScreen } from '../screens/worker/WorkerIncomingOfferScreen';
 
 const ClientTabs = createBottomTabNavigator<ClientTabParamList>();
 const WorkerTabs = createBottomTabNavigator<WorkerTabParamList>();
@@ -162,6 +164,7 @@ function WorkerReels() {
 }
 
 function WorkerMatchingBridge() {
+  const navigation = useNavigation<BottomTabNavigationProp<WorkerTabParamList>>();
   useEffect(() => {
     let socket: Awaited<ReturnType<typeof createMatchingSocket>> | null = null;
     let unsubscribe: (() => void) | undefined;
@@ -172,32 +175,7 @@ function WorkerMatchingBridge() {
       if (cancelled || !socket) return;
       unsubscribe = subscribeToMatchingSocket(socket, {
         offer: (offer: MatchingOfferEvent) => {
-          Alert.alert(
-            'New Worko offer',
-            offer.round + ' km matching round found a request ' + offer.distanceKm.toFixed(1) + ' km away. This offer expires at ' + new Date(offer.expiresAt).toLocaleTimeString() + '.',
-            [
-              { text: 'View Requests', style: 'cancel' },
-              {
-                text: 'Accept',
-                onPress: () => {
-                  void (async () => {
-                    const token = await AsyncStorage.getItem('worko.accessToken');
-                    if (!token) return;
-                    const response = await apiRequest('/worker/offers/' + offer.offerId + '/accept', {
-                      method: 'POST',
-                      headers: { Authorization: 'Bearer ' + token },
-                    });
-                    if (response.ok) {
-                      Alert.alert('Booking confirmed', 'You accepted the Worko request.');
-                    } else {
-                      const payload = await response.json().catch(() => ({}));
-                      Alert.alert('Offer unavailable', payload?.message || 'This offer is no longer available.');
-                    }
-                  })();
-                },
-              },
-            ],
-          );
+          navigation.navigate('IncomingOffer', { offerId: offer.offerId });
         },
       });
     };
@@ -251,6 +229,7 @@ export function WorkerAppNavigator() {
       <WorkerTabs.Screen name="Availability" component={AvailabilityControlScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
       <WorkerTabs.Screen name="Preferences" component={WorkPreferencesScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
       <WorkerTabs.Screen name="NoOffers" component={WorkerNoOffersScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
+      <WorkerTabs.Screen name="IncomingOffer" component={WorkerIncomingOfferScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
       <WorkerTabs.Screen name="Requests" component={WorkerRequests} options={{ tabBarLabel: 'Requests' }} />
       <WorkerTabs.Screen name="Reels" component={WorkerReels} options={{ tabBarLabel: 'Reels' }} />
       <WorkerTabs.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
