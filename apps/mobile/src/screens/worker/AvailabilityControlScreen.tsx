@@ -221,7 +221,7 @@ export function AvailabilityControlScreen() {
 
             <Pressable
               disabled={busy}
-              onPress={() => confirming && void updateAvailability(confirming)}
+              onPress={() => confirming && confirming !== 'BUSY' && void updateAvailability(confirming)}
               style={[styles.confirmButton, busy && { opacity: 0.65 }]}
             >
               {busy ? (
