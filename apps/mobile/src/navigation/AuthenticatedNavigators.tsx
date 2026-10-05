@@ -11,6 +11,7 @@ import type { ClientTabParamList, WorkerTabParamList } from './types';
 import { apiRequest } from '../services/api/client';
 import { createMatchingSocket, subscribeToMatchingSocket, type MatchingOfferEvent } from '../services/matching/matchingSocket';
 import { WorkerDashboardScreen } from '../screens/worker/WorkerDashboardScreen';
+import { AvailabilityControlScreen } from '../screens/worker/AvailabilityControlScreen';
 
 const ClientTabs = createBottomTabNavigator<ClientTabParamList>();
 const WorkerTabs = createBottomTabNavigator<WorkerTabParamList>();
@@ -245,6 +246,7 @@ export function WorkerAppNavigator() {
     <WorkerMatchingBridge />
     <WorkerTabs.Navigator screenOptions={tabOptions(theme)}>
       <WorkerTabs.Screen name="Dashboard" component={WorkerDashboardScreen} options={{ tabBarLabel: 'Home' }} />
+      <WorkerTabs.Screen name="Availability" component={AvailabilityControlScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
       <WorkerTabs.Screen name="Requests" component={WorkerRequests} options={{ tabBarLabel: 'Requests' }} />
       <WorkerTabs.Screen name="Reels" component={WorkerReels} options={{ tabBarLabel: 'Reels' }} />
       <WorkerTabs.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
