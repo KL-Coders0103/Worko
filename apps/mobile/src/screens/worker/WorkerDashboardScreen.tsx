@@ -193,7 +193,7 @@ export function WorkerDashboardScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Notifications"
-          onPress={() => navigation.navigate('Requests')}
+          onPress={() => navigation.navigate('NoOffers')}
           style={styles.notificationButton}
         >
           <Text style={styles.bell}>♧</Text>
@@ -289,7 +289,7 @@ export function WorkerDashboardScreen() {
           <Text style={[styles.emptySubtitle, { color: theme.secondaryText }]}>
             We'll notify you when new eligible work offers are available in your area.
           </Text>
-          <Pressable onPress={() => navigation.navigate('Reels')} style={styles.outlineButton}>
+          <Pressable onPress={() => navigation.navigate('NoOffers')} style={styles.outlineButton}>
             <Text style={styles.outlineButtonText}>Explore Reels</Text>
           </Pressable>
         </View>
