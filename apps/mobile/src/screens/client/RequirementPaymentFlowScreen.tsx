@@ -166,7 +166,6 @@ export function RequirementPaymentFlowScreen({
     }
     if (payload?.data?.status === 'AUTHORIZED') {
       setFlow('MATCHING');
-      pollCount.current = 0;
       return;
     }
     throw new Error('Payment was not captured by the provider.');
