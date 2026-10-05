@@ -122,6 +122,9 @@ model User {
   role            UserRole         @default(CLIENT)
   status          UserStatus       @default(PENDING_VERIFICATION)
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  deactivatedAt DateTime? @map("deactivated_at") @db.Timestamptz(3)
+  deletionRequestedAt DateTime? @map("deletion_requested_at") @db.Timestamptz(3)
+  deletionScheduledAt DateTime? @map("deletion_scheduled_at") @db.Timestamptz(3)
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
   workerProfile   WorkerProfile?
   clientProfile   ClientProfile?
@@ -139,6 +142,13 @@ model User {
   reelComments    ReelComment[]
   reviewsGiven    Review[]         @relation("ReviewAuthor")
   reviewsReceived Review[]         @relation("ReviewTarget")
+  notificationPreference NotificationPreference?
+  pushDevices PushDevice[]
+  notificationDeliveries NotificationDelivery[]
+  supportTickets SupportTicket[]
+  auditLogs AuditLog[]
+  safetyAlerts SafetyAlert[]
+  challengesCreated Challenge[] @relation("ChallengeCreator")
 
   @@index([role, status])
   @@index([createdAt])
@@ -331,6 +341,7 @@ model Booking {
   chatMessages  ChatMessage[]
   notifications Notification[]
   disputes      Dispute[]
+  safetyAlerts SafetyAlert[]
 
   @@index([clientId, status, createdAt])
   @@index([workerId, status, createdAt])
@@ -437,6 +448,7 @@ model Notification {
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   booking   Booking?         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  deliveries NotificationDelivery[]
 
   @@index([userId, readAt, createdAt])
   @@index([bookingId, createdAt])
@@ -566,4 +578,129 @@ model ReelComment {
 
   @@index([reelId, createdAt])
   @@map("reel_comments")
+}
+
+
+model NotificationPreference {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
+  pushEnabled Boolean @default(true) @map("push_enabled")
+  bookingEnabled Boolean @default(true) @map("booking_enabled")
+  paymentEnabled Boolean @default(true) @map("payment_enabled")
+  chatEnabled Boolean @default(true) @map("chat_enabled")
+  reviewEnabled Boolean @default(true) @map("review_enabled")
+  disputeEnabled Boolean @default(true) @map("dispute_enabled")
+  systemEnabled Boolean @default(true) @map("system_enabled")
+  quietHoursStart String? @map("quiet_hours_start") @db.VarChar(5)
+  quietHoursEnd String? @map("quiet_hours_end") @db.VarChar(5)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("notification_preferences")
+}
+
+model PushDevice {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  token String @unique @db.VarChar(1000)
+  platform String @db.VarChar(20)
+  enabled Boolean @default(true)
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, enabled])
+  @@map("push_devices")
+}
+
+model NotificationDelivery {
+  id String @id @default(uuid()) @db.Uuid
+  notificationId String @map("notification_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  channel String @db.VarChar(20)
+  status String @default("PENDING") @db.VarChar(30)
+  attemptCount Int @default(0) @map("attempt_count")
+  nextAttemptAt DateTime? @map("next_attempt_at") @db.Timestamptz(3)
+  lastError String? @map("last_error") @db.VarChar(1000)
+  dedupeKey String @unique @map("dedupe_key") @db.VarChar(255)
+  deliveredAt DateTime? @map("delivered_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([status, nextAttemptAt])
+  @@index([userId, createdAt])
+  @@map("notification_deliveries")
+}
+
+model SupportTicket {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  subject String @db.VarChar(180)
+  description String @db.VarChar(4000)
+  category String @db.VarChar(80)
+  priority String @default("NORMAL") @db.VarChar(20)
+  status String @default("OPEN") @db.VarChar(30)
+  resolution String? @db.VarChar(4000)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  @@index([userId, status, createdAt])
+  @@index([status, priority, createdAt])
+  @@map("support_tickets")
+}
+
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+  actorId String? @map("actor_id") @db.Uuid
+  action String @db.VarChar(160)
+  entityType String @map("entity_type") @db.VarChar(80)
+  entityId String? @map("entity_id") @db.Uuid
+  metadata Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId, createdAt])
+  @@map("audit_logs")
+}
+
+model SafetyAlert {
+  id String @id @default(uuid()) @db.Uuid
+  reporterId String @map("reporter_id") @db.Uuid
+  bookingId String? @map("booking_id") @db.Uuid
+  severity String @default("HIGH") @db.VarChar(20)
+  type String @db.VarChar(80)
+  message String @db.VarChar(2000)
+  status String @default("OPEN") @db.VarChar(30)
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  reporter User @relation(fields: [reporterId], references: [id], onDelete: Restrict)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  @@index([status, severity, createdAt])
+  @@index([reporterId, createdAt])
+  @@map("safety_alerts")
+}
+
+model Challenge {
+  id String @id @default(uuid()) @db.Uuid
+  title String @db.VarChar(180)
+  description String @db.VarChar(2000)
+  rewardPoints Int @default(0) @map("reward_points")
+  status String @default("DRAFT") @db.VarChar(30)
+  startsAt DateTime? @map("starts_at") @db.Timestamptz(3)
+  endsAt DateTime? @map("ends_at") @db.Timestamptz(3)
+  createdById String? @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdBy User? @relation("ChallengeCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  @@index([status, startsAt, endsAt])
+  @@map("challenges")
+}
+
+model SystemConfig {
+  id String @id @default(uuid()) @db.Uuid
+  key String @unique @db.VarChar(120)
+  value Json
+  description String? @db.VarChar(500)
+  updatedBy String? @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  @@map("system_config")
 }
