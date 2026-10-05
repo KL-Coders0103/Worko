@@ -18,8 +18,6 @@ import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
-import { AdminModule } from './admin/admin.module';
-import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -38,8 +36,6 @@ import { NotificationsModule } from './notifications/notifications.module';
     ReelsModule,
     CategoriesModule,
     RequirementsModule,
-    AdminModule,
-    NotificationsModule,
     AdminModule,
     NotificationsModule,
   ],
