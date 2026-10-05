@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import RazorpayCheckout from 'react-native-razorpay';
 import { useWorkoTheme } from '../../design-system/ThemeProvider';
@@ -46,7 +46,6 @@ export function RequirementPaymentFlowScreen({
   const [selectedMethod, setSelectedMethod] = useState<'UPI' | 'CARD' | 'WALLET' | 'NETBANKING'>('UPI');
   const [busy, setBusy] = useState(false);
   const [loadingIntent, setLoadingIntent] = useState(true);
-  const pollCount = useRef(0);
 
   const loadIntent = useCallback(async () => {
     setLoadingIntent(true);
@@ -163,7 +162,6 @@ export function RequirementPaymentFlowScreen({
     if (!response.ok) throw new Error(payload?.message || 'Server-side payment verification failed.');
     if (payload?.data?.status === 'CAPTURED') {
       setFlow('MATCHING');
-      pollCount.current = 0;
       await loadMatching();
       return;
     }
@@ -189,7 +187,6 @@ export function RequirementPaymentFlowScreen({
         if (!response.ok) throw new Error(payload?.message || 'Dummy payment could not be confirmed.');
         if (payload?.data?.status !== 'CAPTURED') throw new Error('Dummy payment was not captured.');
         setFlow('MATCHING');
-        pollCount.current = 0;
         await loadMatching();
         return;
       }
