@@ -458,6 +458,14 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
               clientId: offer.requirement.clientId,
               workerId: offer.workerId,
               status: 'CONFIRMED',
+              workflow: {
+                tasks: this.buildJobTasks(offer.requirementId),
+                beforePhotos: [],
+                afterPhotos: [],
+                progressPhotos: [],
+                progressNotes: [],
+                finalNotes: '',
+              },
               statusHistory: { create: { status: 'CONFIRMED', note: 'Worker accepted matching offer.' } },
             },
             select: { id: true, requirementId: true, workerId: true, status: true, createdAt: true },
@@ -486,6 +494,163 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(`Concurrent offer acceptance rejected for offer ${offerId}: ${String(error)}`);
       throw new ConflictException('This requirement was accepted by another worker.');
     }
+  }
+
+  private buildJobTasks(_requirementId: string) {
+    return [
+      { id: 'task-1', title: 'Review the client requirements', completed: false },
+      { id: 'task-2', title: 'Complete the requested service', completed: false },
+      { id: 'task-3', title: 'Check the completed work', completed: false },
+      { id: 'task-4', title: 'Clean up and confirm completion', completed: false },
+    ];
+  }
+
+  private async getOwnedBooking(workerUserId: string, bookingId: string) {
+    const booking = await this.prisma.booking.findFirst({
+      where: { id: bookingId, worker: { userId: workerUserId } },
+      select: {
+        id: true,
+        status: true,
+        startedAt: true,
+        completedAt: true,
+        workflow: true,
+        requirement: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            photos: true,
+            address: true,
+            latitude: true,
+            longitude: true,
+            scheduledAt: true,
+            budget: true,
+            currency: true,
+            category: { select: { name: true, slug: true } },
+            client: { select: { id: true, phone: true, clientProfile: { select: { fullName: true, photoUrl: true, address: true } } } },
+            payment: { select: { status: true, amount: true, currency: true } },
+          },
+        },
+      },
+    });
+    if (!booking) throw new NotFoundException('Worker job not found.');
+    const workflow = (booking.workflow && typeof booking.workflow === 'object' ? booking.workflow : {}) as Record<string, unknown>;
+    return { booking, workflow };
+  }
+
+  async getWorkerJob(workerUserId: string, bookingId: string) {
+    const { booking, workflow } = await this.getOwnedBooking(workerUserId, bookingId);
+    return { data: this.serializeWorkerJob(booking, workflow) };
+  }
+
+  async markArrived(workerUserId: string, bookingId: string) {
+    const { booking, workflow } = await this.getOwnedBooking(workerUserId, bookingId);
+    if (booking.status !== 'CONFIRMED') throw new ConflictException('This job is no longer awaiting arrival.');
+    workflow.arrivedAt = new Date().toISOString();
+    await this.prisma.booking.update({ where: { id: booking.id }, data: { workflow: workflow as Prisma.InputJsonValue } });
+    return { data: this.serializeWorkerJob({ ...booking, workflow }, workflow) };
+  }
+
+  async checkIn(workerUserId: string, bookingId: string, code: string) {
+    const { booking, workflow } = await this.getOwnedBooking(workerUserId, bookingId);
+    if (!workflow.arrivedAt) throw new ConflictException('Mark arrival before checking in.');
+    const normalized = code.trim();
+    const valid = normalized === booking.id || normalized === booking.id.slice(0, 8).toUpperCase() || normalized === ('WORKO-' + booking.id.slice(0, 8).toUpperCase());
+    if (!valid) throw new ConflictException('Invalid check-in code.');
+    workflow.checkedInAt = new Date().toISOString();
+    await this.prisma.booking.update({ where: { id: booking.id }, data: { workflow: workflow as Prisma.InputJsonValue } });
+    return { data: this.serializeWorkerJob({ ...booking, workflow }, workflow) };
+  }
+
+  async startJob(workerUserId: string, bookingId: string) {
+    const { booking, workflow } = await this.getOwnedBooking(workerUserId, bookingId);
+    if (!workflow.checkedInAt) throw new ConflictException('Complete check-in before starting the job.');
+    if (booking.status === 'IN_PROGRESS') return { data: this.serializeWorkerJob(booking, workflow) };
+    if (booking.status !== 'CONFIRMED') throw new ConflictException('This job cannot be started.');
+    const now = new Date();
+    workflow.startedAt = now.toISOString();
+    await this.prisma.$transaction([
+      this.prisma.booking.update({ where: { id: booking.id }, data: { status: 'IN_PROGRESS', startedAt: now, workflow: workflow as Prisma.InputJsonValue } }),
+      this.prisma.bookingStatusHistory.create({ data: { bookingId: booking.id, status: 'IN_PROGRESS', note: 'Worker started the job on site.' } }),
+      this.prisma.requirement.updateMany({ where: { id: booking.requirement.id, status: RequirementStatus.MATCHED }, data: { status: RequirementStatus.IN_PROGRESS } }),
+    ]);
+    return { data: this.serializeWorkerJob({ ...booking, status: 'IN_PROGRESS', startedAt: now, workflow }, workflow) };
+  }
+
+  async completeTask(workerUserId: string, bookingId: string, taskId: string) {
+    const { booking, workflow } = await this.getOwnedBooking(workerUserId, bookingId);
+    if (booking.status !== 'IN_PROGRESS') throw new ConflictException('Start the job before completing tasks.');
+    const tasks = Array.isArray(workflow.tasks) ? workflow.tasks.map((task) => ({ ...(task as Record<string, unknown>) })) : [];
+    const task = tasks.find(item => item.id === taskId);
+    if (!task) throw new NotFoundException('Job task not found.');
+    task.completed = true;
+    workflow.tasks = tasks;
+    await this.prisma.booking.update({ where: { id: booking.id }, data: { workflow: workflow as Prisma.InputJsonValue } });
+    return { data: this.serializeWorkerJob({ ...booking, workflow }, workflow) };
+  }
+
+  async addJobEvidence(workerUserId: string, bookingId: string, type: 'before' | 'after' | 'progress', urls: string[]) {
+    const { booking, workflow } = await this.getOwnedBooking(workerUserId, bookingId);
+    const key = type === 'before' ? 'beforePhotos' : type === 'after' ? 'afterPhotos' : 'progressPhotos';
+    const existing = Array.isArray(workflow[key]) ? workflow[key] : [];
+    workflow[key] = [...existing, ...urls].slice(0, 20);
+    await this.prisma.booking.update({ where: { id: booking.id }, data: { workflow: workflow as Prisma.InputJsonValue } });
+    return { data: this.serializeWorkerJob({ ...booking, workflow }, workflow) };
+  }
+
+  async completeJob(workerUserId: string, bookingId: string, finalNotes?: string) {
+    const { booking, workflow } = await this.getOwnedBooking(workerUserId, bookingId);
+    const tasks = Array.isArray(workflow.tasks) ? workflow.tasks : [];
+    if (booking.status !== 'IN_PROGRESS') throw new ConflictException('The job is not in progress.');
+    if (tasks.some(task => !(task as Record<string, unknown>).completed)) throw new ConflictException('Complete all job tasks before ending the job.');
+    if (!Array.isArray(workflow.afterPhotos) || workflow.afterPhotos.length === 0) throw new ConflictException('Submit at least one after-work photo before completing the job.');
+    workflow.finalNotes = (finalNotes ?? '').trim();
+    workflow.completedAt = new Date().toISOString();
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.booking.update({ where: { id: booking.id }, data: { status: 'COMPLETED', completedAt: now, workflow: workflow as Prisma.InputJsonValue } }),
+      this.prisma.bookingStatusHistory.create({ data: { bookingId: booking.id, status: 'COMPLETED', note: 'Worker completed all job tasks.' } }),
+      this.prisma.requirement.updateMany({ where: { id: booking.requirement.id, status: RequirementStatus.IN_PROGRESS }, data: { status: RequirementStatus.COMPLETED } }),
+      this.prisma.workerProfile.update({ where: { id: booking.workerId }, data: { availabilityStatus: WorkerAvailabilityStatus.AVAILABLE } }),
+    ]);
+    return { data: this.serializeWorkerJob({ ...booking, status: 'COMPLETED', completedAt: now, workflow }, workflow) };
+  }
+
+  private serializeWorkerJob(booking: any, workflow: Record<string, any>) {
+    const requirement = booking.requirement;
+    return {
+      bookingId: booking.id,
+      status: booking.status,
+      startedAt: booking.startedAt ?? null,
+      completedAt: booking.completedAt ?? null,
+      arrivedAt: workflow.arrivedAt ?? null,
+      checkedInAt: workflow.checkedInAt ?? null,
+      tasks: Array.isArray(workflow.tasks) ? workflow.tasks : [],
+      beforePhotos: Array.isArray(workflow.beforePhotos) ? workflow.beforePhotos : [],
+      afterPhotos: Array.isArray(workflow.afterPhotos) ? workflow.afterPhotos : [],
+      progressPhotos: Array.isArray(workflow.progressPhotos) ? workflow.progressPhotos : [],
+      finalNotes: typeof workflow.finalNotes === 'string' ? workflow.finalNotes : '',
+      requirement: {
+        id: requirement.id,
+        title: requirement.title,
+        description: requirement.description,
+        photos: requirement.photos,
+        address: requirement.address,
+        latitude: Number(requirement.latitude),
+        longitude: Number(requirement.longitude),
+        scheduledAt: requirement.scheduledAt,
+        budget: requirement.budget == null ? null : Number(requirement.budget),
+        currency: requirement.currency,
+        category: requirement.category,
+        client: {
+          name: requirement.client.clientProfile?.fullName ?? 'Client',
+          phone: requirement.client.phone,
+          photoUrl: requirement.client.clientProfile?.photoUrl ?? null,
+          address: requirement.client.clientProfile?.address ?? null,
+        },
+        payment: requirement.payment ? { status: requirement.payment.status, amount: Number(requirement.payment.amount), currency: requirement.payment.currency } : null,
+      },
+    };
   }
 
   async getAcceptedOfferDetails(workerUserId: string, offerId: string) {
