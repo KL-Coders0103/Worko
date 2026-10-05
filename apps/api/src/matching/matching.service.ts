@@ -510,6 +510,7 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
       where: { id: bookingId, worker: { userId: workerUserId } },
       select: {
         id: true,
+        workerId: true,
         status: true,
         startedAt: true,
         completedAt: true,
