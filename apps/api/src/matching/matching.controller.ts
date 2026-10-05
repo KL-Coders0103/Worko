@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/current-user.decorator';
@@ -34,6 +34,22 @@ export class MatchingController {
 @Roles(UserRole.WORKER)
 export class WorkerOffersController {
   constructor(private readonly matching: MatchingService) {}
+
+  @Get('dashboard')
+  async dashboard(@CurrentUser() user: AuthenticatedUser) {
+    return this.matching.getWorkerDashboard(user.id);
+  }
+
+  @Patch('availability')
+  async availability(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: { available?: boolean },
+  ) {
+    if (typeof body?.available !== 'boolean') {
+      return { data: null, message: 'available must be a boolean' };
+    }
+    return { data: await this.matching.setWorkerAvailability(user.id, body.available) };
+  }
 
   @Get()
   async list(@CurrentUser() user: AuthenticatedUser) {
