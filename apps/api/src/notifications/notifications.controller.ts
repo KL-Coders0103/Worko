@@ -1,4 +1,5 @@
 import {Body,Controller,Delete,Get,Param,Patch,Post,UseGuards} from '@nestjs/common'; import {CurrentUser} from '../auth/current-user.decorator'; import {JwtAuthGuard} from '../auth/jwt-auth.guard'; import {NotificationsService} from './notifications.service';
+import {Roles} from '../auth/roles.decorator'; import {RolesGuard} from '../auth/roles.guard'; import {UserRole} from '@prisma/client';
 @UseGuards(JwtAuthGuard) @Controller()
 export class NotificationsController{
 constructor(private readonly service:NotificationsService){}
@@ -8,6 +9,7 @@ constructor(private readonly service:NotificationsService){}
 @Patch('notification-preferences') update(@CurrentUser() u:{id:string},@Body() b:any){return this.service.updatePreferences(u.id,b);}
 @Post('notifications/devices') register(@CurrentUser() u:{id:string},@Body() b:{token:string;platform:string}){return this.service.registerDevice(u.id,b);}
 @Delete('notifications/devices') unregister(@CurrentUser() u:{id:string},@Body('token') token:string){return this.service.unregisterDevice(u.id,token);}
+@UseGuards(RolesGuard) @Roles(UserRole.ADMIN) @Post('notifications/retry-failed') retry(){return this.service.retryFailed();}
 @Post('support/tickets') support(@CurrentUser() u:{id:string},@Body() b:any){return this.service.supportCreate(u.id,b);}
 @Get('support/tickets') supportMine(@CurrentUser() u:{id:string}){return this.service.supportMine(u.id);}
 @Post('account/deactivate') deactivate(@CurrentUser() u:{id:string}){return this.service.deactivate(u.id);}
