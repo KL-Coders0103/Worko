@@ -140,7 +140,7 @@ export function RequirementPaymentFlowScreen({
     setBusy(true);
     try {
       if (intent.dummyMode) {
-        await new Promise(resolve => setTimeout(resolve, 700));
+        await new Promise<void>(resolve => setTimeout(resolve, 700));
         const response = await apiRequest(`/payments/requirements/${requirementId}/dummy-confirm`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${accessToken}` },
