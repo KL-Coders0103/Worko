@@ -124,7 +124,7 @@ export function WorkerAccountFlowScreen() {
       if (!response.ok) throw new Error(payload?.message || 'Could not save your profile.');
       Alert.alert('Profile updated', 'Your worker profile has been saved.');
       await load();
-      navigation.navigate('Profile');
+      navigation.navigate('WorkerAccount', {stage: 'profile'});
     } catch (error) {
       Alert.alert('Save failed', error instanceof Error ? error.message : 'Please try again.');
     } finally { setBusy(false); }
@@ -215,9 +215,9 @@ export function WorkerAccountFlowScreen() {
       <Header title="Worker Profile" subtitle="Your Worko professional profile."/>
       <Card><View style={styles.avatar}><Text style={styles.avatarText}>{(me?.workerProfile.displayName || me?.email || 'W').slice(0, 1).toUpperCase()}</Text></View><Text style={[styles.profileName, {color: theme.text}]}>{me?.workerProfile.displayName || me?.email?.split('@')[0] || 'Worker'}</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>{me?.email || 'Email not provided'}</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>{me?.phone || 'Phone not provided'}</Text><View style={styles.verified}><Text style={styles.verifiedText}>✓ {me?.workerProfile.verificationStatus || 'PENDING'}</Text></View></Card>
       <Card><Text style={[styles.sectionTitle, {color: theme.text}]}>Professional details</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>Categories: {me?.workerProfile.categories.map(x => x.name).join(', ') || 'Not selected'}</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>Service area: {me?.workerProfile.serviceAreaAddress || 'Not set'}</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>Preferred radius: {me?.workerProfile.preferredRadiusKm || 10} km</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>Minimum payment: {me?.workerProfile.minimumPayment == null ? 'Not set' : '₹' + me.workerProfile.minimumPayment}</Text></Card>
-      <Action title="Edit Profile" description="Update your worker display name." onPress={() => navigation.navigate('Profile')}/>
+      <Action title="Edit Profile" description="Update your worker display name." onPress={() => navigation.navigate('WorkerAccount', {stage: 'profile'})}/>
       <Action title="Work Preferences" description="Categories, radius, schedule and minimum payment." onPress={() => navigation.navigate('Preferences')}/>
-      <Action title="Notifications" description="View offers and active job updates." onPress={() => navigation.navigate('Profile')}/>
+      <Action title="Notifications" description="View offers and active job updates." onPress={() => navigation.navigate('WorkerAccount', {stage: 'profile'})}/>
     </Page>
   );
 
@@ -234,8 +234,8 @@ export function WorkerAccountFlowScreen() {
       <Card><Text style={[styles.sectionTitle, {color: theme.text}]}>Appearance</Text><Text style={[styles.cardText, {color: theme.secondaryText}]}>Current theme: {mode === 'dark' ? 'Dark' : 'Light'}</Text><Pressable style={styles.primary} onPress={toggleMode}><Text style={styles.primaryText}>Switch to {mode === 'dark' ? 'Light' : 'Dark'} Theme</Text></Pressable></Card>
       <Action title="Availability" description="Change whether you receive new work offers." onPress={() => navigation.navigate('Availability')}/>
       <Action title="Work Preferences" description="Manage service area, radius and schedule." onPress={() => navigation.navigate('Preferences')}/>
-      <Action title="Safety & SOS" description="Emergency actions and safety guidance." onPress={() => navigation.navigate('Profile')}/>
-      <Action title="Logout" description="Securely sign out of this device." danger onPress={() => navigation.navigate('Profile')}/>
+      <Action title="Safety & SOS" description="Emergency actions and safety guidance." onPress={() => navigation.navigate('WorkerAccount', {stage: 'profile'})}/>
+      <Action title="Logout" description="Securely sign out of this device." danger onPress={() => navigation.navigate('WorkerAccount', {stage: 'profile'})}/>
     </Page>
   );
 
@@ -246,7 +246,7 @@ export function WorkerAccountFlowScreen() {
       <Action title="Job execution help" description="Use the job flow for arrival, check-in, evidence, tasks and completion." onPress={() => Alert.alert('Job flow', 'Complete each required step in order. Before-work and after-work evidence are required for completion.')}/>
       <Action title="Payment help" description="Payment is secured by the client before matching." onPress={() => Alert.alert('Payment', 'Worker payment is handled through the Worko booking and payment lifecycle.')}/>
       <Action title="Contact Worko Support" description="Open your email app with a support request." onPress={() => sendSupportMail('Worko Worker Support', 'Worker account: ' + (me?.email || me?.id || 'unknown'))}/>
-      <Action title="Report a problem" description="Send a technical or account issue to support." onPress={() => navigation.navigate('Profile')}/>
+      <Action title="Report a problem" description="Send a technical or account issue to support." onPress={() => navigation.navigate('WorkerAccount', {stage: 'profile'})}/>
     </Page>
   );
 
