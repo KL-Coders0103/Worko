@@ -43,4 +43,9 @@ export const envValidationSchema = Joi.object({
   SUPABASE_URL: Joi.string().uri({ scheme: ['http', 'https'] }).required(),
   SUPABASE_SERVICE_ROLE_KEY: Joi.string().trim().required(),
   SUPABASE_STORAGE_BUCKET: Joi.string().trim().min(1).max(100).default('worko-media'),
+
+  RAZORPAY_KEY_ID: Joi.string().trim().allow('').default(''),
+  RAZORPAY_KEY_SECRET: Joi.string().trim().allow('').default(''),
+  RAZORPAY_WEBHOOK_SECRET: Joi.string().trim().allow('').default(''),
+  WORKO_TEST_PAYMENT_AMOUNT: Joi.number().positive().max(10000000).optional(),
 });
