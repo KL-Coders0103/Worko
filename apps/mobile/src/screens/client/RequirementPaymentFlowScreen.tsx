@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View
 import RazorpayCheckout from 'react-native-razorpay';
 import { useWorkoTheme } from '../../design-system/ThemeProvider';
 import { apiRequest } from '../../services/api/client';
+import { createMatchingSocket, subscribeToMatchingSocket, subscribeToRequirement } from '../../services/matching/matchingSocket';
 
 type PaymentIntent = {
   requirementId: string;
@@ -109,6 +110,35 @@ export function RequirementPaymentFlowScreen({
   useEffect(() => {
     void loadIntent();
   }, [loadIntent]);
+
+  useEffect(() => {
+    if (flow !== 'MATCHING') return;
+
+    let socket: Awaited<ReturnType<typeof createMatchingSocket>> | null = null;
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+
+    const connect = async () => {
+      socket = await createMatchingSocket();
+      if (cancelled || !socket) return;
+
+      unsubscribe = subscribeToMatchingSocket(socket, {
+        connected: () => subscribeToRequirement(socket!, requirementId),
+        offers: () => { void loadMatching().catch(() => undefined); },
+        offerRejected: () => { void loadMatching().catch(() => undefined); },
+        completed: () => { void loadMatching().catch(() => undefined); },
+      });
+      subscribeToRequirement(socket, requirementId);
+    };
+
+    void connect();
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+      socket?.disconnect();
+    };
+  }, [flow, loadMatching, requirementId]);
 
   useEffect(() => {
     if (flow !== 'MATCHING') return;
