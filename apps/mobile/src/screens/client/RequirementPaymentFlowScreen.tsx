@@ -91,7 +91,6 @@ export function RequirementPaymentFlowScreen({
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload?.message || 'Unable to retry worker matching.');
 
-    pollCount.current = 0;
     setFlow('MATCHING');
 
     const data = payload.data as MatchingState | undefined;
