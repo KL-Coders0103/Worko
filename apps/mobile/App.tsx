@@ -139,7 +139,9 @@ function AppContent({ navigation }: { navigation: any }) {
       showToast(title, body, 'info');
     };
 
-    const messaging = getMessaging();\n\n    const unsubscribeForeground = onMessage(messaging, async message => {
+    const messaging = getMessaging();
+
+    const unsubscribeForeground = onMessage(messaging, async message => {
       messageText(message);
     });
 
@@ -524,7 +526,8 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
           <ScrollView contentContainerStyle={s.welcomeScroll}>
             <View style={s.hero}><View style={s.heroBack} /><View style={s.heroCircle}><Text style={s.heroSymbol}>{slides[slide].symbol}</Text></View></View>
             <Text style={s.eyebrow}>WORKO • ON-DEMAND SERVICES</Text>
-            <Text style={s.heroTitle}>{slides[slide].title}{'\n'}<Text style={s.orange}>{slides[slide].accent}</Text></Text>
+            <Text style={s.heroTitle}>{slides[slide].title}{'
+'}<Text style={s.orange}>{slides[slide].accent}</Text></Text>
             <Text style={s.subtitle}>{slides[slide].body}</Text>
             <View style={s.features}>
               <Feature symbol="▤" title="Describe your work" body="Tell us what you need and add photos if you like." />
