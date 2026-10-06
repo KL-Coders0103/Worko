@@ -19,6 +19,9 @@ import { RequestLoggingInterceptor } from './common/interceptors/request-logging
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ChallengesModule } from './challenges/challenges.module';
+import { RedisModule } from './infrastructure/redis/redis.module';
+import { FirebaseModule } from './infrastructure/firebase/firebase.module';
+import { QueueModule } from './queues/queue.module';
 
 @Module({
   imports: [
@@ -40,6 +43,9 @@ import { ChallengesModule } from './challenges/challenges.module';
     AdminModule,
     NotificationsModule,
     ChallengesModule,
+    RedisModule,
+    FirebaseModule,
+    QueueModule,
   ],
   providers: [
     {
