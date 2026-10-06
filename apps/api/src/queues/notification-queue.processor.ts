@@ -11,6 +11,7 @@ import type { PushNotificationJob } from './queue.service';
 export class NotificationQueueProcessor implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(NotificationQueueProcessor.name);
   private worker?: Worker<PushNotificationJob>;
+  private connection?: Redis;
 
   constructor(
     private readonly config: ConfigService,
@@ -28,6 +29,8 @@ export class NotificationQueueProcessor implements OnModuleInit, OnModuleDestroy
       this.config.get<string>('REDIS_URL', 'redis://127.0.0.1:16379'),
       { maxRetriesPerRequest: null, enableReadyCheck: true },
     );
+
+    this.connection = connection;
 
     this.worker = new Worker<PushNotificationJob>(
       WORKO_QUEUE_NAMES.NOTIFICATIONS,
@@ -100,5 +103,6 @@ export class NotificationQueueProcessor implements OnModuleInit, OnModuleDestroy
 
   async onModuleDestroy(): Promise<void> {
     await this.worker?.close().catch(() => undefined);
+    await this.connection?.quit().catch(() => undefined);
   }
 }
