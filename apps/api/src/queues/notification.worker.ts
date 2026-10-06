@@ -90,6 +90,20 @@ export class NotificationWorker implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
+      const maxAttempts = Number(job.opts.attempts ?? 5);
+      const attempt = job.attemptsMade + 1;
+      if (attempt >= maxAttempts) {
+        await this.prisma.notificationDelivery.update({
+          where: { id: job.data.deliveryId },
+          data: {
+            status: 'FAILED',
+            attemptCount: attempt,
+            nextAttemptAt: new Date(Date.now() + Math.min(60_000 * 2 ** attempt, 3_600_000)),
+            lastError: error instanceof Error ? error.message.slice(0, 1000) : String(error).slice(0, 1000),
+          },
+        });
+        return;
+      }
       throw error;
     }
   }
