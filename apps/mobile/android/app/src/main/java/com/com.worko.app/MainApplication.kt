@@ -26,7 +26,7 @@ class MainApplication : Application(), ReactApplication {
   override fun onCreate() {
     super.onCreate()
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      val channel = NotificationChannel("worko_default", "Worko notifications", NotificationManager.IMPORTANCE_HIGH).apply {
+      val channel = NotificationChannel("worko_default", "Worko", NotificationManager.IMPORTANCE_HIGH).apply {
         description = "Worko job offers, booking updates and account notifications"
       }
       getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
