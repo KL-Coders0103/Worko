@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Redis from 'ioredis';
+import Redis, { type RedisOptions } from 'ioredis';
 import { randomUUID } from 'node:crypto';
 
 @Injectable()
@@ -56,7 +56,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return this.client;
   }
 
-  duplicate(options?: Redis.RedisOptions): Redis {
+  duplicate(options?: RedisOptions): Redis {
     return this.client.duplicate(options);
   }
 
