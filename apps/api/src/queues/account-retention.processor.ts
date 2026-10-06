@@ -13,6 +13,7 @@ const HOUR_MS = 3_600_000;
 export class AccountRetentionProcessor implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AccountRetentionProcessor.name);
   private worker?: Worker<AccountRetentionJob>;
+  private connection?: Redis;
 
   constructor(
     private readonly config: ConfigService,
@@ -26,6 +27,8 @@ export class AccountRetentionProcessor implements OnModuleInit, OnModuleDestroy 
       this.config.get<string>('REDIS_URL', 'redis://127.0.0.1:16379'),
       { maxRetriesPerRequest: null, enableReadyCheck: true },
     );
+
+    this.connection = connection;
 
     this.worker = new Worker<AccountRetentionJob>(
       WORKO_QUEUE_NAMES.ACCOUNT_RETENTION,
@@ -166,5 +169,6 @@ export class AccountRetentionProcessor implements OnModuleInit, OnModuleDestroy 
 
   async onModuleDestroy(): Promise<void> {
     await this.worker?.close().catch(() => undefined);
+    await this.connection?.quit().catch(() => undefined);
   }
 }
