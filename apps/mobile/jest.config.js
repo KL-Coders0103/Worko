@@ -12,23 +12,9 @@ module.exports = {
       '<rootDir>/__mocks__/react-navigation.js',
     '^react-native-webview$':
       '<rootDir>/__mocks__/react-native-webview.js',
-    '^react-native-geolocation-service
-  },
-
-  transformIgnorePatterns: [
-    'node_modules/(?!((@)?react-native|@react-native-community|react-native-.*)/)',
-  ],
-};
-:
+    '^react-native-geolocation-service$':
       '<rootDir>/__mocks__/react-native-geolocation-service.js',
-    '^@react-native-firebase/messaging
-  },
-
-  transformIgnorePatterns: [
-    'node_modules/(?!((@)?react-native|@react-native-community|react-native-.*)/)',
-  ],
-};
-:
+    '^@react-native-firebase/messaging$':
       '<rootDir>/__mocks__/firebase-messaging.js',
   },
 
