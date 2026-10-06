@@ -8,9 +8,12 @@ import {
   WebSocketGateway,
   WebSocketServer,
   type OnGatewayConnection,
+  type OnGatewayInit,
 } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../infrastructure/redis/redis.service';
+import { createAdapter } from '@socket.io/redis-adapter';
 
 type SocketUser = { id: string; role: string };
 
@@ -20,8 +23,10 @@ type SocketUser = { id: string; role: string };
   cors: { origin: '*', credentials: false },
   transports: ['websocket'],
 })
-export class MatchingGateway implements OnGatewayConnection {
+export class MatchingGateway implements OnGatewayConnection, OnGatewayInit {
   private readonly logger = new Logger(MatchingGateway.name);
+  private redisPub?: ReturnType<RedisService['duplicate']>;
+  private redisSub?: ReturnType<RedisService['duplicate']>;
 
   @WebSocketServer()
   server!: Server;
@@ -30,7 +35,31 @@ export class MatchingGateway implements OnGatewayConnection {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
   ) {}
+
+  async afterInit(server: Server): Promise<void> {
+    if (!this.redis.isReady()) {
+      this.logger.warn('Socket.IO is using the in-memory adapter because Redis is unavailable.');
+      return;
+    }
+
+    try {
+      this.redisPub = this.redis.duplicate({ lazyConnect: true });
+      this.redisSub = this.redis.duplicate({ lazyConnect: true });
+      await Promise.all([this.redisPub.connect(), this.redisSub.connect()]);
+      server.adapter(createAdapter(this.redisPub, this.redisSub));
+      this.logger.log('Socket.IO Redis adapter enabled.');
+    } catch (error) {
+      this.logger.warn(
+        `Socket.IO Redis adapter initialization failed; using local adapter: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      await this.redisPub?.quit().catch(() => undefined);
+      await this.redisSub?.quit().catch(() => undefined);
+      this.redisPub = undefined;
+      this.redisSub = undefined;
+    }
+  }
 
   async handleConnection(client: Socket): Promise<void> {
     try {
@@ -86,6 +115,11 @@ export class MatchingGateway implements OnGatewayConnection {
 
   emitToRequirement(requirementId: string, event: string, data: unknown): void {
     this.server?.to(this.requirementRoom(requirementId)).emit(event, data);
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.redisPub?.quit().catch(() => undefined);
+    await this.redisSub?.quit().catch(() => undefined);
   }
 
   private readToken(client: Socket): string | null {
