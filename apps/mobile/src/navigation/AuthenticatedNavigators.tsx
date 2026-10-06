@@ -256,7 +256,8 @@ export function ClientAppNavigator({ route }: { route: { params: { accessToken: 
     </ClientTabs.Screen>
     <ClientTabs.Screen name="Bookings" component={ClientBookingFlowScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
     <ClientTabs.Screen name="Account" component={AccountManagementScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
-  </ClientTabs.Navigator>;
+    </ClientTabs.Navigator>
+  </>;
 }
 
 export function WorkerAppNavigator() {
