@@ -14,9 +14,18 @@ export const envValidationSchema = Joi.object({
   REDIS_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).default('redis://127.0.0.1:16379'),
 
   FIREBASE_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
-  FIREBASE_PROJECT_ID: Joi.string().trim().allow('').default(''),
-  FIREBASE_CLIENT_EMAIL: Joi.string().trim().allow('').default(''),
-  FIREBASE_PRIVATE_KEY: Joi.string().allow('').default(''),
+  FIREBASE_PROJECT_ID: Joi.string().trim().allow('').default('').when('FIREBASE_ENABLED', {
+    is: true,
+    then: Joi.string().trim().min(1).required(),
+  }),
+  FIREBASE_CLIENT_EMAIL: Joi.string().trim().allow('').default('').when('FIREBASE_ENABLED', {
+    is: true,
+    then: Joi.string().trim().email().required(),
+  }),
+  FIREBASE_PRIVATE_KEY: Joi.string().allow('').default('').when('FIREBASE_ENABLED', {
+    is: true,
+    then: Joi.string().min(1).required(),
+  }),
 
   JWT_ACCESS_SECRET: Joi.string().min(32).required(),
 
