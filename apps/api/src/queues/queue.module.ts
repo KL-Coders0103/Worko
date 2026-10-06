@@ -1,10 +1,11 @@
 import { Global, Module } from '@nestjs/common';
 import { QueueService } from './queue.service';
-import { NotificationWorker } from './notification.worker';
+import { NotificationQueueProcessor } from './notification-queue.processor';
+import { AccountRetentionProcessor } from './account-retention.processor';
 
 @Global()
 @Module({
-  providers: [QueueService, NotificationWorker],
+  providers: [QueueService, NotificationQueueProcessor, AccountRetentionProcessor],
   exports: [QueueService],
 })
 export class QueueModule {}
