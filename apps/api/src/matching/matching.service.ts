@@ -18,6 +18,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { MatchingGateway } from './matching.gateway';
 import { RedisService } from '../infrastructure/redis/redis.service';
+import { RedisService } from '../infrastructure/redis/redis.service';
 
 type Preferences = {
   verifiedOnly?: boolean;
