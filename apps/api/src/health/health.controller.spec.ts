@@ -6,9 +6,18 @@ describe('HealthController', () => {
   let controller: HealthController;
 
   beforeEach(async () => {
+    const healthService = {
+      getHealth: jest.fn(() => ({
+        status: 'ok',
+        service: 'worko-api',
+        timestamp: new Date().toISOString(),
+        uptimeSeconds: Math.floor(process.uptime()),
+      })),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [HealthController],
-      providers: [HealthService],
+      providers: [{ provide: HealthService, useValue: healthService }],
     }).compile();
 
     controller = module.get<HealthController>(HealthController);
