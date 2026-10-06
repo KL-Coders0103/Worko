@@ -186,7 +186,7 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
       const response = await apiRequest('/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), phone: phone.replace(/[\\s()-]/g, ''), password, role: 'CLIENT' }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), phone: phone.replace(/[\s()-]/g, ''), password, role: 'CLIENT' }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Registration failed.');
@@ -235,7 +235,7 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
   const registerWorker = async () => {
     const normalizedPhone = phone.replace(/[\\s()-]/g, '');
     const validPhone = /^\\+?\\d{10,13}$/.test(normalizedPhone);
-    const validEmail = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim());
+    const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
     if (!validEmail || !validPhone || password.length < 8) {
       showToast('Check your details', 'Enter a valid email, 10–13 digit phone number, and password of at least 8 characters.', 'error');
       return;
