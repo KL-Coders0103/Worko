@@ -24,6 +24,7 @@ import { WorkerJobFlowScreen } from '../screens/worker/WorkerJobFlowScreen';
 import { WorkerAccountFlowScreen } from '../screens/worker/WorkerAccountFlowScreen';
 import { AccountManagementScreen } from '../screens/client/AccountManagementScreen';
 import { WorkerReelStudioScreen } from '../screens/worker/WorkerReelStudioScreen';
+import { registerWorkoPushToken } from '../services/notifications/pushNotifications';
 
 const ClientTabs = createBottomTabNavigator<ClientTabParamList>();
 const WorkerTabs = createBottomTabNavigator<WorkerTabParamList>();
@@ -210,9 +211,33 @@ const tabOptions = (theme: ReturnType<typeof useWorkoTheme>['theme']) => ({
   tabBarLabelStyle: { fontSize: 11, fontWeight: '600' as const },
 });
 
+function PushRegistrationBridge({ accessToken }: { accessToken: string }) {
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+
+    void registerWorkoPushToken(accessToken).then(cleanup => {
+      if (cancelled) {
+        cleanup?.();
+      } else {
+        unsubscribe = cleanup;
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [accessToken]);
+
+  return null;
+}
+
 export function ClientAppNavigator({ route }: { route: { params: { accessToken: string } } }) {
   const { theme } = useWorkoTheme();
-  return <ClientTabs.Navigator screenOptions={tabOptions(theme)}>
+  return <>
+    <PushRegistrationBridge accessToken={route.params.accessToken} />
+    <ClientTabs.Navigator screenOptions={tabOptions(theme)}>
     <ClientTabs.Screen name="Home" options={{ tabBarLabel: 'Home', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 19 }}>⌂</Text> }}>
       {props => <ClientHomeScreen navigation={props.navigation} accessToken={route.params.accessToken} />}
     </ClientTabs.Screen>
@@ -236,7 +261,12 @@ export function ClientAppNavigator({ route }: { route: { params: { accessToken: 
 
 export function WorkerAppNavigator() {
   const { theme } = useWorkoTheme();
+  const [accessToken, setAccessToken] = useState('');
+  useEffect(() => {
+    void AsyncStorage.getItem('worko.accessToken').then(token => setAccessToken(token ?? ''));
+  }, []);
   return <View style={{ flex: 1, backgroundColor: theme.background }}>
+    {accessToken ? <PushRegistrationBridge accessToken={accessToken} /> : null}
     <WorkerMatchingBridge />
     <WorkerTabs.Navigator screenOptions={tabOptions(theme)}>
       <WorkerTabs.Screen name="Dashboard" component={WorkerDashboardScreen} options={{ tabBarLabel: 'Home' }} />
