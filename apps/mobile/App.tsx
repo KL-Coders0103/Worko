@@ -16,6 +16,7 @@ import type { RootStackParamList } from './src/navigation/types';
 import { ClientAppNavigator, WorkerAppNavigator } from './src/navigation/AuthenticatedNavigators';
 import { AdminExperienceScreen } from './src/screens/admin/AdminExperienceScreen';
 import { apiRequest } from './src/services/api/client';
+import { registerWorkoPushToken } from './src/services/notifications/pushNotifications';
 import WorkerOnboarding from './WorkerOnboarding';
 
 const ORANGE = '#FF6B00';
@@ -53,6 +54,7 @@ function AppContent({ navigation }: { navigation: any }) {
         ]);
         if (!active) return;
         if (accessToken && savedRole) {
+            setAccessToken(accessToken);
           const response = await apiRequest('/auth/me', { headers: { Authorization: `Bearer ${accessToken}` } });
           const me = await response.json();
           if (!active) return;
@@ -112,6 +114,17 @@ function AppContent({ navigation }: { navigation: any }) {
     setToast({ title, message, tone });
     setTimeout(() => setToast(current => current?.title === title && current.message === message ? null : current), 3500);
   };
+
+  useEffect(() => {
+    if (!accessToken) return;
+    let unsubscribe: (() => void) | undefined;
+    void registerWorkoPushToken(accessToken).then(cleanup => {
+      unsubscribe = cleanup;
+    });
+    return () => {
+      unsubscribe?.();
+    };
+  }, [accessToken]);
 
   useEffect(() => {
     if (page !== 3 || resendSeconds <= 0) return;
