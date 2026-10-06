@@ -17,6 +17,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MatchingGateway } from './matching.gateway';
+import { RedisService } from '../infrastructure/redis/redis.service';
 
 type Preferences = {
   verifiedOnly?: boolean;
@@ -47,6 +48,7 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: MatchingGateway,
+    private readonly redis: RedisService,
   ) {}
 
   onModuleInit(): void {
@@ -299,6 +301,13 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
 
   private async processExpiries(): Promise<void> {
     if (this.processing) return;
+
+    const lockToken = await this.redis.tryAcquireLock(
+      'worko:matching:expiry:lock',
+      30_000,
+    );
+    if (this.redis.isReady() && !lockToken) return;
+
     this.processing = true;
     try {
       const expiredOffers = await this.prisma.matchingOffer.findMany({
@@ -366,6 +375,9 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
       this.logger.error('Matching expiry processing failed', error);
     } finally {
       this.processing = false;
+      if (lockToken) {
+        await this.redis.releaseLock('worko:matching:expiry:lock', lockToken).catch(() => undefined);
+      }
     }
   }
 
