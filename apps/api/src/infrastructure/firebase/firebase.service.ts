@@ -19,16 +19,21 @@ export class FirebaseService implements OnModuleInit {
 
     const projectId = this.config.get<string>('FIREBASE_PROJECT_ID');
     const clientEmail = this.config.get<string>('FIREBASE_CLIENT_EMAIL');
-    const privateKey = this.config.get<string>('FIREBASE_PRIVATE_KEY')?.replace(/\\n/g, '\n');
+    const privateKey = this.config
+      .get<string>('FIREBASE_PRIVATE_KEY')
+      ?.replace(/\\n/g, '\n');
 
     if (!projectId || !clientEmail || !privateKey) {
       this.logger.warn('Firebase is enabled but server credentials are incomplete.');
       return;
     }
 
-    this.app = getApps()[0] ?? initializeApp({
-      credential: cert({ projectId, clientEmail, privateKey }),
-    });
+    this.app =
+      getApps()[0] ??
+      initializeApp({
+        credential: cert({ projectId, clientEmail, privateKey }),
+      });
+
     this.messaging = getMessaging(this.app);
     this.logger.log(`Firebase Cloud Messaging initialized for project ${projectId}.`);
   }
@@ -43,9 +48,7 @@ export class FirebaseService implements OnModuleInit {
     body: string,
     data: Record<string, string> = {},
   ): Promise<string> {
-    if (!this.messaging) {
-      throw new Error('FIREBASE_DISABLED');
-    }
+    if (!this.messaging) throw new Error('FIREBASE_DISABLED');
 
     return this.messaging.send({
       token,
@@ -53,17 +56,24 @@ export class FirebaseService implements OnModuleInit {
       data,
       android: {
         priority: 'high',
+        notification: {
+          channelId: 'worko_default',
+        },
       },
     });
   }
 
   isInvalidTokenError(error: unknown): boolean {
-    const code = typeof error === 'object' && error !== null && 'code' in error
-      ? String((error as { code?: unknown }).code)
-      : '';
+    const code =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? String((error as { code?: unknown }).code)
+        : '';
     const message = error instanceof Error ? error.message : String(error);
-    return code === 'messaging/registration-token-not-registered'
-      || code === 'messaging/invalid-argument'
-      || /registration token is not a valid FCM registration token/i.test(message);
+
+    return (
+      code === 'messaging/registration-token-not-registered' ||
+      code === 'messaging/invalid-argument' ||
+      /registration token is not a valid FCM registration token/i.test(message)
+    );
   }
 }
