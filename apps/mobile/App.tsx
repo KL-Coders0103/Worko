@@ -268,7 +268,7 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
 
   const verifyWorkerOtp = async () => {
     const cleanOtp = workerOtp.trim();
-    if (!/^\\d{6}$/.test(cleanOtp)) {
+    if (!/^\d{6}$/.test(cleanOtp)) {
       showToast('Invalid OTP', 'Enter the 6-digit verification code.', 'error');
       return;
     }
