@@ -1,5 +1,5 @@
 import { PermissionsAndroid, Platform } from 'react-native';
-import messaging from '@react-native-firebase/messaging';
+import {\n  getMessaging,\n  getToken,\n  onTokenRefresh,\n  registerDeviceForRemoteMessages,\n} from '@react-native-firebase/messaging';
 import { apiRequest } from '../api/client';
 
 export async function registerWorkoPushToken(accessToken: string): Promise<(() => void) | undefined> {
@@ -17,7 +17,7 @@ export async function registerWorkoPushToken(accessToken: string): Promise<(() =
 
     await registerTokenWithApi(accessToken, token);
 
-    const unsubscribe = messaging().onTokenRefresh(nextToken => {
+    const unsubscribe = onTokenRefresh(messaging, (nextToken: string) => {
       void registerTokenWithApi(accessToken, nextToken);
     });
 
