@@ -7,6 +7,7 @@ import { WebView } from 'react-native-webview';
 const MapWebView = WebView as React.ComponentType<any>;
 import Geolocation from 'react-native-geolocation-service';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import messaging from '@react-native-firebase/messaging';
 import { launchImageLibrary, type Asset } from 'react-native-image-picker';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ThemeProvider, useWorkoTheme } from './src/design-system/ThemeProvider';
@@ -125,6 +126,34 @@ function AppContent({ navigation }: { navigation: any }) {
       unsubscribe?.();
     };
   }, [accessToken]);
+
+  useEffect(() => {
+    const messageText = (message: { notification?: { title?: string; body?: string } | null }) => {
+      const title = message.notification?.title || 'Worko';
+      const body = message.notification?.body || 'You have a new notification.';
+      showToast(title, body, 'info');
+    };
+
+    const unsubscribeForeground = messaging().onMessage(async message => {
+      messageText(message);
+    });
+
+    const unsubscribeOpened = messaging().onNotificationOpenedApp(message => {
+      messageText(message);
+    });
+
+    void messaging()
+      .getInitialNotification()
+      .then(message => {
+        if (message) messageText(message);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      unsubscribeForeground();
+      unsubscribeOpened();
+    };
+  }, []);
 
   useEffect(() => {
     if (page !== 3 || resendSeconds <= 0) return;
