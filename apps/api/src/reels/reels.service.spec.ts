@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EngagementType, ReelModerationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReelsService } from './reels.service';
+import { StorageService } from '../storage/storage.service';
 
 describe('ReelsService', () => {
   let service: ReelsService;
@@ -21,7 +22,11 @@ describe('ReelsService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ReelsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        ReelsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: StorageService, useValue: { uploadReelVideo: jest.fn() } },
+      ],
     }).compile();
     service = module.get(ReelsService);
   });
