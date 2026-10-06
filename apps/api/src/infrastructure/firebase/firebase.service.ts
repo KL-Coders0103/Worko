@@ -53,9 +53,6 @@ export class FirebaseService implements OnModuleInit {
       data,
       android: {
         priority: 'high',
-        notification: {
-          channelId: 'worko_default',
-        },
       },
     });
   }
