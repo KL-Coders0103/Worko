@@ -2,6 +2,8 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+// Firebase configuration is supplied locally through google-services.json.\n// Keep the conditional so the project remains buildable before Firebase is configured.\nif (file("google-services.json").exists()) {\n    apply plugin: "com.google.gms.google-services"\n}
+
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
