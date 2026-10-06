@@ -16,6 +16,7 @@ import type { RootStackParamList } from './src/navigation/types';
 import { ClientAppNavigator, WorkerAppNavigator } from './src/navigation/AuthenticatedNavigators';
 import { AdminExperienceScreen } from './src/screens/admin/AdminExperienceScreen';
 import { apiRequest } from './src/services/api/client';
+import WorkerOnboarding from './WorkerOnboarding';
 
 const ORANGE = '#FF6B00';
 const INK = '#101010';
@@ -40,6 +41,7 @@ function AppContent({ navigation }: { navigation: any }) {
   const [page, setPage] = useState(0);
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [accountRole, setAccountRole] = useState<'CLIENT' | 'WORKER'>('CLIENT');
   useEffect(() => {
     let active = true;
     const restoreSession = async () => {
@@ -98,6 +100,10 @@ function AppContent({ navigation }: { navigation: any }) {
   const [toast, setToast] = useState<{ title: string; message: string; tone: 'success' | 'error' | 'info' } | null>(null);
   const [resendBusy, setResendBusy] = useState(false);
   const [resendSeconds, setResendSeconds] = useState(60);
+  const [workerOtp, setWorkerOtp] = useState('');
+  const [workerPendingUserId, setWorkerPendingUserId] = useState('');
+  const [workerResendSeconds, setWorkerResendSeconds] = useState(60);
+  const [workerResendBusy, setWorkerResendBusy] = useState(false);
 
   const showToast = (title: string, message: string, tone: 'success' | 'error' | 'info' = 'info') => {
     setToast({ title, message, tone });
@@ -109,6 +115,11 @@ function AppContent({ navigation }: { navigation: any }) {
     const timer = setTimeout(() => setResendSeconds(seconds => Math.max(0, seconds - 1)), 1000);
     return () => clearTimeout(timer);
   }, [page, resendSeconds]);
+  useEffect(() => {
+    if (page !== 8 || workerResendSeconds <= 0) return;
+    const timer = setTimeout(() => setWorkerResendSeconds(seconds => Math.max(0, seconds - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [page, workerResendSeconds]);
 
   const mapHtml = `
 <!DOCTYPE html>
@@ -218,6 +229,99 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
       showToast('Verification failed', error instanceof Error ? error.message : 'Please try again.');
     } finally { setAuthBusy(false); }
   };
+  const registerWorker = async () => {
+    const normalizedPhone = phone.replace(/[\\s()-]/g, '');
+    const validPhone = /^\\+?\\d{10,13}$/.test(normalizedPhone);
+    const validEmail = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim());
+    if (!validEmail || !validPhone || password.length < 8) {
+      showToast('Check your details', 'Enter a valid email, 10–13 digit phone number, and password of at least 8 characters.', 'error');
+      return;
+    }
+    setAuthBusy(true);
+    try {
+      const response = await apiRequest('/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          phone: normalizedPhone,
+          password,
+          role: 'WORKER',
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Worker registration failed.');
+      setWorkerPendingUserId(data.user.id);
+      setWorkerOtp('');
+      setWorkerResendSeconds(60);
+      setPage(8);
+      showToast('OTP sent', 'Verify your account to start worker onboarding.', 'success');
+    } catch (error) {
+      showToast('Worker registration failed', error instanceof Error ? error.message : 'Please try again.', 'error');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const verifyWorkerOtp = async () => {
+    const cleanOtp = workerOtp.trim();
+    if (!/^\\d{6}$/.test(cleanOtp)) {
+      showToast('Invalid OTP', 'Enter the 6-digit verification code.', 'error');
+      return;
+    }
+    setAuthBusy(true);
+    try {
+      const verify = await apiRequest('/auth/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: workerPendingUserId, code: cleanOtp }),
+      });
+      const verified = await verify.json();
+      if (!verify.ok) throw new Error(verified.message || 'OTP verification failed.');
+
+      const loginResponse = await apiRequest('/auth/login/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: email.trim().toLowerCase(), password }),
+      });
+      const session = await loginResponse.json();
+      if (!loginResponse.ok) throw new Error(session.message || 'Could not start worker onboarding.');
+
+      await Promise.all([
+        AsyncStorage.setItem('worko.accessToken', session.accessToken),
+        AsyncStorage.setItem('worko.refreshToken', session.refreshToken),
+        AsyncStorage.setItem('worko.role', 'WORKER'),
+      ]);
+      setAccessToken(session.accessToken);
+      setPage(9);
+    } catch (error) {
+      showToast('Verification failed', error instanceof Error ? error.message : 'Please try again.', 'error');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const resendWorkerOtp = async () => {
+    if (workerResendBusy || workerResendSeconds > 0) return;
+    setWorkerResendBusy(true);
+    try {
+      const response = await apiRequest('/auth/otp/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: email.trim().toLowerCase(), purpose: 'REGISTRATION' }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Could not resend the verification code.');
+      setWorkerOtp('');
+      setWorkerResendSeconds(60);
+      showToast('New code requested', 'Use the latest verification code.', 'success');
+    } catch (error) {
+      showToast('Resend failed', error instanceof Error ? error.message : 'Please try again.', 'error');
+    } finally {
+      setWorkerResendBusy(false);
+    }
+  };
+
   const resendClientOtp = async () => {
     if (resendBusy || resendSeconds > 0) return;
     setResendBusy(true);
@@ -381,8 +485,12 @@ window.setWorkoLocation=(lat,lng)=>{map.setView([lat,lng],15);marker.setLatLng([
           </ScrollView>
           <View style={s.welcomeBottom}><View style={s.dots}>{slides.map((item, i) => <Pressable key={item.title} onPress={() => setSlide(i)} style={[s.dot, slide === i && s.dotActive]} />)}</View><Button title={slide === 2 ? 'Get Started' : 'Next'} onPress={() => slide === 2 ? openWelcome() : setSlide(slide + 1)} /></View>
         </>}
-        {page === 5 && <View style={s.authLanding}><Brand /><Text style={s.landingTitle}>Welcome to Worko</Text><Text style={s.subtitle}>Local services, made simpler. Sign in to continue or create your account.</Text><Button title="Log in" onPress={() => setPage(4)} /><Pressable style={s.outlineButton} onPress={() => setPage(1)}><Text style={s.outlineText}>Create an account</Text></Pressable><Pressable style={s.textButton} onPress={() => { setSlide(0); setPage(0); }}><Text style={s.muted}>View introduction</Text></Pressable></View>}
+        {page === 5 && <View style={s.authLanding}><Brand /><Text style={s.landingTitle}>Welcome to Worko</Text><Text style={s.subtitle}>Local services, made simpler. Sign in to continue or create your account.</Text><Button title="Log in" onPress={() => setPage(4)} /><Pressable style={s.outlineButton} onPress={() => setPage(6)}><Text style={s.outlineText}>Create an account</Text></Pressable><Pressable style={s.textButton} onPress={() => { setSlide(0); setPage(0); }}><Text style={s.muted}>View introduction</Text></Pressable></View>}
         {page === 4 && <><Header onBack={() => setPage(5)} step="Sign in" progress={0}/><ScrollView contentContainerStyle={s.formScroll} keyboardShouldPersistTaps="handled"><Text style={s.title}>Welcome <Text style={s.orange}>back</Text></Text><Text style={s.subtitle}>Sign in with the email address or phone number linked to your account.</Text><Field label="Email or phone" value={loginIdentifier} onChangeText={setLoginIdentifier} placeholder="you@example.com or phone" keyboardType="email-address"/><View style={s.field}><Text style={s.label}>Password</Text><TextInput accessibilityLabel="Password" secureTextEntry value={loginPassword} onChangeText={setLoginPassword} placeholder="Enter your password" placeholderTextColor="#999" autoCapitalize="none" style={s.input} returnKeyType="done" onSubmitEditing={login}/></View><Button title={authBusy ? 'Signing in…' : 'Sign in'} onPress={login}/><Pressable style={s.textButton} onPress={() => setPage(1)}><Text style={s.muted}>New to Worko? <Text style={s.orange}>Create an account</Text></Text></Pressable></ScrollView></>}
+        {page === 6 && <View style={s.authLanding}><Header onBack={() => setPage(5)} step="Account type" progress={0}/><Text style={s.title}>How will you use <Text style={s.orange}>Worko?</Text></Text><Text style={s.subtitle}>Choose your role. You can then complete the correct registration and onboarding flow.</Text><Pressable onPress={() => { setAccountRole('CLIENT'); setPage(1); }} style={[s.roleCard, accountRole === 'CLIENT' && s.roleCardSelected]}><Text style={s.roleIcon}>⌂</Text><View style={s.flex}><Text style={s.roleTitle}>I need a service</Text><Text style={s.muted}>Create requests and get matched with eligible workers.</Text></View><Text style={s.orange}>›</Text></Pressable><Pressable onPress={() => { setAccountRole('WORKER'); setPage(7); }} style={[s.roleCard, accountRole === 'WORKER' && s.roleCardSelected]}><Text style={s.roleIcon}>◆</Text><View style={s.flex}><Text style={s.roleTitle}>I want to work</Text><Text style={s.muted}>Register as a worker, build your profile and become eligible for offers.</Text></View><Text style={s.orange}>›</Text></Pressable></View>}
+        {page === 7 && <><Header onBack={() => setPage(6)} step="Worker registration" progress={0}/><ScrollView contentContainerStyle={s.formScroll} keyboardShouldPersistTaps="handled"><Text style={s.title}>Create your <Text style={s.orange}>worker account</Text></Text><Text style={s.subtitle}>First create and verify your account. After OTP verification, Worko will take you through the worker profile, skills, location, availability and identity-verification flow.</Text><Field label="Phone number *" value={phone} onChangeText={setPhone} placeholder="+91 98765 43210" keyboardType="phone-pad" /><Field label="Email address *" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" /><View style={s.field}><Text style={s.label}>Password *</Text><TextInput accessibilityLabel="Worker password" secureTextEntry value={password} onChangeText={setPassword} placeholder="At least 8 characters" placeholderTextColor="#999" autoCapitalize="none" style={s.input} /></View><View style={s.why}><View style={s.pinBubble}><Text style={s.pinText}>✓</Text></View><View style={s.flex}><Text style={s.featureTitle}>Worker onboarding comes next</Text><Text style={s.muted}>After verification, you will enter the 037–044 worker onboarding flow shown in the product specification.</Text></View></View><View style={s.bottom}><Button title={authBusy ? 'Creating worker account…' : 'Create Worker Account'} onPress={registerWorker}/><Pressable style={s.textButton} onPress={() => setPage(4)}><Text style={s.muted}>Already registered? <Text style={s.orange}>Sign in</Text></Text></Pressable></View></ScrollView></>}
+        {page === 8 && <><Header onBack={() => setPage(7)} step="Worker verification" progress={1}/><View style={s.formScroll}><Text style={s.title}>Verify your <Text style={s.orange}>worker account</Text></Text><Text style={s.subtitle}>Enter the 6-digit code sent to {email}. Once verified, your worker onboarding begins.</Text><Field label="Verification code" value={workerOtp} onChangeText={setWorkerOtp} placeholder="000000" keyboardType="phone-pad" /><View style={s.bottom}><Button title={authBusy ? 'Verifying…' : 'Verify & Start Onboarding'} onPress={verifyWorkerOtp}/><Pressable accessibilityRole="button" disabled={workerResendBusy || workerResendSeconds > 0} onPress={resendWorkerOtp} style={s.resendButton}><Text style={[s.resendText, (workerResendBusy || workerResendSeconds > 0) && s.resendDisabled]}>{workerResendBusy ? 'Requesting new code…' : workerResendSeconds > 0 ? `Resend code in ${workerResendSeconds}s` : 'Resend verification code'}</Text></Pressable></View></View></>}
+        {page === 9 && <WorkerOnboarding onExit={() => { void AsyncStorage.setItem('worko.onboarding.complete', 'true'); navigation.replace('Worker'); }} />}
         {page === 1 && <>
           <Header onBack={() => setPage(0)} step="2/3" progress={1} />
           <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -529,7 +637,11 @@ export default function App() {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FFF' },
   splash: { flex: 1, backgroundColor: INK, alignItems: 'center', justifyContent: 'center' }, splashBrand: { color: '#FFF', fontSize: 56, fontWeight: '900', letterSpacing: -3 }, splashTagline: { color: '#DDD', fontSize: 14, marginTop: 8, letterSpacing: 1 },
-  authLanding: { flex: 1, padding: 26, justifyContent: 'center', gap: 16 }, landingTitle: { color: INK, fontSize: 32, fontWeight: '900', marginTop: 32 }, outlineButton: { height: 56, borderWidth: 1.5, borderColor: ORANGE, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }, outlineText: { color: ORANGE, fontWeight: '800', fontSize: 16 }, textButton: { alignItems: 'center', padding: 12 },
+  authLanding: { flex: 1, padding: 26, justifyContent: 'center', gap: 16 },
+  roleCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 17, borderWidth: 1, borderColor: '#E1E2E5', borderRadius: 16, marginBottom: 12, backgroundColor: '#FFF' },
+  roleCardSelected: { borderColor: ORANGE, backgroundColor: '#FFF6EF' },
+  roleIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#FFF0E4', color: ORANGE, fontSize: 22, textAlign: 'center', textAlignVertical: 'center', paddingTop: 9 },
+  roleTitle: { color: INK, fontSize: 16, fontWeight: '800', marginBottom: 4 }, landingTitle: { color: INK, fontSize: 32, fontWeight: '900', marginTop: 32 }, outlineButton: { height: 56, borderWidth: 1.5, borderColor: ORANGE, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }, outlineText: { color: ORANGE, fontWeight: '800', fontSize: 16 }, textButton: { alignItems: 'center', padding: 12 },
   toast: { position: 'absolute', top: 12, left: 16, right: 16, zIndex: 1000, elevation: 8, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
   toastSuccess: { backgroundColor: '#176B45' }, toastError: { backgroundColor: '#A52828' }, toastInfo: { backgroundColor: '#242424' },
   toastTitle: { color: '#FFF', fontSize: 14, fontWeight: '800', marginBottom: 3 }, toastMessage: { color: '#FFF', fontSize: 13, lineHeight: 18 },
