@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { QueueService } from '../queues/queue.service';
 
@@ -42,11 +42,13 @@ export class NotificationsService {
   }
 
   async updatePreferences(userId: string, data: Record<string, unknown>) {
+    const safeData = data as Prisma.NotificationPreferenceUncheckedUpdateInput;
+    const createData = { userId, ...safeData } as Prisma.NotificationPreferenceUncheckedCreateInput;
     return {
       data: await this.prisma.notificationPreference.upsert({
         where: { userId },
-        create: { userId, ...data },
-        update: data,
+        create: createData,
+        update: safeData,
       }),
     };
   }
