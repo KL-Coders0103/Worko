@@ -30,3 +30,6 @@ ios/build/
 storage/private/
 # TypeScript build cache
 *.tsbuildinfo
+
+# Firebase Android client configuration (project-specific)
+apps/mobile/android/app/google-services.json
