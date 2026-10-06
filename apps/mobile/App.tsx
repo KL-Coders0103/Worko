@@ -7,7 +7,12 @@ import { WebView } from 'react-native-webview';
 const MapWebView = WebView as React.ComponentType<any>;
 import Geolocation from 'react-native-geolocation-service';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import {\n  getInitialNotification,\n  getMessaging,\n  onMessage,\n  onNotificationOpenedApp,\n} from '@react-native-firebase/messaging';
+import {
+  getInitialNotification,
+  getMessaging,
+  onMessage,
+  onNotificationOpenedApp,
+} from '@react-native-firebase/messaging';
 import { launchImageLibrary, type Asset } from 'react-native-image-picker';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ThemeProvider, useWorkoTheme } from './src/design-system/ThemeProvider';
@@ -142,8 +147,7 @@ function AppContent({ navigation }: { navigation: any }) {
       messageText(message);
     });
 
-    void messaging()
-      .getInitialNotification()
+    void getInitialNotification(messaging)
       .then(message => {
         if (message) messageText(message);
       })
