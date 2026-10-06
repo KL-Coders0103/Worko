@@ -26,7 +26,7 @@ export class NotificationQueueProcessor implements OnModuleInit, OnModuleDestroy
 
     const connection = new Redis(
       this.config.get<string>('REDIS_URL', 'redis://127.0.0.1:16379'),
-      { maxRetriesPerRequest: null },
+      { maxRetriesPerRequest: null, enableReadyCheck: true },
     );
 
     this.worker = new Worker<PushNotificationJob>(
@@ -42,8 +42,8 @@ export class NotificationQueueProcessor implements OnModuleInit, OnModuleDestroy
             job.data.data,
           );
 
-          await this.prisma.notificationDelivery.update({
-            where: { id: job.data.deliveryId },
+          await this.prisma.notificationDelivery.updateMany({
+            where: { id: job.data.deliveryId, status: { not: 'DELIVERED' } },
             data: {
               status: 'DELIVERED',
               attemptCount: job.attemptsMade + 1,
@@ -56,24 +56,29 @@ export class NotificationQueueProcessor implements OnModuleInit, OnModuleDestroy
           return messageId;
         } catch (error) {
           const invalidToken = this.firebase.isInvalidTokenError(error);
+          const attemptCount = job.attemptsMade + 1;
+          const permanent = invalidToken || attemptCount >= 5;
 
           if (invalidToken) {
             await this.prisma.pushDevice.updateMany({
-              where: { id: job.data.deviceId },
+              where: { id: job.data.deviceId, token: job.data.token },
               data: { enabled: false, lastSeenAt: new Date() },
             });
           }
 
-          const attemptCount = job.attemptsMade + 1;
-          const permanent = invalidToken || attemptCount >= 5;
-
-          await this.prisma.notificationDelivery.update({
-            where: { id: job.data.deliveryId },
+          await this.prisma.notificationDelivery.updateMany({
+            where: { id: job.data.deliveryId, status: { not: 'DELIVERED' } },
             data: {
               status: permanent ? 'FAILED' : 'PENDING',
               attemptCount,
-              nextAttemptAt: permanent ? null : new Date(Date.now() + Math.min(60_000 * 2 ** attemptCount, 3_600_000)),
-              lastError: error instanceof Error ? error.message.slice(0, 1000) : String(error).slice(0, 1000),
+              nextAttemptAt: permanent
+                ? null
+                : new Date(Date.now() + Math.min(60_000 * 2 ** attemptCount, 3_600_000)),
+              lastError: invalidToken
+                ? 'INVALID_FCM_TOKEN'
+                : error instanceof Error
+                  ? error.message.slice(0, 1000)
+                  : String(error).slice(0, 1000),
             },
           });
 
@@ -83,6 +88,7 @@ export class NotificationQueueProcessor implements OnModuleInit, OnModuleDestroy
       },
       {
         connection,
+        prefix: 'worko',
         concurrency: 20,
       },
     );
