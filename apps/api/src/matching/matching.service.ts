@@ -18,7 +18,6 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { MatchingGateway } from './matching.gateway';
 import { RedisService } from '../infrastructure/redis/redis.service';
-import { RedisService } from '../infrastructure/redis/redis.service';
 
 type Preferences = {
   verifiedOnly?: boolean;
@@ -85,7 +84,26 @@ export class MatchingService implements OnModuleInit, OnModuleDestroy {
       return { matched: false, reason: 'PAYMENT_NOT_CAPTURED' as const };
     }
 
-    return this.runNextRound(requirement);
+    const lockKey = `worko:lock:matching:requirement:${requirementId}`;
+    const lockToken = await this.redis.tryAcquireLock(lockKey, 30_000);
+
+    // Local development may run without Redis. Production should keep Redis enabled;
+    // when Redis is available, the lock is the authoritative cross-instance guard.
+    if (this.redis.isReady() && !lockToken) {
+      return { matched: false, reason: 'MATCHING_LOCKED' as const };
+    }
+
+    try {
+      return await this.runNextRound(requirement);
+    } finally {
+      if (lockToken) {
+        await this.redis.releaseLock(lockKey, lockToken).catch(error => {
+          this.logger.warn(
+            `Failed to release matching lock for ${requirementId}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        });
+      }
+    }
   }
 
   private async runNextRound(requirement: {
