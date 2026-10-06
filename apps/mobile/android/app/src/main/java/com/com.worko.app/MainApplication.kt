@@ -1,6 +1,9 @@
 package com.worko.app
 
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.os.Build
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
@@ -22,6 +25,12 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      val channel = NotificationChannel("worko_default", "Worko notifications", NotificationManager.IMPORTANCE_HIGH).apply {
+        description = "Worko job offers, booking updates and account notifications"
+      }
+      getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
     loadReactNative(this)
   }
 }
