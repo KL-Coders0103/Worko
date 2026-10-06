@@ -56,6 +56,22 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return this.client;
   }
 
+  async getJson<T>(key: string): Promise<T | null> {
+    if (!this.isReady()) return null;
+    const value = await this.client.get(key);
+    if (!value) return null;
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return null;
+    }
+  }
+
+  async setJson(key: string, value: unknown, ttlSeconds: number): Promise<void> {
+    if (!this.isReady()) return;
+    await this.client.set(key, JSON.stringify(value), 'EX', ttlSeconds);
+  }
+
   duplicate(options?: RedisOptions): Redis {
     return this.client.duplicate(options);
   }
