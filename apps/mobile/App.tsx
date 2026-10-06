@@ -7,7 +7,7 @@ import { WebView } from 'react-native-webview';
 const MapWebView = WebView as React.ComponentType<any>;
 import Geolocation from 'react-native-geolocation-service';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import messaging from '@react-native-firebase/messaging';
+import {\n  getInitialNotification,\n  getMessaging,\n  onMessage,\n  onNotificationOpenedApp,\n} from '@react-native-firebase/messaging';
 import { launchImageLibrary, type Asset } from 'react-native-image-picker';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ThemeProvider, useWorkoTheme } from './src/design-system/ThemeProvider';
@@ -134,11 +134,11 @@ function AppContent({ navigation }: { navigation: any }) {
       showToast(title, body, 'info');
     };
 
-    const unsubscribeForeground = messaging().onMessage(async message => {
+    const messaging = getMessaging();\n\n    const unsubscribeForeground = onMessage(messaging, async message => {
       messageText(message);
     });
 
-    const unsubscribeOpened = messaging().onNotificationOpenedApp(message => {
+    const unsubscribeOpened = onNotificationOpenedApp(messaging, message => {
       messageText(message);
     });
 
